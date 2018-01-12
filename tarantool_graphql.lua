@@ -141,10 +141,10 @@ gql_type = function(schema, state_for_read)
             fields[c.destination_storage] = {
                 name = c.destination_storage,
                 kind = gql_class,
-                resolve = function(rootValue, args, info)
+                resolve = function(parent, args, info)
                     local args = table.copy(args) -- luacheck: ignore
-                    args[c.destination_field] = rootValue[c.source_field]
-                    return accessor:get(rootValue, name, args)
+                    args[c.destination_field] = parent[c.source_field]
+                    return accessor:get(parent, name, args)
                 end,
             }
         end
