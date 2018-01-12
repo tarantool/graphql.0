@@ -156,7 +156,7 @@ gql_type = function(schema, state_for_read)
         }))
         -- XXX: add limit, offset, filter
 
-       return res, args
+       return res, args, schema.name
     elseif avro_type(schema) == 'enum' then
         error('enums not implemented yet') -- XXX
     elseif avro_type(schema) == 'int' then
@@ -182,7 +182,12 @@ local function parse_cfg(cfg)
         --print('DEBUG: ' .. '--------')
         --print('DEBUG: ' .. ('avro_type [%s]: %s'):format(name, require('yaml').encode(schema)))
         --print('DEBUG: ' .. '--------')
-        state.types[name], state.arguments[name] = gql_type(schema, state)
+        local schema_name
+        state.types[name], state.arguments[name], schema_name =
+            gql_type(schema, state)
+        assert(schema_name == nil or schema_name == name,
+            ('top-level schema name does not match the name in ' ..
+            'the schema itself: "%s" vs "%s"'):format(name, schema_name))
         --print('DEBUG: ' .. ('gql_type [%s]: %s'):format(name, require('yaml').encode(state.types[name])))
         --print('DEBUG: ' .. '--------')
         --print('DEBUG: ' .. ('arguments [%s]: %s'):format(name, require('yaml').encode(state.arguments[name])))
