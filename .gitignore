@@ -1,0 +1,5 @@
+# Vim Swap files
+*.sw[a-z]
+
+# `tarantool rocks` installed packages
+.rocks
