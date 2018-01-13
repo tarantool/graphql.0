@@ -3,5 +3,5 @@ lint:
 	luacheck *.lua --no-redefined --no-unused-args
 
 .PHONY: test
-test:
+test: lint
 	./test.lua
