@@ -70,7 +70,7 @@ local function nullable(gql_class)
     return gql_class.ofType
 end
 
-local function convert_record_fields(fields, state_for_read)
+local function convert_record_fields(state_for_read, fields)
     local res = {}
     local args = {}
     for _, field in ipairs(fields) do
@@ -78,28 +78,11 @@ local function convert_record_fields(fields, state_for_read)
             'got %s (schema %s)'):format(type(field.name), json.encode(field)))
         res[field.name] = {
             name = field.name,
-            kind = gql_type(field.type, state_for_read),
+            kind = gql_type(state_for_read, field.type),
         }
         args[field.name] = nullable(res[field.name].kind)
     end
     return res, args
-end
-
-local function get_connection_map(schema)
-    local connection_map = {}
-    local connections = schema.connection or {}
-    for _, c in ipairs(connections) do
-        assert(type(c.name) == 'string',
-            'connection.name must be a string, got ' .. type(c.name))
-        -- XXX: more asserts
-        connection_map[c.name] = {
-            source_storage = c.name, -- XXX: does this mtach the storage name?
-            destination_storage = c.destination,
-            source_field = c.parts[1].source,
-            destination_field = c.parts[1].destination,
-        }
-    end
-    return connection_map
 end
 
 local types_long = types.scalar({
@@ -117,7 +100,8 @@ local types_long = types.scalar({
 -- XXX: types that are not yet exists in state_for_read (but will be later,
 -- like a circular link)
 -- XXX: assert for name match with schema.name
-gql_type = function(schema, state_for_read)
+-- storage argument is optional
+gql_type = function(state_for_read, schema, storage)
     local state_for_read = state_for_read or {}
     assert(type(state_for_read) == 'table',
         'state_for_read must be a table or nil, got ' ..
@@ -131,26 +115,27 @@ gql_type = function(schema, state_for_read)
         assert(type(schema.fields) == 'table', ('schema.fields must be a table, ' ..
             'got %s (schema %s)'):format(type(schema.fields), json.encode(schema)))
 
-        local connection_map = get_connection_map(schema)
-        -- XXX: save storage + field_name -> storage + field_name mapping
-        -- XXX: save storage names for use as query root
+        local fields, args = convert_record_fields(state_for_read, schema.fields)
 
-        local fields, args = convert_record_fields(schema.fields, state_for_read)
-        for name, c in pairs(connection_map) do
-            local gql_class = state_for_read.types[c.destination_storage]
+        -- XXX: think re 1:N connections
+        for _, c in ipairs((storage or {}).connections or {}) do
+            local destination_type =
+                state_for_read.types[c.destination_storage]
             fields[c.destination_storage] = {
                 name = c.destination_storage,
-                kind = gql_class,
+                kind = destination_type,
                 resolve = function(parent, args, info)
                     local args = table.copy(args) -- luacheck: ignore
-                    args[c.destination_field] = parent[c.source_field]
-                    return accessor:get(parent, name, args)
+                    for _, bind in ipairs(c.parts) do
+                        args[bind.destination_field] = parent[bind.source_field]
+                    end
+                    return accessor:get(parent, c.destination_storage, args)
                 end,
             }
         end
 
         local res = types.nonNull(types.object({
-            name = schema.name,
+            name = storage ~= nil and storage.name or schema.name,
             description = 'generated from avro-schema for ' .. schema.name,
             fields = fields,
         }))
@@ -177,31 +162,38 @@ local function parse_cfg(cfg)
     state.arguments = {}
     local accessor = cfg.accessor
     state.accessor = accessor
+    local storage = table.copy(cfg.storage) -- luacheck: ignore
+    state.storage = storage
 
-    for name, schema in pairs(cfg.schemas) do
+    local fields = {}
+
+    for name, storage in pairs(cfg.storages) do
+        storage.name = name
         --print('DEBUG: ' .. '--------')
         --print('DEBUG: ' .. ('avro_type [%s]: %s'):format(name, require('yaml').encode(schema)))
         --print('DEBUG: ' .. '--------')
+        assert(storage.type ~= nil, 'storage.type must not be nil')
+        local schema = cfg.schemas[storage.type]
+        assert(schema ~= nil, ('cfg.schemas[%s] must not be nil'):format(
+            tostring(storage.type)))
         local schema_name
         state.types[name], state.arguments[name], schema_name =
-            gql_type(schema, state)
-        assert(schema_name == nil or schema_name == name,
+            gql_type(state, schema, storage)
+        assert(schema_name == nil or schema_name == storage.type,
             ('top-level schema name does not match the name in ' ..
-            'the schema itself: "%s" vs "%s"'):format(name, schema_name))
+            'the schema itself: "%s" vs "%s"'):format(storage.type,
+            schema_name))
         --print('DEBUG: ' .. ('gql_type [%s]: %s'):format(name, require('yaml').encode(state.types[name])))
         --print('DEBUG: ' .. '--------')
         --print('DEBUG: ' .. ('arguments [%s]: %s'):format(name, require('yaml').encode(state.arguments[name])))
         --print('DEBUG: ' .. '--------')
-    end
 
-    -- XXX: entry points must be storages, not types
-    local fields = {}
-    for tname, tvalue in pairs(state.types) do
-        fields[tname] = {
-            kind = types.nonNull(types.list(tvalue)),
-            arguments = state.arguments[tname],
+        -- create entry points from storage names
+        fields[name] = {
+            kind = types.nonNull(types.list(state.types[name])),
+            arguments = state.arguments[name],
             resolve = function(rootValue, args, info)
-                return accessor:select(rootValue, tname, args)
+                return accessor:select(rootValue, name, args)
             end,
         }
     end
