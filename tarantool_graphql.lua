@@ -1,3 +1,6 @@
+--- Abstraction layer between a storage (e.g. tarantool's spaces) and the
+--- GraphQL query language.
+
 local json = require('json')
 
 local parse = require('graphql.parse')
@@ -10,11 +13,6 @@ local tarantool_graphql = {}
 
 -- forward declarations
 local gql_type
-
--- XXX: don't touch global options
--- global configuration
-require('yaml').cfg{encode_use_tostring = true}
-require('json').cfg{encode_use_tostring = true}
 
 --- Check whether table is an array.
 --- Based on [that][1].
@@ -60,6 +58,7 @@ local function avro_type(avro_schema)
     end
 end
 
+-- XXX: recursive skip several NonNull's?
 local function nullable(gql_class)
     assert(type(gql_class) == 'table', 'gql_class must be a table, got ' ..
         type(gql_class))
@@ -70,7 +69,13 @@ local function nullable(gql_class)
     return gql_class.ofType
 end
 
-local function convert_record_fields(state_for_read, fields)
+--- Convert each field of an avro-schema to a graphql type and corresponding
+--- argument for an upper graphql type.
+---
+--- @tparam table state for read state.accessor and previously filled
+--- state.types
+--- @tparam table fields fields part from an avro-schema
+local function convert_record_fields(state, fields)
     local res = {}
     local args = {}
     for _, field in ipairs(fields) do
@@ -79,7 +84,7 @@ local function convert_record_fields(state_for_read, fields)
             :format(type(field.name), json.encode(field)))
         res[field.name] = {
             name = field.name,
-            kind = gql_type(state_for_read, field.type),
+            kind = gql_type(state, field.type),
         }
         args[field.name] = nullable(res[field.name].kind)
     end
@@ -98,17 +103,30 @@ local types_long = types.scalar({
     end
 })
 
--- XXX: types that are not yet exists in state_for_read (but will be later,
--- like a circular link)
--- XXX: assert for name match with schema.name
--- storage argument is optional
-gql_type = function(state_for_read, avro_schema, storage)
-    local state_for_read = state_for_read or {}
-    assert(type(state_for_read) == 'table',
-        'state_for_read must be a table or nil, got ' ..
-        type(state_for_read))
-    -- XXX: assert for state_for_read.accessor
-    local accessor = state_for_read.accessor
+-- XXX: types that are not yet exists in state (but will be later, like a
+--      circular link)
+--
+--- The function recursively converts passed avro-schema to a graphql type.
+---
+--- @tparam table state for read state.accessor and previously filled
+--- state.types
+--- @tparam table avro_schema input avro-schema
+--- @tparam[opt] table storage table with type, connections fields described a storage
+---
+--- If storage is passed, two things are changed within this function:
+---
+--- 1. Connections from the storage will be taken into account to automatically
+---    generate corresponding decucible fields.
+--- 2. The storage name will be used as the resulting graphql type name instead
+---    of the avro-schema name.
+gql_type = function(state, avro_schema, storage)
+    local state = state or {}
+    assert(type(state) == 'table',
+        'state must be a table or nil, got ' .. type(state))
+    local accessor = state.accessor
+    assert(accessor ~= nil, 'state.accessor must not be nil')
+    assert(accessor.get ~= nil, 'state.accessor.get must not be nil')
+    assert(accessor.select ~= nil, 'state.accessor.select must not be nil')
 
     if avro_type(avro_schema) == 'record' then
         assert(type(avro_schema.name) == 'string',
@@ -118,13 +136,13 @@ gql_type = function(state_for_read, avro_schema, storage)
             ('avro_schema.fields must be a table, got %s (avro_schema %s)')
             :format(type(avro_schema.fields), json.encode(avro_schema)))
 
-        local fields, args = convert_record_fields(state_for_read,
+        local fields, args = convert_record_fields(state,
             avro_schema.fields)
 
         -- XXX: think re 1:N connections: in that case type must be a list
         for _, c in ipairs((storage or {}).connections or {}) do
             local destination_type =
-                state_for_read.types[c.destination_storage]
+                state.types[c.destination_storage]
             fields[c.destination_storage] = {
                 name = c.destination_storage,
                 kind = destination_type,
@@ -161,19 +179,24 @@ gql_type = function(state_for_read, avro_schema, storage)
     end
 end
 
--- XXX: asserts for types
 local function parse_cfg(cfg)
     local state = {}
     state.types = {}
     state.arguments = {}
+
     local accessor = cfg.accessor
+    assert(accessor ~= nil, 'cfg.accessor must not be nil')
+    assert(accessor.get ~= nil, 'cfg.accessor.get must not be nil')
+    assert(accessor.select ~= nil, 'cfg.accessor.select must not be nil')
     state.accessor = accessor
-    local storage = table.copy(cfg.storage) -- luacheck: ignore
-    state.storage = storage
+
+    assert(cfg.storages ~= nil, 'cfg.storages must not be nil')
+    local storages = table.copy(cfg.storages) -- luacheck: ignore
+    state.storages = storages
 
     local fields = {}
 
-    for name, storage in pairs(cfg.storages) do
+    for name, storage in pairs(state.storages) do
         storage.name = name
         assert(storage.type ~= nil, 'storage.type must not be nil')
         local schema = cfg.schemas[storage.type]
@@ -243,6 +266,49 @@ local function gql_compile(state, query)
     return gql_query
 end
 
+--- Usage:
+---
+--- ... = tarantool_graphql.new({
+---     schemas = {
+---         schema_name_foo = { // the value is avro-schema (esp., a record)
+---             name = 'schema_name_foo,
+---             type = 'record',
+---             fields = {
+---                 ...
+---             }
+---         },
+---         ...
+---     },
+---     storages = {
+---         storage_name_foo = {
+---             type = 'schema_name_foo',
+---             connections = { // the optional field
+---                 {
+---                     name = 'connection_name_bar',
+---                     destination_storage = 'storage_baz',
+---                     parts = {
+---                         {
+---                             source_field = 'field_name_source_1',
+---                             destination_field = 'field_name_destination_1'
+---                         }
+---                     }
+---                 },
+---                 ...
+---             },
+---         },
+---         ...
+---     },
+---     accessor = setmetatable({}, {
+---         __index = {
+---             get = function(self, parent, name, args)
+---                 return ...
+---             end,
+---             select = function(self, parent, name, args)
+---                 return ...
+---             end,
+---         }
+---     }),
+--- })
 function tarantool_graphql.new(cfg)
     local state = parse_cfg(cfg)
     return setmetatable(state, {
