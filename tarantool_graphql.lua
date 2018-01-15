@@ -231,6 +231,17 @@ local function parse_cfg(cfg)
     return state
 end
 
+local function assert_gql_query_ast(func_name, ast)
+    assert(#ast.definitions == 1,
+        func_name .. ': expected an one query')
+    assert(ast.definitions[1].operation == 'query',
+        func_name .. ': expected a query operation')
+    local operation_name = ast.definitions[1].name.value
+    assert(type(operation_name) == 'string',
+        func_name .. 'operation_name must be a string, got ' ..
+        type(operation_name))
+end
+
 local function gql_execute(qstate, variables)
     assert(qstate.state)
     local state = qstate.state
@@ -240,7 +251,9 @@ local function gql_execute(qstate, variables)
         type(variables))
 
     local root_value = {}
-    local operation_name = 'obtainOrganizationUsers' -- XXX: qstate. ...
+    local operation_name = qstate.operation_name
+    assert(type(operation_name) == 'string',
+        'operation_name must be a string, got ' .. type(operation_name))
 
     return execute(state.schema, qstate.ast, root_value, variables,
         operation_name)
@@ -252,11 +265,15 @@ local function gql_compile(state, query)
     assert(state.schema ~= nil, 'have not compiled schema')
 
     local ast = parse(query)
+    assert_gql_query_ast('gql_compile', ast)
+    local operation_name = ast.definitions[1].name.value
+
     validate(state.schema, ast)
 
     local qstate = {
         state = state,
         ast = ast,
+        operation_name = operation_name,
     }
     local gql_query = setmetatable(qstate, {
         __index = {
