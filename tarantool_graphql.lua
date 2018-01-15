@@ -18,7 +18,7 @@ require('json').cfg{encode_use_tostring = true}
 
 --- Check whether table is an array.
 --- Based on [that][1].
---- [1]: https://github.com/mpx/lua-cjson/blob/db12267686af80f0a3643897d09016c137715c8a/lua/cjson/util.lua
+--- [1]: https://github.com/mpx/lua-cjson/blob/db122676/lua/cjson/util.lua
 --- @param table
 --- @return True if table is an array
 local function is_array(table)
@@ -44,19 +44,19 @@ local function is_array(table)
     return max >= 0
 end
 
-local function avro_type(schema)
-    if type(schema) == 'table' and schema.type == 'record' then
+local function avro_type(avro_schema)
+    if type(avro_schema) == 'table' and avro_schema.type == 'record' then
         return 'record'
-    elseif type(schema) == 'table' and is_array(schema) then
+    elseif type(avro_schema) == 'table' and is_array(avro_schema) then
         return 'enum'
-    elseif type(schema) == 'string' and schema == 'int' then
+    elseif type(avro_schema) == 'string' and avro_schema == 'int' then
         return 'int'
-    elseif type(schema) == 'string' and schema == 'long' then
+    elseif type(avro_schema) == 'string' and avro_schema == 'long' then
         return 'long'
-    elseif type(schema) == 'string' and schema == 'string' then
+    elseif type(avro_schema) == 'string' and avro_schema == 'string' then
         return 'string'
     else
-        error('unrecognized avro-schema type: ' .. json.encode(schema))
+        error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
     end
 end
 
@@ -74,8 +74,9 @@ local function convert_record_fields(state_for_read, fields)
     local res = {}
     local args = {}
     for _, field in ipairs(fields) do
-        assert(type(field.name) == 'string', ('field.name must be a string, ' ..
-            'got %s (schema %s)'):format(type(field.name), json.encode(field)))
+        assert(type(field.name) == 'string',
+            ('field.name must be a string, got %s (schema %s)')
+            :format(type(field.name), json.encode(field)))
         res[field.name] = {
             name = field.name,
             kind = gql_type(state_for_read, field.type),
@@ -101,7 +102,7 @@ local types_long = types.scalar({
 -- like a circular link)
 -- XXX: assert for name match with schema.name
 -- storage argument is optional
-gql_type = function(state_for_read, schema, storage)
+gql_type = function(state_for_read, avro_schema, storage)
     local state_for_read = state_for_read or {}
     assert(type(state_for_read) == 'table',
         'state_for_read must be a table or nil, got ' ..
@@ -109,15 +110,18 @@ gql_type = function(state_for_read, schema, storage)
     -- XXX: assert for state_for_read.accessor
     local accessor = state_for_read.accessor
 
-    if avro_type(schema) == 'record' then
-        assert(type(schema.name) == 'string', ('schema.name must be a string, ' ..
-            'got %s (schema %s)'):format(type(schema.name), json.encode(schema)))
-        assert(type(schema.fields) == 'table', ('schema.fields must be a table, ' ..
-            'got %s (schema %s)'):format(type(schema.fields), json.encode(schema)))
+    if avro_type(avro_schema) == 'record' then
+        assert(type(avro_schema.name) == 'string',
+            ('avro_schema.name must be a string, got %s (avro_schema %s)')
+            :format(type(avro_schema.name), json.encode(avro_schema)))
+        assert(type(avro_schema.fields) == 'table',
+            ('avro_schema.fields must be a table, got %s (avro_schema %s)')
+            :format(type(avro_schema.fields), json.encode(avro_schema)))
 
-        local fields, args = convert_record_fields(state_for_read, schema.fields)
+        local fields, args = convert_record_fields(state_for_read,
+            avro_schema.fields)
 
-        -- XXX: think re 1:N connections
+        -- XXX: think re 1:N connections: in that case type must be a list
         for _, c in ipairs((storage or {}).connections or {}) do
             local destination_type =
                 state_for_read.types[c.destination_storage]
@@ -127,7 +131,8 @@ gql_type = function(state_for_read, schema, storage)
                 resolve = function(parent, args, info)
                     local args = table.copy(args) -- luacheck: ignore
                     for _, bind in ipairs(c.parts) do
-                        args[bind.destination_field] = parent[bind.source_field]
+                        args[bind.destination_field] =
+                            parent[bind.source_field]
                     end
                     return accessor:get(parent, c.destination_storage, args)
                 end,
@@ -135,23 +140,24 @@ gql_type = function(state_for_read, schema, storage)
         end
 
         local res = types.nonNull(types.object({
-            name = storage ~= nil and storage.name or schema.name,
-            description = 'generated from avro-schema for ' .. schema.name,
+            name = storage ~= nil and storage.name or avro_schema.name,
+            description = 'generated from avro-schema for ' ..
+                avro_schema.name,
             fields = fields,
         }))
         -- XXX: add limit, offset, filter
 
-       return res, args, schema.name
-    elseif avro_type(schema) == 'enum' then
+       return res, args, avro_schema.name
+    elseif avro_type(avro_schema) == 'enum' then
         error('enums not implemented yet') -- XXX
-    elseif avro_type(schema) == 'int' then
+    elseif avro_type(avro_schema) == 'int' then
         return types.int.nonNull
-    elseif avro_type(schema) == 'long' then
+    elseif avro_type(avro_schema) == 'long' then
         return types_long.nonNull
-    elseif avro_type(schema) == 'string' then
+    elseif avro_type(avro_schema) == 'string' then
         return types.string.nonNull
     else
-        error('unrecognized avro-schema type: ' .. json.encode(schema))
+        error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
     end
 end
 
@@ -169,9 +175,6 @@ local function parse_cfg(cfg)
 
     for name, storage in pairs(cfg.storages) do
         storage.name = name
-        --print('DEBUG: ' .. '--------')
-        --print('DEBUG: ' .. ('avro_type [%s]: %s'):format(name, require('yaml').encode(schema)))
-        --print('DEBUG: ' .. '--------')
         assert(storage.type ~= nil, 'storage.type must not be nil')
         local schema = cfg.schemas[storage.type]
         assert(schema ~= nil, ('cfg.schemas[%s] must not be nil'):format(
@@ -183,10 +186,6 @@ local function parse_cfg(cfg)
             ('top-level schema name does not match the name in ' ..
             'the schema itself: "%s" vs "%s"'):format(storage.type,
             schema_name))
-        --print('DEBUG: ' .. ('gql_type [%s]: %s'):format(name, require('yaml').encode(state.types[name])))
-        --print('DEBUG: ' .. '--------')
-        --print('DEBUG: ' .. ('arguments [%s]: %s'):format(name, require('yaml').encode(state.arguments[name])))
-        --print('DEBUG: ' .. '--------')
 
         -- create entry points from storage names
         fields[name] = {
@@ -220,7 +219,8 @@ local function gql_execute(qstate, variables)
     local root_value = {}
     local operation_name = 'obtainOrganizationUsers' -- XXX: qstate. ...
 
-    return execute(state.schema, qstate.ast, root_value, variables, operation_name)
+    return execute(state.schema, qstate.ast, root_value, variables,
+        operation_name)
 end
 
 local function gql_compile(state, query)
