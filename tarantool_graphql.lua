@@ -111,7 +111,8 @@ local types_long = types.scalar({
 --- @tparam table state for read state.accessor and previously filled
 --- state.types
 --- @tparam table avro_schema input avro-schema
---- @tparam[opt] table storage table with type, connections fields described a storage
+--- @tparam[opt] table storage table with schema_name, connections fields
+--- described a storage
 ---
 --- If storage is passed, two things are changed within this function:
 ---
@@ -139,7 +140,7 @@ gql_type = function(state, avro_schema, storage)
         local fields, args = convert_record_fields(state,
             avro_schema.fields)
 
-        -- XXX: think re 1:N connections: in that case type must be a list
+        -- XXX: think re 1:N connections: in that case the 'kind' must be a list
         for _, c in ipairs((storage or {}).connections or {}) do
             local destination_type =
                 state.types[c.destination_storage]
@@ -198,16 +199,17 @@ local function parse_cfg(cfg)
 
     for name, storage in pairs(state.storages) do
         storage.name = name
-        assert(storage.type ~= nil, 'storage.type must not be nil')
-        local schema = cfg.schemas[storage.type]
+        assert(storage.schema_name ~= nil,
+            'storage.schema_name must not be nil')
+        local schema = cfg.schemas[storage.schema_name]
         assert(schema ~= nil, ('cfg.schemas[%s] must not be nil'):format(
-            tostring(storage.type)))
+            tostring(storage.schema_name)))
         local schema_name
         state.types[name], state.arguments[name], schema_name =
             gql_type(state, schema, storage)
-        assert(schema_name == nil or schema_name == storage.type,
+        assert(schema_name == nil or schema_name == storage.schema_name,
             ('top-level schema name does not match the name in ' ..
-            'the schema itself: "%s" vs "%s"'):format(storage.type,
+            'the schema itself: "%s" vs "%s"'):format(storage.schema_name,
             schema_name))
 
         -- create entry points from storage names
@@ -283,6 +285,8 @@ local function gql_compile(state, query)
     return gql_query
 end
 
+--- Create a tarantool_graphql library instance.
+---
 --- Usage:
 ---
 --- ... = tarantool_graphql.new({

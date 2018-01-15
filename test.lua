@@ -37,13 +37,13 @@ local schemas = json.decode([[{
 
 local storages = json.decode([[{
     "individual_st": {
-        "type": "individual"
+        "schema_name": "individual"
     },
     "organization_st": {
-        "type": "organization"
+        "schema_name": "organization"
     },
     "relation_st": {
-        "type": "relation",
+        "schema_name": "relation",
         "connections": [
             {
                 "name": "individual_connection",
@@ -108,7 +108,7 @@ local accessor = setmetatable({}, {
 local gql_wrapper = tarantool_graphql.new({
     -- class_name:class mapping
     schemas = schemas,
-    -- storage:{type=..., connections=...} mapping
+    -- storage:{schema_name=..., connections=...} mapping
     storages = storages,
     -- :get() and :select() provider
     accessor = accessor,
