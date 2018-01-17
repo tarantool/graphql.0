@@ -145,18 +145,32 @@ gql_type = function(state, avro_schema, collection)
         -- XXX: custom limiting/filtering arguments (limit, offset, filter) in
         --      case of 1:N connection
         for _, c in ipairs((collection or {}).connections or {}) do
+            assert(type(c.name) == 'string',
+                'connection.name must be a string, got ' .. type(c.name))
+            assert(type(c.destination_collection) == 'string',
+                'connection.destination_collection must be a string, got ' ..
+                type(c.destination_collection))
+            assert(type(c.parts) == 'table',
+                'connection.parts must be a string, got ' .. type(c.parts))
+
             local destination_type =
                 state.types[c.destination_collection]
-            fields[c.destination_collection] = {
-                name = c.destination_collection,
+            fields[c.name] = {
+                name = c.name,
                 kind = destination_type,
                 resolve = function(parent, args, info)
                     local args = table.copy(args) -- luacheck: ignore
                     -- XXX: pass args for accessor like so:
                     --      {parent_fields = ..., args = ...}
-                    for _, bind in ipairs(c.parts) do
-                        args[bind.destination_field] =
-                            parent[bind.source_field]
+                    for _, part in ipairs(c.parts) do
+                        assert(type(part.source_field) == 'string',
+                            'part.source_field must be a string, got ' ..
+                            type(part.destination_field))
+                        assert(type(part.destination_field) == 'string',
+                            'part.destination_field must be a string, got ' ..
+                            type(part.destination_field))
+                        args[part.destination_field] =
+                            parent[part.source_field]
                     end
                     return accessor:get(parent, c.destination_collection, args)
                 end,

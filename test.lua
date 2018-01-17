@@ -118,7 +118,7 @@ local query = [[
     query obtainOrganizationUsers($organization_id: String) {
         relation_collection(organization_id: $organization_id, type: "type 1", size: 2) {
             id
-            individual_collection {
+            individual_connection {
                 last_name,
                 first_name,
             }
