@@ -1,5 +1,5 @@
---- Abstraction layer between a storage (e.g. tarantool's spaces) and the
---- GraphQL query language.
+--- Abstraction layer between a data collections (e.g. tarantool's spaces) and
+--- the GraphQL query language.
 
 local json = require('json')
 
@@ -111,16 +111,16 @@ local types_long = types.scalar({
 --- @tparam table state for read state.accessor and previously filled
 --- state.types
 --- @tparam table avro_schema input avro-schema
---- @tparam[opt] table storage table with schema_name, connections fields
---- described a storage
+--- @tparam[opt] table collection table with schema_name, connections fields
+--- described a collection (e.g. tarantool's spaces)
 ---
---- If storage is passed, two things are changed within this function:
+--- If collection is passed, two things are changed within this function:
 ---
---- 1. Connections from the storage will be taken into account to automatically
----    generate corresponding decucible fields.
---- 2. The storage name will be used as the resulting graphql type name instead
----    of the avro-schema name.
-gql_type = function(state, avro_schema, storage)
+--- 1. Connections from the collection will be taken into account to
+---    automatically generate corresponding decucible fields.
+--- 2. The collection name will be used as the resulting graphql type name
+---    instead of the avro-schema name.
+gql_type = function(state, avro_schema, collection)
     local state = state or {}
     assert(type(state) == 'table',
         'state must be a table or nil, got ' .. type(state))
@@ -140,31 +140,36 @@ gql_type = function(state, avro_schema, storage)
         local fields, args = convert_record_fields(state,
             avro_schema.fields)
 
-        -- XXX: think re 1:N connections: in that case the 'kind' must be a list
-        for _, c in ipairs((storage or {}).connections or {}) do
+        -- XXX: check connection.destination_objects (single / many) to let
+        --      type be an object or list (notNull list!);
+        -- XXX: custom limiting/filtering arguments (limit, offset, filter) in
+        --      case of 1:N connection
+        for _, c in ipairs((collection or {}).connections or {}) do
             local destination_type =
-                state.types[c.destination_storage]
-            fields[c.destination_storage] = {
-                name = c.destination_storage,
+                state.types[c.destination_collection]
+            fields[c.destination_collection] = {
+                name = c.destination_collection,
                 kind = destination_type,
                 resolve = function(parent, args, info)
                     local args = table.copy(args) -- luacheck: ignore
+                    -- XXX: pass args for accessor like so:
+                    --      {parent_fields = ..., args = ...}
                     for _, bind in ipairs(c.parts) do
                         args[bind.destination_field] =
                             parent[bind.source_field]
                     end
-                    return accessor:get(parent, c.destination_storage, args)
+                    return accessor:get(parent, c.destination_collection, args)
                 end,
             }
         end
 
+        -- XXX: use connection name as name of the field, not collection name
         local res = types.nonNull(types.object({
-            name = storage ~= nil and storage.name or avro_schema.name,
+            name = collection ~= nil and collection.name or avro_schema.name,
             description = 'generated from avro-schema for ' ..
                 avro_schema.name,
             fields = fields,
         }))
-        -- XXX: add limit, offset, filter
 
        return res, args, avro_schema.name
     elseif avro_type(avro_schema) == 'enum' then
@@ -191,28 +196,28 @@ local function parse_cfg(cfg)
     assert(accessor.select ~= nil, 'cfg.accessor.select must not be nil')
     state.accessor = accessor
 
-    assert(cfg.storages ~= nil, 'cfg.storages must not be nil')
-    local storages = table.copy(cfg.storages) -- luacheck: ignore
-    state.storages = storages
+    assert(cfg.collections ~= nil, 'cfg.collections must not be nil')
+    local collections = table.copy(cfg.collections) -- luacheck: ignore
+    state.collections = collections
 
     local fields = {}
 
-    for name, storage in pairs(state.storages) do
-        storage.name = name
-        assert(storage.schema_name ~= nil,
-            'storage.schema_name must not be nil')
-        local schema = cfg.schemas[storage.schema_name]
+    for name, collection in pairs(state.collections) do
+        collection.name = name
+        assert(collection.schema_name ~= nil,
+            'collection.schema_name must not be nil')
+        local schema = cfg.schemas[collection.schema_name]
         assert(schema ~= nil, ('cfg.schemas[%s] must not be nil'):format(
-            tostring(storage.schema_name)))
+            tostring(collection.schema_name)))
         local schema_name
         state.types[name], state.arguments[name], schema_name =
-            gql_type(state, schema, storage)
-        assert(schema_name == nil or schema_name == storage.schema_name,
+            gql_type(state, schema, collection)
+        assert(schema_name == nil or schema_name == collection.schema_name,
             ('top-level schema name does not match the name in ' ..
-            'the schema itself: "%s" vs "%s"'):format(storage.schema_name,
+            'the schema itself: "%s" vs "%s"'):format(collection.schema_name,
             schema_name))
 
-        -- create entry points from storage names
+        -- create entry points from collection names
         fields[name] = {
             kind = types.nonNull(types.list(state.types[name])),
             arguments = state.arguments[name],
@@ -300,13 +305,13 @@ end
 ---         },
 ---         ...
 ---     },
----     storages = {
----         storage_name_foo = {
+---     collections = {
+---         collections_name_foo = {
 ---             type = 'schema_name_foo',
 ---             connections = { // the optional field
 ---                 {
 ---                     name = 'connection_name_bar',
----                     destination_storage = 'storage_baz',
+---                     destination_collection = 'collection_baz',
 ---                     parts = {
 ---                         {
 ---                             source_field = 'field_name_source_1',

@@ -35,26 +35,26 @@ local schemas = json.decode([[{
     }
 }]])
 
-local storages = json.decode([[{
-    "individual_st": {
+local collections = json.decode([[{
+    "individual_collection": {
         "schema_name": "individual"
     },
-    "organization_st": {
+    "organization_collection": {
         "schema_name": "organization"
     },
-    "relation_st": {
+    "relation_collection": {
         "schema_name": "relation",
         "connections": [
             {
                 "name": "individual_connection",
-                "destination_storage": "individual_st",
+                "destination_collection": "individual_collection",
                 "parts": [
                     { "source_field": "individual_id", "destination_field": "individual_id" }
                 ]
             },
             {
                 "name": "organization_connection",
-                "destination_storage": "organization_st",
+                "destination_collection": "organization_collection",
                 "parts": [
                     { "source_field": "organization_id", "destination_field": "organization_id" }
                 ]
@@ -63,11 +63,11 @@ local storages = json.decode([[{
     }
 }]])
 
-local function gen_access_function(storage_name, opts)
+local function gen_access_function(collection_name, opts)
     local is_list = opts.is_list
     return function(rootValue, args, info)
         local obj
-        if storage_name == 'relation_st' then
+        if collection_name == 'relation_collection' then
             obj = {
                 id = 'abc',
                 type = '123',
@@ -75,20 +75,20 @@ local function gen_access_function(storage_name, opts)
                 individual_id = 'def',
                 organization_id = 'ghi',
             }
-        elseif storage_name == 'individual_st' then
+        elseif collection_name == 'individual_collection' then
             obj = {
                 individual_id = 'def',
                 last_name = 'last name',
                 first_name = 'first name',
                 birthdate = '1970-01-01',
             }
-        elseif storage_name == 'organization_st' then
+        elseif collection_name == 'organization_collection' then
             obj = {
                 organization_id = 'def',
                 organization_name = 'qwqw',
             }
         else
-            error('NIY: ' .. storage_name)
+            error('NIY: ' .. collection_name)
         end
         return is_list and {obj} or obj
     end
@@ -108,17 +108,17 @@ local accessor = setmetatable({}, {
 local gql_wrapper = tarantool_graphql.new({
     -- class_name:class mapping
     schemas = schemas,
-    -- storage:{schema_name=..., connections=...} mapping
-    storages = storages,
+    -- collection_{schema_name=..., connections=...} mapping
+    collections = collections,
     -- :get() and :select() provider
     accessor = accessor,
 })
 
 local query = [[
     query obtainOrganizationUsers($organization_id: String) {
-        relation_st(organization_id: $organization_id, type: "type 1", size: 2) {
+        relation_collection(organization_id: $organization_id, type: "type 1", size: 2) {
             id
-            individual_st {
+            individual_collection {
                 last_name,
                 first_name,
             }
