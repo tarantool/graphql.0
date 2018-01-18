@@ -1,5 +1,11 @@
 --- Abstraction layer between a data collections (e.g. tarantool's spaces) and
 --- the GraphQL query language.
+---
+--- Random notes:
+---
+--- * GraphQL top level statement must be a collection name. Arguments for this
+---   statement match non-deducible field names of corresponding object and
+---   passed to an accessor function in the filter argument.
 
 local json = require('json')
 
@@ -69,6 +75,55 @@ local function nullable(gql_class)
     return gql_class.ofType
 end
 
+local types_long = types.scalar({
+    name = 'Long',
+    description = 'Long is non-bounded integral type',
+    serialize = function(value) return tonumber(value) end,
+    parseValue = function(value) return tonumber(value) end,
+    parseLiteral = function(node)
+        if node.kind == 'int' then
+            return tonumber(node.value)
+        end
+    end
+})
+
+-- XXX: boolean
+-- XXX: float
+local function convert_scalar_type(avro_schema, opts)
+    local opts = opts or {}
+    assert(type(opts) == 'table', 'opts must be nil or table, got ' ..
+        type(opts))
+    local raise = opts.raise or false
+    assert(type(opts.raise) == 'boolean', 'opts.raise must be boolean, got ' ..
+        type(opts.raise))
+
+    local avro_t = avro_type(avro_schema)
+    if avro_t == 'int' then
+        return types.int.nonNull
+    elseif avro_t == 'long' then
+        return types_long.nonNull
+    elseif avro_t == 'string' then
+        return types.string.nonNull
+    end
+    if raise then
+        error('unrecognized avro-schema scalar type: ' ..
+            json.encode(avro_schema))
+    end
+    return nil
+end
+
+local function convert_scalar_record_fields_to_arguments(fields)
+    local args = {}
+    for _, field in ipairs(fields) do
+        assert(type(field.name) == 'string',
+            ('field.name must be a string, got %s (schema %s)')
+            :format(type(field.name), json.encode(field)))
+        local gql_class = convert_scalar_type(field.type, {raise = true})
+        args[field.name] = nullable(gql_class)
+    end
+    return args
+end
+
 --- Convert each field of an avro-schema to a graphql type and corresponding
 --- argument for an upper graphql type.
 ---
@@ -90,18 +145,6 @@ local function convert_record_fields(state, fields)
     end
     return res, args
 end
-
-local types_long = types.scalar({
-    name = 'Long',
-    description = 'Long is non-bounded integral type',
-    serialize = function(value) return tonumber(value) end,
-    parseValue = function(value) return tonumber(value) end,
-    parseLiteral = function(node)
-        if node.kind == 'long' then -- XXX: from where this 'long' we can get?
-            return tonumber(node.value)
-        end
-    end
-})
 
 --- The function recursively converts passed avro-schema to a graphql type.
 ---
@@ -125,6 +168,8 @@ gql_type = function(state, avro_schema, collection)
     assert(accessor ~= nil, 'state.accessor must not be nil')
     assert(accessor.get ~= nil, 'state.accessor.get must not be nil')
     assert(accessor.select ~= nil, 'state.accessor.select must not be nil')
+    assert(accessor.arguments ~= nil,
+        'state.accessor.arguments must not be nil')
 
     if avro_type(avro_schema) == 'record' then
         assert(type(avro_schema.name) == 'string',
@@ -137,11 +182,11 @@ gql_type = function(state, avro_schema, collection)
         local fields, args = convert_record_fields(state,
             avro_schema.fields)
 
-        -- XXX: check connection.destination_objects (single / many) to let
-        --      type be an object or list (notNull list!);
-        -- XXX: custom limiting/filtering arguments (limit, offset, filter) in
-        --      case of 1:N connection
         for _, c in ipairs((collection or {}).connections or {}) do
+            assert(type(c.type) == 'string',
+                'connection.type must be a string, got ' .. type(c.type))
+            assert(c.type == '1:1' or c.type == '1:N',
+                'connection.type must be 1:1 or 1:N, got ' .. c.type)
             assert(type(c.name) == 'string',
                 'connection.name must be a string, got ' .. type(c.name))
             assert(type(c.destination_collection) == 'string',
@@ -155,13 +200,19 @@ gql_type = function(state, avro_schema, collection)
             assert(destination_type ~= nil,
                 ('destination_type (named %s) must not be nil'):format(
                 c.destination_collection))
+            if c.type == '1:N' then
+                destination_type = types.nonNull(types.list(destination_type))
+            end
+            -- XXX: support InputObject (non-scalar types in arguments)
+            local arguments = convert_scalar_record_fields_to_arguments(
+                accessor:arguments())
             fields[c.name] = {
                 name = c.name,
                 kind = destination_type,
+                arguments = arguments,
                 resolve = function(parent, args, info)
                     local args = table.copy(args) -- luacheck: ignore
-                    -- XXX: pass args for accessor like so:
-                    --      {parent_fields = ..., args = ...}
+                    local filter = {}
                     for _, part in ipairs(c.parts) do
                         assert(type(part.source_field) == 'string',
                             'part.source_field must be a string, got ' ..
@@ -169,15 +220,20 @@ gql_type = function(state, avro_schema, collection)
                         assert(type(part.destination_field) == 'string',
                             'part.destination_field must be a string, got ' ..
                             type(part.destination_field))
-                        args[part.destination_field] =
+                        filter[part.destination_field] =
                             parent[part.source_field]
                     end
-                    return accessor:get(parent, c.destination_collection, args)
+                    if c.type == '1:1' then
+                        return accessor:get(parent, c.destination_collection,
+                            filter, args)
+                    else -- c.type == '1:N'
+                        return accessor:select(parent, c.destination_collection,
+                            filter, args)
+                    end
                 end,
             }
         end
 
-        -- XXX: use connection name as name of the field, not collection name
         local res = types.nonNull(types.object({
             name = collection ~= nil and collection.name or avro_schema.name,
             description = 'generated from avro-schema for ' ..
@@ -188,14 +244,12 @@ gql_type = function(state, avro_schema, collection)
        return res, args, avro_schema.name
     elseif avro_type(avro_schema) == 'enum' then
         error('enums not implemented yet') -- XXX
-    elseif avro_type(avro_schema) == 'int' then
-        return types.int.nonNull
-    elseif avro_type(avro_schema) == 'long' then
-        return types_long.nonNull
-    elseif avro_type(avro_schema) == 'string' then
-        return types.string.nonNull
     else
-        error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
+        local res = convert_scalar_type(avro_schema, {raise = false})
+        if res == nil then
+            error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
+        end
+        return res
     end
 end
 
@@ -246,6 +300,8 @@ local function parse_cfg(cfg)
     assert(accessor ~= nil, 'cfg.accessor must not be nil')
     assert(accessor.get ~= nil, 'cfg.accessor.get must not be nil')
     assert(accessor.select ~= nil, 'cfg.accessor.select must not be nil')
+    assert(accessor.arguments ~= nil,
+        'state.accessor.arguments must not be nil')
     state.accessor = accessor
 
     assert(cfg.collections ~= nil, 'cfg.collections must not be nil')
@@ -274,7 +330,9 @@ local function parse_cfg(cfg)
             kind = types.nonNull(types.list(state.types[name])),
             arguments = state.arguments[name],
             resolve = function(rootValue, args, info)
-                return accessor:select(rootValue, name, args)
+                local filter = args
+                local args = {}
+                return accessor:select(rootValue, name, filter, args)
             end,
         }
     end
@@ -383,6 +441,13 @@ end
 ---             end,
 ---             select = function(self, parent, name, args)
 ---                 return ...
+---             end,
+---             arguments = function(self, connection_type)
+---                 if connection_type == '1:1' then return {} end
+---                 return {
+---                     {name = 'limit', type = 'long'},
+---                     {name = 'offset', type = 'int'},
+---                 }
 ---             end,
 ---         }
 ---     }),
