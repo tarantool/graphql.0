@@ -417,7 +417,7 @@ end
 ---     },
 ---     collections = {
 ---         collections_name_foo = {
----             type = 'schema_name_foo',
+---             schema_name = 'schema_name_foo',
 ---             connections = { // the optional field
 ---                 {
 ---                     name = 'connection_name_bar',
@@ -436,10 +436,10 @@ end
 ---     },
 ---     accessor = setmetatable({}, {
 ---         __index = {
----             get = function(self, parent, name, args)
+---             get = function(self, parent, collection_name, filter, args)
 ---                 return ...
 ---             end,
----             select = function(self, parent, name, args)
+---             select = function(self, parent, collection_name, filter, args)
 ---                 return ...
 ---             end,
 ---             arguments = function(self, connection_type)
