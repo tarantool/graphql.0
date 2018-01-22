@@ -15,43 +15,17 @@ local types = require('graphql.types')
 local validate = require('graphql.validate')
 local execute = require('graphql.execute')
 
+local utils = require('utils')
+
 local tarantool_graphql = {}
 
 -- forward declarations
 local gql_type
 
---- Check whether table is an array.
---- Based on [that][1].
---- [1]: https://github.com/mpx/lua-cjson/blob/db122676/lua/cjson/util.lua
---- @param table
---- @return True if table is an array
-local function is_array(table)
-    if type(table) ~= 'table' then
-        return false
-    end
-    local max = 0
-    local count = 0
-    for k, _ in pairs(table) do
-        if type(k) == 'number' then
-            if k > max then
-                max = k
-            end
-            count = count + 1
-        else
-            return false
-        end
-    end
-    if max > count * 2 then
-        return false
-    end
-
-    return max >= 0
-end
-
 local function avro_type(avro_schema)
     if type(avro_schema) == 'table' and avro_schema.type == 'record' then
         return 'record'
-    elseif type(avro_schema) == 'table' and is_array(avro_schema) then
+    elseif type(avro_schema) == 'table' and utils.is_array(avro_schema) then
         return 'enum'
     elseif type(avro_schema) == 'string' and avro_schema == 'int' then
         return 'int'
