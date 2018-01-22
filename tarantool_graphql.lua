@@ -185,7 +185,7 @@ gql_type = function(state, avro_schema, collection)
                 kind = destination_type,
                 arguments = arguments,
                 resolve = function(parent, args, info)
-                    local args = table.copy(args) -- luacheck: ignore
+                    local args = table.copy(args)
                     local filter = {}
                     for _, part in ipairs(c.parts) do
                         assert(type(part.source_field) == 'string',
@@ -279,7 +279,7 @@ local function parse_cfg(cfg)
     state.accessor = accessor
 
     assert(cfg.collections ~= nil, 'cfg.collections must not be nil')
-    local collections = table.copy(cfg.collections) -- luacheck: ignore
+    local collections = table.copy(cfg.collections)
     state.collections = collections
 
     local fields = {}

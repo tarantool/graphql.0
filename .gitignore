@@ -3,3 +3,7 @@
 
 # `tarantool rocks` installed packages
 .rocks
+
+# tarantool's wal and snapshot files
+*.xlog
+*.snap

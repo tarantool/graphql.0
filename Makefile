@@ -1,3 +1,6 @@
+default:
+	false
+
 .PHONY: lint
 lint:
 	luacheck *.lua --no-redefined --no-unused-args
@@ -5,3 +8,4 @@ lint:
 .PHONY: test
 test: lint
 	./test.lua
+	./test_space.lua

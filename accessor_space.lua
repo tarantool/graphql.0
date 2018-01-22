@@ -1,0 +1,236 @@
+local json = require('json')
+local log = require('log')
+local avro_schema = require('avro_schema')
+local utils = require('utils')
+
+local accessor_space = {}
+
+--[[
+    local service_fields_types = {}
+    for i, v in ipairs(service_fields) do
+        service_fields_types[#service_fields_types + 1] = v.type
+    end
+]]--
+
+-- XXX: different service_fields for different collections
+local function compile_schemas(schemas, service_fields)
+    local models = {}
+    for name, schema in pairs(schemas) do
+        assert(type(schema) == 'table',
+            'avro_schema must be a table, got ' .. type(schema))
+        assert(type(name) == 'string',
+            'schema key must be a string, got ' .. type(name))
+        assert(type(schema.name) == 'string',
+            'schema name must be a string, got ' .. type(schema.name))
+        assert(name == schema.name,
+            ('schema key and name do not match: %s vs %s'):format(
+            name, schema.name))
+        assert(schema.type == 'record', 'schema.type must be a record')
+
+        local ok, handle = avro_schema.create(schema, {}) -- XXX: service_fields
+        assert(ok, ('cannot create avro_schema for %s: %s'):format(
+            name, tostring(handle)))
+        local ok, model = avro_schema.compile(handle)
+        assert(ok, ('cannot compile avro_schema for %s: %s'):format(
+            name, tostring(model)))
+
+        models[name] = model
+    end
+    return models
+end
+
+local get_index_name = function(collection_name, filter, lookup_index_name)
+    assert(type(collection_name) == 'string',
+        'collection_name must be a string, got ' .. type(collection_name))
+    assert(type(filter) == 'table',
+        'filter must be a table, got ' .. type(filter))
+    local name_list = {}
+    local value_list = {}
+    local function fill_name_list(filter, base_name)
+        for field_name, v in pairs(filter) do
+            if type(v) == 'table' then
+                fill_name_list(v, base_name .. field_name .. '.')
+            else
+                name_list[#name_list + 1] = base_name .. field_name
+                value_list[#value_list + 1] = v
+            end
+        end
+    end
+    fill_name_list(filter, '')
+    table.sort(name_list)
+    local name_list_str = table.concat(name_list, ',')
+    assert(lookup_index_name[collection_name] ~= nil,
+        ('cannot find any index for collection "%s"'):format(collection_name))
+    local index_name = lookup_index_name[collection_name][name_list_str]
+    return index_name, value_list
+end
+
+local function build_lookup_index_name(indexes)
+    assert(type(indexes) == 'table', 'indexes must be a table, got ' ..
+        type(indexes))
+    local lookup_index_name = {}
+    for collection_name, index in pairs(indexes) do
+        assert(type(collection_name) == 'string',
+            'collection_name must be a string, got ' .. type(collection_name))
+        assert(type(index) == 'table',
+            'index must be a table, got ' .. type(index))
+
+        lookup_index_name[collection_name] = {}
+
+        for index_name, index_descr in pairs(index) do
+            assert(type(index_name) == 'string',
+                'index_name must be a string, got ' .. type(index_name))
+            assert(type(index_descr) == 'table',
+                'index_descr must be a table, got ' .. type(index_descr))
+            -- XXX: assert for index_descr fields
+
+            local service_fields_list = index_descr['service_fields']
+            assert(utils.is_array(service_fields_list),
+                'service_fields_list must be an array')
+            local fields_list = index_descr['fields']
+            assert(utils.is_array(fields_list),
+                'fields_list must be an array')
+            assert(#service_fields_list + #fields_list > 0,
+                'bad "indexes" parameter: no fields found')
+
+            local name_list = {}
+            for _, field in ipairs(service_fields_list) do
+                assert(type(field) == 'string',
+                    'field must be a string, got ' .. type(field))
+                name_list[#name_list + 1] = field
+            end
+            for _, field in ipairs(fields_list) do
+                assert(type(field) == 'string',
+                    'field must be a string, got ' .. type(field))
+                name_list[#name_list + 1] = field
+            end
+
+            table.sort(name_list)
+            local name_list_str = table.concat(name_list, ',')
+            lookup_index_name[collection_name][name_list_str] = index_name
+        end
+    end
+    return lookup_index_name
+end
+
+--- Example of service_fields item:
+---
+---     service_fields['collection_name'] = {
+---         {name = 'expires_on', type = 'long', default = 0},
+---     },
+---
+--- Example of indexes item:
+---
+---     indexes['collection_name'] = {
+---         foo_bar = {
+---             service_fields = {},
+---             fields = {'foo', 'bar'},
+---             index_type = 'tree',
+---             unique = true,
+---         },
+---         ...
+---     }
+---
+--- XXX: arguments per collection or per connection_type or both?
+---
+--- Example of arguments item:
+---
+---     arguments['1:1'] = {
+---         {name = 'limit', type = 'long'},
+---         {name = 'offset', type = 'int'},
+---     }
+function accessor_space.new(opts)
+    assert(type(opts) == 'table',
+        'opts must be a table, got ' .. type(opts))
+
+    local schemas = opts.schemas
+    local collections = opts.collections
+    local service_fields = opts.service_fields
+    local indexes = opts.indexes
+    local arguments = opts.arguments
+
+    assert(type(schemas) == 'table',
+        'schemas must be a table, got ' .. type(schemas))
+    assert(type(collections) == 'table',
+        'collections must be a table, got ' .. type(collections))
+    assert(type(service_fields) == 'table',
+        'service_fields must be a table, got ' .. type(service_fields))
+    assert(type(indexes) == 'table',
+        'indexes must be a table, got ' .. type(indexes))
+    assert(type(arguments) == 'table',
+        'arguments must be a table, got ' .. type(arguments))
+
+    local models = compile_schemas(schemas, service_fields)
+    -- XXX: validate collections
+    -- - key must be a string
+    -- - .schema_name must be a string
+    -- XXX: validate service_fields
+    -- - key must be a string
+    local lookup_index_name = build_lookup_index_name(indexes)
+    -- XXX: validate arguments
+    -- - key must be a string
+
+    -- XXX: we need to pass a connection name in case there are different
+    --      connections with the same fields in a different order
+    return setmetatable({}, {
+        __index = {
+            get = function(self, parent, collection_name, filter, args)
+                log.info('DEBUG: ' .. 'get')
+                assert(type(self) == 'table',
+                    'self must be a table, got ' .. type(self))
+                assert(type(parent) == 'table',
+                    'parent must be a table, got ' .. type(parent))
+                assert(type(collection_name) == 'string',
+                    'collection_name must be a table, got ' ..
+                    type(collection_name))
+                assert(type(filter) == 'table',
+                    'filter must be a table, got ' .. type(filter))
+                assert(type(args) == 'table',
+                    'args must be a table, got ' .. type(args))
+
+                local collection = collections[collection_name]
+                assert(collection ~= nil,
+                    ('cannot found the collection "%s"'):format(
+                    collection_name))
+
+                local index_name, index_value = get_index_name(
+                    collection_name, filter, lookup_index_name)
+                assert(box.space[collection_name] ~= nil,
+                    ('cannot find space "%s"'):format(collection_name))
+                local index = box.space[collection_name].index[index_name]
+                assert(index ~= nil,
+                    ('cannot find index "%s" in space "%s"'):format(
+                    index_name, collection_name))
+                local tuple = index:get(index_value)
+                assert(tuple ~= nil,
+                    ('cannot find (get) an object of collection ' ..
+                    '"%s" by "%s"'):format(collection_name,
+                    json.encode(index_value)))
+
+                local schema_name = collection.schema_name
+                assert(type(schema_name) == 'string',
+                    'schema_name must be a string, got ' .. type(schema_name))
+                local model = models[schema_name]
+                assert(model ~= nil,
+                    ('cannot find model for collection "%s"'):format(
+                    collection_name))
+                local ok, obj = model.unflatten(tuple)
+                assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
+
+                -- XXX: is_subtable check
+
+                return obj
+            end,
+            select = function(self, parent, collection_name, filter, args)
+                log.info('DEBUG: ' .. 'select')
+                return {self:get(parent, collection_name, filter, args)} -- XXX
+            end,
+            arguments = function(self, connection_type)
+                log.info('DEBUG: ' .. 'arguments')
+                return {} -- XXX
+            end,
+        }
+    })
+end
+
+return accessor_space
