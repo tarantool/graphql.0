@@ -215,7 +215,7 @@ function accessor_space.new(opts)
     -- XXX: we need to pass a connection name in case there are different
     --      connections with the same fields in a different order
     return setmetatable({
-        schemas = schemas, -- luacheck: ignore
+        schemas = schemas,
         collections = collections,
         service_fields = service_fields,
         indexes = indexes,
