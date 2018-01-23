@@ -121,6 +121,10 @@ local function select_internal(self, collection_name, filter, args)
         'filter must be a table, got ' .. type(filter))
     assert(type(args) == 'table',
         'args must be a table, got ' .. type(args))
+    assert(args.limit == nil or type(args.limit) == 'number',
+        'args.limit must be a number of nil, got ' .. type(args.limit))
+    assert(args.offset == nil or type(args.offset) == 'number',
+        'args.offset must be a number of nil, got ' .. type(args.offset))
 
     local collection = self.collections[collection_name]
     assert(collection ~= nil,
@@ -144,14 +148,33 @@ local function select_internal(self, collection_name, filter, args)
         ('cannot find model for collection "%s"'):format(
         collection_name))
 
+    local limit = args.limit
+    local offset = args.offset
+    local skipped = 0
+    local count = 0
     local objs = {}
     for _, tuple in index:pairs(index_value) do
-        local ok, obj = model.unflatten(tuple)
-        assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
-        assert(utils.is_subtable(obj, filter),
-            'found object do not fit passed filter')
-        objs[#objs + 1] = obj
+        if offset ~= nil and skipped < offset then
+            skipped = skipped + 1
+        else
+            local ok, obj = model.unflatten(tuple)
+            assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
+            assert(utils.is_subtable(obj, filter),
+                'found object do not fit passed filter')
+            objs[#objs + 1] = obj
+            count = count + 1
+            if limit ~= nil and count >= limit then
+                assert(limit == nil or count <= limit,
+                    ('count[%d] exceeds limit[%s] (in for)'):format(
+                    count, limit))
+                break
+            end
+        end
     end
+    assert(limit == nil or count <= limit,
+        ('count[%d] exceeds limit[%s] (before return)'):format(count, limit))
+    assert(#objs == count,
+        ('count[%d] is not equal to objs count[%d]'):format(count, #objs))
     return objs
 end
 
@@ -172,15 +195,6 @@ end
 ---         },
 ---         ...
 ---     }
----
---- XXX: arguments per collection or per connection_type or both?
----
---- Example of arguments item:
----
----     arguments['1:1'] = {
----         {name = 'limit', type = 'long'},
----         {name = 'offset', type = 'int'},
----     }
 function accessor_space.new(opts)
     assert(type(opts) == 'table',
         'opts must be a table, got ' .. type(opts))
@@ -189,7 +203,6 @@ function accessor_space.new(opts)
     local collections = opts.collections
     local service_fields = opts.service_fields
     local indexes = opts.indexes
-    local arguments = opts.arguments
 
     assert(type(schemas) == 'table',
         'schemas must be a table, got ' .. type(schemas))
@@ -199,8 +212,6 @@ function accessor_space.new(opts)
         'service_fields must be a table, got ' .. type(service_fields))
     assert(type(indexes) == 'table',
         'indexes must be a table, got ' .. type(indexes))
-    assert(type(arguments) == 'table',
-        'arguments must be a table, got ' .. type(arguments))
 
     local models = compile_schemas(schemas, service_fields)
     -- XXX: validate collections
@@ -209,8 +220,6 @@ function accessor_space.new(opts)
     -- XXX: validate service_fields
     -- - key must be a string
     local lookup_index_name = build_lookup_index_name(indexes)
-    -- XXX: validate arguments
-    -- - key must be a string
 
     -- XXX: we need to pass a connection name in case there are different
     --      connections with the same fields in a different order
@@ -219,7 +228,6 @@ function accessor_space.new(opts)
         collections = collections,
         service_fields = service_fields,
         indexes = indexes,
-        arguments_internal = arguments,
         models = models,
         lookup_index_name = lookup_index_name,
     }, {
@@ -227,6 +235,8 @@ function accessor_space.new(opts)
             get = function(self, parent, collection_name, filter, args)
                 assert(type(parent) == 'table',
                     'parent must be a table, got ' .. type(parent))
+                assert(next(args) == nil,
+                    'non-empty args list for get request')
                 local objs = select_internal(self, collection_name, filter, args)
                 assert(#objs == 1, 'expect one matching object, got ' ..
                     tostring(#objs))
@@ -239,7 +249,12 @@ function accessor_space.new(opts)
                 return objs
             end,
             arguments = function(self, connection_type)
-                return {} -- XXX
+                if connection_type == '1:1' then return {} end
+                return {
+                    {name = 'limit', type = 'int'},
+                    {name = 'offset', type = 'long'},
+                    -- {name = 'filter', type = ...},
+                }
             end,
         }
     })

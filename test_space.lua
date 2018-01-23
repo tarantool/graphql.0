@@ -133,6 +133,17 @@ box.space.order_collection:replace(
 box.space.order_collection:replace(
     {'order_id_3', 'user_id_2', 'first order of Vasiliy'})
 
+for i = 3, 100 do
+    local s = tostring(i)
+    box.space.user_collection:replace(
+        {'user_id_' .. s, 'first name ' .. s, 'last name ' .. s})
+    for j = (4 + (i - 3) * 40), (4 + (i - 2) * 40) - 1 do
+        local t = tostring(j)
+        box.space.order_collection:replace(
+            {'order_id_' .. t, 'user_id_' .. s, 'order of user ' .. s})
+    end
+end
+
 -- build accessor and graphql schemas
 -- ----------------------------------
 
@@ -175,12 +186,12 @@ utils.show_trace(function()
 end)
 
 local query_2 = [[
-    query user_order($user_id: String) {
+    query user_order($user_id: String, $limit: Int, $offset: Long) {
         user_collection(user_id: $user_id) {
             user_id
             last_name
             first_name
-            order_connection {
+            order_connection(limit: $limit, offset: $offset) {
                 order_id
                 description
             }
@@ -188,10 +199,25 @@ local query_2 = [[
     }
 ]]
 
+local gql_query_2
+
 utils.show_trace(function()
+    gql_query_2 = gql_wrapper:compile(query_2)
+
     local variables_2 = {user_id = 'user_id_1'}
-    local gql_query_2 = gql_wrapper:compile(query_2)
     local result = gql_query_2:execute(variables_2)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+utils.show_trace(function()
+    local variables_2_2 = {user_id = 'user_id_42', limit = 10, offset = 10}
+    local result = gql_query_2:execute(variables_2_2)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+utils.show_trace(function()
+    local variables_2_3 = {user_id = 'user_id_42', limit = 10, offset = 38}
+    local result = gql_query_2:execute(variables_2_3)
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
 
