@@ -124,10 +124,14 @@ end)
 
 box.space.user_collection:replace(
     {'user_id_1', 'Ivan', 'Ivanov'})
+box.space.user_collection:replace(
+    {'user_id_2', 'Vasiliy', 'Pupkin'})
 box.space.order_collection:replace(
     {'order_id_1', 'user_id_1', 'first order of Ivan'})
 box.space.order_collection:replace(
     {'order_id_2', 'user_id_1', 'second order of Ivan'})
+box.space.order_collection:replace(
+    {'order_id_3', 'user_id_2', 'first order of Vasiliy'})
 
 -- build accessor and graphql schemas
 -- ----------------------------------
@@ -167,6 +171,27 @@ utils.show_trace(function()
     local variables_1 = {order_id = 'order_id_1'}
     local gql_query_1 = gql_wrapper:compile(query_1)
     local result = gql_query_1:execute(variables_1)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+local query_2 = [[
+    query user_order($user_id: String) {
+        user_collection(user_id: $user_id) {
+            user_id
+            last_name
+            first_name
+            order_connection {
+                order_id
+                description
+            }
+        }
+    }
+]]
+
+utils.show_trace(function()
+    local variables_2 = {user_id = 'user_id_1'}
+    local gql_query_2 = gql_wrapper:compile(query_2)
+    local result = gql_query_2:execute(variables_2)
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
 

@@ -1,5 +1,3 @@
-local json = require('json')
-local log = require('log')
 local avro_schema = require('avro_schema')
 local utils = require('utils')
 
@@ -113,6 +111,50 @@ local function build_lookup_index_name(indexes)
     return lookup_index_name
 end
 
+local function select_internal(self, collection_name, filter, args)
+    assert(type(self) == 'table',
+        'self must be a table, got ' .. type(self))
+    assert(type(collection_name) == 'string',
+        'collection_name must be a table, got ' ..
+        type(collection_name))
+    assert(type(filter) == 'table',
+        'filter must be a table, got ' .. type(filter))
+    assert(type(args) == 'table',
+        'args must be a table, got ' .. type(args))
+
+    local collection = self.collections[collection_name]
+    assert(collection ~= nil,
+        ('cannot found the collection "%s"'):format(
+        collection_name))
+
+    local index_name, index_value = get_index_name(
+        collection_name, filter, self.lookup_index_name)
+    assert(box.space[collection_name] ~= nil,
+        ('cannot find space "%s"'):format(collection_name))
+    local index = box.space[collection_name].index[index_name]
+    assert(index ~= nil,
+        ('cannot find index "%s" in space "%s"'):format(
+        index_name, collection_name))
+
+    local schema_name = collection.schema_name
+    assert(type(schema_name) == 'string',
+        'schema_name must be a string, got ' .. type(schema_name))
+    local model = self.models[schema_name]
+    assert(model ~= nil,
+        ('cannot find model for collection "%s"'):format(
+        collection_name))
+
+    local objs = {}
+    for _, tuple in index:pairs(index_value) do
+        local ok, obj = model.unflatten(tuple)
+        assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
+        assert(utils.is_subtable(obj, filter),
+            'found object do not fit passed filter')
+        objs[#objs + 1] = obj
+    end
+    return objs
+end
+
 --- Example of service_fields item:
 ---
 ---     service_fields['collection_name'] = {
@@ -172,61 +214,31 @@ function accessor_space.new(opts)
 
     -- XXX: we need to pass a connection name in case there are different
     --      connections with the same fields in a different order
-    return setmetatable({}, {
+    return setmetatable({
+        schemas = schemas, -- luacheck: ignore
+        collections = collections,
+        service_fields = service_fields,
+        indexes = indexes,
+        arguments_internal = arguments,
+        models = models,
+        lookup_index_name = lookup_index_name,
+    }, {
         __index = {
             get = function(self, parent, collection_name, filter, args)
-                log.info('DEBUG: ' .. 'get')
-                assert(type(self) == 'table',
-                    'self must be a table, got ' .. type(self))
                 assert(type(parent) == 'table',
                     'parent must be a table, got ' .. type(parent))
-                assert(type(collection_name) == 'string',
-                    'collection_name must be a table, got ' ..
-                    type(collection_name))
-                assert(type(filter) == 'table',
-                    'filter must be a table, got ' .. type(filter))
-                assert(type(args) == 'table',
-                    'args must be a table, got ' .. type(args))
-
-                local collection = collections[collection_name]
-                assert(collection ~= nil,
-                    ('cannot found the collection "%s"'):format(
-                    collection_name))
-
-                local index_name, index_value = get_index_name(
-                    collection_name, filter, lookup_index_name)
-                assert(box.space[collection_name] ~= nil,
-                    ('cannot find space "%s"'):format(collection_name))
-                local index = box.space[collection_name].index[index_name]
-                assert(index ~= nil,
-                    ('cannot find index "%s" in space "%s"'):format(
-                    index_name, collection_name))
-                local tuple = index:get(index_value)
-                assert(tuple ~= nil,
-                    ('cannot find (get) an object of collection ' ..
-                    '"%s" by "%s"'):format(collection_name,
-                    json.encode(index_value)))
-
-                local schema_name = collection.schema_name
-                assert(type(schema_name) == 'string',
-                    'schema_name must be a string, got ' .. type(schema_name))
-                local model = models[schema_name]
-                assert(model ~= nil,
-                    ('cannot find model for collection "%s"'):format(
-                    collection_name))
-                local ok, obj = model.unflatten(tuple)
-                assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
-
-                -- XXX: is_subtable check
-
-                return obj
+                local objs = select_internal(self, collection_name, filter, args)
+                assert(#objs == 1, 'expect one matching object, got ' ..
+                    tostring(#objs))
+                return objs[1]
             end,
             select = function(self, parent, collection_name, filter, args)
-                log.info('DEBUG: ' .. 'select')
-                return {self:get(parent, collection_name, filter, args)} -- XXX
+                assert(type(parent) == 'table',
+                    'parent must be a table, got ' .. type(parent))
+                local objs = select_internal(self, collection_name, filter, args)
+                return objs
             end,
             arguments = function(self, connection_type)
-                log.info('DEBUG: ' .. 'arguments')
                 return {} -- XXX
             end,
         }
