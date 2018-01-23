@@ -80,7 +80,12 @@ local function build_lookup_index_name(indexes)
                 'index_name must be a string, got ' .. type(index_name))
             assert(type(index_descr) == 'table',
                 'index_descr must be a table, got ' .. type(index_descr))
-            -- XXX: assert for index_descr fields
+            assert(type(index_descr.service_fields) == 'table',
+                'index_descr.service_fields must be a table, got ' ..
+                type(index_descr.service_fields))
+            assert(type(index_descr.fields) == 'table',
+                'index_descr.fields must be a table, got ' ..
+                type(index_descr.fields))
 
             local service_fields_list = index_descr['service_fields']
             assert(utils.is_array(service_fields_list),
