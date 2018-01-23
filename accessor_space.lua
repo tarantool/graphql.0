@@ -291,21 +291,10 @@ function accessor_space.new(opts)
         lookup_index_name = lookup_index_name,
     }, {
         __index = {
-            get = function(self, parent, collection_name, filter, args)
-                assert(type(parent) == 'table',
-                    'parent must be a table, got ' .. type(parent))
-                assert(next(args) == nil,
-                    'non-empty args list for get request')
-                local objs = select_internal(self, collection_name, filter, args)
-                assert(#objs == 1, 'expect one matching object, got ' ..
-                    tostring(#objs))
-                return objs[1]
-            end,
             select = function(self, parent, collection_name, filter, args)
                 assert(type(parent) == 'table',
                     'parent must be a table, got ' .. type(parent))
-                local objs = select_internal(self, collection_name, filter, args)
-                return objs
+                return select_internal(self, collection_name, filter, args)
             end,
             arguments = function(self, connection_type)
                 if connection_type == '1:1' then return {} end

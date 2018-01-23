@@ -140,7 +140,6 @@ gql_type = function(state, avro_schema, collection)
         'state must be a table or nil, got ' .. type(state))
     local accessor = state.accessor
     assert(accessor ~= nil, 'state.accessor must not be nil')
-    assert(accessor.get ~= nil, 'state.accessor.get must not be nil')
     assert(accessor.select ~= nil, 'state.accessor.select must not be nil')
     assert(accessor.arguments ~= nil,
         'state.accessor.arguments must not be nil')
@@ -197,12 +196,18 @@ gql_type = function(state, avro_schema, collection)
                         filter[part.destination_field] =
                             parent[part.source_field]
                     end
+                    local objs = accessor:select(parent,
+                            c.destination_collection, filter, args)
+                    assert(type(objs) == 'table',
+                        'objs list received from an accessor ' ..
+                        'must be a table, got ' .. type(objs))
                     if c.type == '1:1' then
-                        return accessor:get(parent, c.destination_collection,
-                            filter, args)
+                        assert(#objs == 1,
+                            'expect one matching object, got ' ..
+                            tostring(#objs))
+                        return objs[1]
                     else -- c.type == '1:N'
-                        return accessor:select(parent, c.destination_collection,
-                            filter, args)
+                        return objs
                     end
                 end,
             }
@@ -272,7 +277,6 @@ local function parse_cfg(cfg)
 
     local accessor = cfg.accessor
     assert(accessor ~= nil, 'cfg.accessor must not be nil')
-    assert(accessor.get ~= nil, 'cfg.accessor.get must not be nil')
     assert(accessor.select ~= nil, 'cfg.accessor.select must not be nil')
     assert(accessor.arguments ~= nil,
         'state.accessor.arguments must not be nil')
@@ -410,9 +414,6 @@ end
 ---     },
 ---     accessor = setmetatable({}, {
 ---         __index = {
----             get = function(self, parent, collection_name, filter, args)
----                 return ...
----             end,
 ---             select = function(self, parent, collection_name, filter, args)
 ---                 return ...
 ---             end,

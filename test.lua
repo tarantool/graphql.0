@@ -111,72 +111,57 @@ local collections = json.decode([[{
     }
 }]])
 
-local function gen_access_function(collection_name, opts)
-    local is_list = opts.is_list
-    return function(parent, filter, args)
-        --[[
-        print('DEBUG: collection_name: ' .. collection_name)
-        print('DEBUG: filter: ' .. json.encode(filter))
-        print('DEBUG: args: ' .. json.encode(args))
-        print('DEBUG: --------')
-        --]]
-        local obj
-        if collection_name == 'relation_collection' then
-            obj = {
-                id = 'abc',
-                type = 'type 1',
-                size = 2,
-                individual_id = 'def',
-                organization_id = 'ghi',
-            }
-        elseif collection_name == 'individual_collection' then
-            obj = {
-                individual_id = 'def',
-                last_name = 'last name',
-                first_name = 'first name',
-                birthdate = '1970-01-01',
-            }
-        elseif collection_name == 'organization_collection' then
-            obj = {
-                organization_id = 'def',
-                organization_name = 'qwqw',
-            }
-        elseif collection_name == 'user_collection' then
-            obj = {
-                user_id = 'def',
-                last_name = 'last name',
-                first_name = 'first name',
-            }
-        elseif collection_name == 'order_collection' then
-            obj = {
-                order_id = '123',
-                user_id = 'def',
-                description = 'the order 123',
-            }
-        else
-            error('NIY: ' .. collection_name)
-        end
-        if is_list then
-            if not utils.is_subtable(obj, filter) then return {} end
-            return {obj}
-        else
-            if not utils.is_subtable(obj, filter) then
-                error('cannot find an object for: ' .. json.encode(filter))
-            end
-            return obj
-        end
+local function access_function(parent, collection_name, filter, args)
+    --[[
+    print('DEBUG: collection_name: ' .. collection_name)
+    print('DEBUG: filter: ' .. json.encode(filter))
+    print('DEBUG: args: ' .. json.encode(args))
+    print('DEBUG: --------')
+    --]]
+    local obj
+    if collection_name == 'relation_collection' then
+        obj = {
+            id = 'abc',
+            type = 'type 1',
+            size = 2,
+            individual_id = 'def',
+            organization_id = 'ghi',
+        }
+    elseif collection_name == 'individual_collection' then
+        obj = {
+            individual_id = 'def',
+            last_name = 'last name',
+            first_name = 'first name',
+            birthdate = '1970-01-01',
+        }
+    elseif collection_name == 'organization_collection' then
+        obj = {
+            organization_id = 'def',
+            organization_name = 'qwqw',
+        }
+    elseif collection_name == 'user_collection' then
+        obj = {
+            user_id = 'def',
+            last_name = 'last name',
+            first_name = 'first name',
+        }
+    elseif collection_name == 'order_collection' then
+        obj = {
+            order_id = '123',
+            user_id = 'def',
+            description = 'the order 123',
+        }
+    else
+        error('NIY: ' .. collection_name)
     end
+    if not utils.is_subtable(obj, filter) then return {} end
+    return {obj}
 end
 
 local accessor = setmetatable({}, {
     __index = {
-        get = function(self, parent, collection_name, filter, args)
-            return gen_access_function(collection_name, {is_list = false})(
-                parent, filter, args)
-        end,
         select = function(self, parent, collection_name, filter, args)
-            return gen_access_function(collection_name, {is_list = true})(
-                parent, filter, args)
+            return access_function(parent, collection_name, filter, args)
         end,
         arguments = function(self, connection_type)
             if connection_type == '1:1' then return {} end
@@ -194,7 +179,7 @@ local gql_wrapper = tarantool_graphql.new({
     schemas = schemas,
     -- collection_{schema_name=..., connections=...} mapping
     collections = collections,
-    -- :get(), :select() and :arguments() provider
+    -- :select() and :arguments() provider
     accessor = accessor,
 })
 
