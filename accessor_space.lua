@@ -184,14 +184,13 @@ end
 ---         {name = 'expires_on', type = 'long', default = 0},
 ---     },
 ---
---- Example of indexes item:
+--- Example of indexes item (describe
+--- box.space['collection_name'].index['foo_bar']):
 ---
 ---     indexes['collection_name'] = {
 ---         foo_bar = {
 ---             service_fields = {},
 ---             fields = {'foo', 'bar'},
----             index_type = 'tree',
----             unique = true,
 ---         },
 ---         ...
 ---     }
