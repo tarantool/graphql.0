@@ -111,11 +111,53 @@ local function build_lookup_index_name(indexes)
     return lookup_index_name
 end
 
+local function validate_collections(collections, schemas)
+    for collection_name, collection in pairs(collections) do
+        assert(type(collection_name) == 'string',
+            'collection_name must be a string, got ' ..
+            type(collection_name))
+        assert(type(collection) == 'table',
+            'collection must be a table, got ' .. type(collection))
+        local schema_name = collection.schema_name
+        assert(type(schema_name) == 'string',
+            'collection.schema_name must be a string, got ' ..
+            type(schema_name))
+        assert(schemas[schema_name] ~= nil,
+            ('cannot find schema "%s" for collection "%s"'):format(
+            schema_name, collection_name))
+        local connections = collection.connections
+        assert(connections == nil or type(connections) == 'table',
+            'collection.connections must be nil or table, got ' ..
+            type(connections))
+        for _, connection in ipairs(connections) do
+            assert(type(connection) == 'table',
+                'connection must be a table, got ' .. type(connection))
+            assert(type(connection.name) == 'string',
+                'connection.name must be a string, got ' ..
+                type(connection.name))
+            assert(type(connection.destination_collection) == 'string',
+                'connection.destination_collection must be a string, got ' ..
+                type(connection.destination_collection))
+            assert(type(connection.parts) == 'table',
+                'connection.parts must be a string, got ' ..
+                type(connection.parts))
+            for _, part in ipairs(connection.parts) do
+                assert(type(part.source_field) == 'string',
+                    'part.source_field must be a string, got ' ..
+                    type(part.source_field))
+                assert(type(part.destination_field) == 'string',
+                    'part.destination_field must be a string, got ' ..
+                    type(part.destination_field))
+            end
+        end
+    end
+end
+
 local function select_internal(self, collection_name, filter, args)
     assert(type(self) == 'table',
         'self must be a table, got ' .. type(self))
     assert(type(collection_name) == 'string',
-        'collection_name must be a table, got ' ..
+        'collection_name must be a string, got ' ..
         type(collection_name))
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
@@ -213,9 +255,7 @@ function accessor_space.new(opts)
         'indexes must be a table, got ' .. type(indexes))
 
     local models = compile_schemas(schemas, service_fields)
-    -- XXX: validate collections
-    -- - key must be a string
-    -- - .schema_name must be a string
+    validate_collections(collections, schemas)
     -- XXX: validate service_fields
     -- - key must be a string
     local lookup_index_name = build_lookup_index_name(indexes)
