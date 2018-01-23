@@ -160,7 +160,8 @@ end
 
 local accessor = setmetatable({}, {
     __index = {
-        select = function(self, parent, collection_name, filter, args)
+        select = function(self, parent, collection_name, connection_name,
+                filter, args)
             return access_function(parent, collection_name, filter, args)
         end,
         arguments = function(self, connection_type)

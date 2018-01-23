@@ -134,10 +134,20 @@ end
 ---    automatically generate corresponding decucible fields.
 --- 2. The collection name will be used as the resulting graphql type name
 ---    instead of the avro-schema name.
-gql_type = function(state, avro_schema, collection)
+gql_type = function(state, avro_schema, collection, collection_name)
     local state = state or {}
     assert(type(state) == 'table',
         'state must be a table or nil, got ' .. type(state))
+    assert(collection == nil or type(collection) == 'table',
+        'collection must be nil or a table, got ' .. type(collection))
+    assert(collection_name == nil or type(collection_name) == 'string',
+        'collection_name must be nil or a string, got ' ..
+        type(collection_name))
+    assert((collection == nil and collection_name == nil) or
+        (collection ~= nil and collection_name ~= nil),
+        ('collection and collection_name must be nils or ' ..
+        'non-nils simultaneously, got: %s and %s'):format(type(collection),
+        type(collection_name)))
     local accessor = state.accessor
     assert(accessor ~= nil, 'state.accessor must not be nil')
     assert(accessor.select ~= nil, 'state.accessor.select must not be nil')
@@ -196,8 +206,12 @@ gql_type = function(state, avro_schema, collection)
                         filter[part.destination_field] =
                             parent[part.source_field]
                     end
+                    local from = {
+                        collection_name = collection_name,
+                        connection_name = c.name,
+                    }
                     local objs = accessor:select(parent,
-                            c.destination_collection, filter, args)
+                            c.destination_collection, from, filter, args)
                     assert(type(objs) == 'table',
                         'objs list received from an accessor ' ..
                         'must be a table, got ' .. type(objs))
@@ -297,7 +311,7 @@ local function parse_cfg(cfg)
             tostring(collection.schema_name)))
         local schema_name
         state.types[name], state.arguments[name], schema_name =
-            gql_type(state, schema, collection)
+            gql_type(state, schema, collection, name)
         assert(schema_name == nil or schema_name == collection.schema_name,
             ('top-level schema name does not match the name in ' ..
             'the schema itself: "%s" vs "%s"'):format(collection.schema_name,
@@ -310,7 +324,8 @@ local function parse_cfg(cfg)
             resolve = function(rootValue, args, info)
                 local filter = args
                 local args = {}
-                return accessor:select(rootValue, name, filter, args)
+                local from = nil
+                return accessor:select(rootValue, name, from, filter, args)
             end,
         }
     end
@@ -414,7 +429,10 @@ end
 ---     },
 ---     accessor = setmetatable({}, {
 ---         __index = {
----             select = function(self, parent, collection_name, filter, args)
+---             select = function(self, parent, collection_name, from,
+---                     filter, args)
+---                 -- from is nil for a top-level object, otherwise it is
+---                 -- `{collection_name = ..., connection_name = ...}`
 ---                 return ...
 ---             end,
 ---             arguments = function(self, connection_type)

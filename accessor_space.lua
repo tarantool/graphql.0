@@ -175,12 +175,21 @@ local function validate_collections(collections, schemas)
     end
 end
 
-local function select_internal(self, collection_name, filter, args)
+local function select_internal(self, collection_name, from, filter, args)
     assert(type(self) == 'table',
         'self must be a table, got ' .. type(self))
     assert(type(collection_name) == 'string',
         'collection_name must be a string, got ' ..
         type(collection_name))
+    assert(from == nil or type(from) == 'table',
+        'from must be nil or a string, got ' .. type(from))
+    assert(from == nil or type(from.collection_name) == 'string',
+        'from must be nil or from.collection_name must be a string, got ' ..
+        type((from or {}).collection_name))
+    assert(from == nil or type(from.connection_name) == 'string',
+        'from must be nil or from.connection_name must be a string, got ' ..
+        type((from or {}).connection_name))
+
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
     assert(type(args) == 'table',
@@ -195,14 +204,18 @@ local function select_internal(self, collection_name, filter, args)
         ('cannot find the collection "%s"'):format(
         collection_name))
 
+    -- XXX: lookup index by connection_name, not filter?
     local index_name, index_value = get_index_name(
         collection_name, filter, self.lookup_index_name)
     assert(box.space[collection_name] ~= nil,
         ('cannot find space "%s"'):format(collection_name))
     local index = box.space[collection_name].index[index_name]
-    assert(index ~= nil,
-        ('cannot find index "%s" in space "%s"'):format(
-        index_name, collection_name))
+    if from ~= nil then
+        -- allow fullscan only for a top-level object
+        assert(index ~= nil,
+            ('cannot find index "%s" in space "%s"'):format(
+            index_name, collection_name))
+    end
 
     local schema_name = collection.schema_name
     assert(type(schema_name) == 'string',
@@ -212,27 +225,50 @@ local function select_internal(self, collection_name, filter, args)
         ('cannot find model for collection "%s"'):format(
         collection_name))
 
+    -- XXX: this block becomes ugly after add support of filtering w/o index
+    -- (using fullscan) for top-level objects; it need to be refactored
     local limit = args.limit
     local offset = args.offset
     local skipped = 0
     local count = 0
     local objs = {}
-    for _, tuple in index:pairs(index_value) do
+    local function process_tuple(tuple, do_filter)
         if offset ~= nil and skipped < offset then
+            if do_filter then
+                local ok, obj = model.unflatten(tuple)
+                assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
+                local match = utils.is_subtable(obj, filter)
+                if not match then return true end
+            end
             skipped = skipped + 1
         else
             local ok, obj = model.unflatten(tuple)
             assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
-            assert(utils.is_subtable(obj, filter),
-                'found object do not fit passed filter')
+            local match = utils.is_subtable(obj, filter)
+            if do_filter then
+                if not match then return true end
+            else
+                assert(match, 'found object do not fit passed filter')
+            end
             objs[#objs + 1] = obj
             count = count + 1
             if limit ~= nil and count >= limit then
                 assert(limit == nil or count <= limit,
                     ('count[%d] exceeds limit[%s] (in for)'):format(
                     count, limit))
-                break
+                return false
             end
+        end
+        return true
+    end
+    if index == nil then
+        -- fullscan
+        for _, tuple in box.space[collection_name]:pairs() do
+            if not process_tuple(tuple, true) then break end
+        end
+    else
+        for _, tuple in index:pairs(index_value) do
+            if not process_tuple(tuple, false) then break end
         end
     end
     assert(limit == nil or count <= limit,
@@ -280,8 +316,6 @@ function accessor_space.new(opts)
     validate_collections(collections, schemas)
     local lookup_index_name = build_lookup_index_name(indexes)
 
-    -- XXX: we need to pass a connection name in case there are different
-    --      connections with the same fields in a different order
     return setmetatable({
         schemas = schemas,
         collections = collections,
@@ -291,10 +325,22 @@ function accessor_space.new(opts)
         lookup_index_name = lookup_index_name,
     }, {
         __index = {
-            select = function(self, parent, collection_name, filter, args)
+            select = function(self, parent, collection_name, from,
+                    filter, args)
                 assert(type(parent) == 'table',
                     'parent must be a table, got ' .. type(parent))
-                return select_internal(self, collection_name, filter, args)
+                assert(from == nil or type(from) == 'table',
+                    'from must be nil or a string, got ' .. type(from))
+                assert(from == nil or type(from.collection_name) == 'string',
+                    'from must be nil or from.collection_name ' ..
+                    'must be a string, got ' ..
+                    type((from or {}).collection_name))
+                assert(from == nil or type(from.connection_name) == 'string',
+                    'from must be nil or from.connection_name ' ..
+                    'must be a string, got ' ..
+                    type((from or {}).connection_name))
+                return select_internal(self, collection_name, from, filter,
+                    args)
             end,
             arguments = function(self, connection_type)
                 if connection_type == '1:1' then return {} end

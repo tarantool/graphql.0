@@ -182,8 +182,9 @@ utils.show_trace(function()
 end)
 
 local query_2 = [[
-    query user_order($user_id: String, $limit: Int, $offset: Long) {
-        user_collection(user_id: $user_id) {
+    query user_order($user_id: String, $first_name: String, $limit: Int,
+            $offset: Long) {
+        user_collection(user_id: $user_id, first_name: $first_name) {
             user_id
             last_name
             first_name
@@ -214,6 +215,16 @@ end)
 utils.show_trace(function()
     local variables_2_3 = {user_id = 'user_id_42', limit = 10, offset = 38}
     local result = gql_query_2:execute(variables_2_3)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+utils.show_trace(function()
+    local variables_2_4 = {
+        first_name = 'first name 42',
+        limit = 3,
+        offset = 39,
+    }
+    local result = gql_query_2:execute(variables_2_4)
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
 
