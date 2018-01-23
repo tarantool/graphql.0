@@ -58,7 +58,7 @@ local collections = json.decode([[{
 
 local service_fields = {
     user = {
---        {name = 'expires_on', type = 'long', default = 0},
+        {name = 'expires_on', type = 'long', default = 0},
     },
     order = {},
 }
@@ -88,14 +88,11 @@ local indexes = {
     },
 }
 
--- XXX: define certain format
-local arguments = {}
-
 -- fill spaces
 -- -----------
 
 -- user_collection fields
-local U_USER_ID_FN = 1
+local U_USER_ID_FN = 2
 
 -- order_collection fields
 local O_ORDER_ID_FN = 1
@@ -123,9 +120,9 @@ box.once('test_space_init_spaces', function()
 end)
 
 box.space.user_collection:replace(
-    {'user_id_1', 'Ivan', 'Ivanov'})
+    {1827767717, 'user_id_1', 'Ivan', 'Ivanov'})
 box.space.user_collection:replace(
-    {'user_id_2', 'Vasiliy', 'Pupkin'})
+    {1827767717, 'user_id_2', 'Vasiliy', 'Pupkin'})
 box.space.order_collection:replace(
     {'order_id_1', 'user_id_1', 'first order of Ivan'})
 box.space.order_collection:replace(
@@ -136,7 +133,7 @@ box.space.order_collection:replace(
 for i = 3, 100 do
     local s = tostring(i)
     box.space.user_collection:replace(
-        {'user_id_' .. s, 'first name ' .. s, 'last name ' .. s})
+        {1827767717, 'user_id_' .. s, 'first name ' .. s, 'last name ' .. s})
     for j = (4 + (i - 3) * 40), (4 + (i - 2) * 40) - 1 do
         local t = tostring(j)
         box.space.order_collection:replace(
@@ -152,7 +149,6 @@ local accessor = accessor_space.new({
     collections = collections,
     service_fields = service_fields,
     indexes = indexes,
-    arguments = arguments,
 })
 
 local gql_wrapper = tarantool_graphql.new({

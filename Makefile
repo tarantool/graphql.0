@@ -9,3 +9,7 @@ lint:
 test: lint
 	./test.lua
 	./test_space.lua
+
+.PHONY: clean
+clean:
+	rm -f *.xlog *.snap

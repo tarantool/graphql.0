@@ -3,15 +3,28 @@ local utils = require('utils')
 
 local accessor_space = {}
 
---[[
-    local service_fields_types = {}
-    for i, v in ipairs(service_fields) do
-        service_fields_types[#service_fields_types + 1] = v.type
-    end
-]]--
-
--- XXX: different service_fields for different collections
 local function compile_schemas(schemas, service_fields)
+    local service_fields_types = {}
+    for name, service_fields_list in pairs(service_fields) do
+        assert(type(name) == 'string',
+            'service_fields key must be a string, got ' .. type(name))
+        assert(type(service_fields_list) == 'table',
+            'service_fields_list must be a table, got ' ..
+            type(service_fields_list))
+        local sf_types = {}
+        for _, v in ipairs(service_fields_list) do
+            assert(type(v) == 'table',
+                'service_fields_list item must be a table, got ' .. type(v))
+            assert(type(v.name) == 'string',
+                'service_field name must be a string, got ' .. type(v.name))
+            assert(type(v.type) == 'string',
+                'service_field type must be a string, got ' .. type(v.type))
+            assert(v.default ~= nil, 'service_field default must not be a nil')
+            sf_types[#sf_types + 1] = v.type
+        end
+        service_fields_types[name] = sf_types
+    end
+
     local models = {}
     for name, schema in pairs(schemas) do
         assert(type(schema) == 'table',
@@ -25,10 +38,14 @@ local function compile_schemas(schemas, service_fields)
             name, schema.name))
         assert(schema.type == 'record', 'schema.type must be a record')
 
-        local ok, handle = avro_schema.create(schema, {}) -- XXX: service_fields
+        local ok, handle = avro_schema.create(schema)
         assert(ok, ('cannot create avro_schema for %s: %s'):format(
             name, tostring(handle)))
-        local ok, model = avro_schema.compile(handle)
+        local sf_types = service_fields_types[name]
+        assert(sf_types ~= nil,
+            ('cannot find service_fields for schema "%s"'):format(name))
+        local ok, model = avro_schema.compile(
+            {handle, service_fields = sf_types})
         assert(ok, ('cannot compile avro_schema for %s: %s'):format(
             name, tostring(model)))
 
@@ -175,7 +192,7 @@ local function select_internal(self, collection_name, filter, args)
 
     local collection = self.collections[collection_name]
     assert(collection ~= nil,
-        ('cannot found the collection "%s"'):format(
+        ('cannot find the collection "%s"'):format(
         collection_name))
 
     local index_name, index_value = get_index_name(
@@ -227,7 +244,7 @@ end
 
 --- Example of service_fields item:
 ---
----     service_fields['collection_name'] = {
+---     service_fields['schema_name'] = {
 ---         {name = 'expires_on', type = 'long', default = 0},
 ---     },
 ---
@@ -261,8 +278,6 @@ function accessor_space.new(opts)
 
     local models = compile_schemas(schemas, service_fields)
     validate_collections(collections, schemas)
-    -- XXX: validate service_fields
-    -- - key must be a string
     local lookup_index_name = build_lookup_index_name(indexes)
 
     -- XXX: we need to pass a connection name in case there are different
