@@ -1,10 +1,16 @@
 #!/usr/bin/env tarantool
 
+local fio = require('fio')
+
+-- require in-repo version of graphql/ sources despite current working directory
+package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
+    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
+    package.path
+
 local json = require('json')
 local yaml = require('yaml')
-local utils = require('utils')
-local accessor_space = require('accessor_space')
-local tarantool_graphql = require('tarantool_graphql')
+local graphql = require('graphql')
+local utils = require('graphql.utils')
 
 local schemas = json.decode([[{
     "user": {
@@ -144,14 +150,14 @@ end
 -- build accessor and graphql schemas
 -- ----------------------------------
 
-local accessor = accessor_space.new({
+local accessor = graphql.accessor_space.new({
     schemas = schemas,
     collections = collections,
     service_fields = service_fields,
     indexes = indexes,
 })
 
-local gql_wrapper = tarantool_graphql.new({
+local gql_wrapper = graphql.new({
     schemas = schemas,
     collections = collections,
     accessor = accessor,

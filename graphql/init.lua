@@ -1,11 +1,9 @@
-local path = (...):gsub('%.init$', '')
+local accessor_space = require('graphql.accessor_space')
+local tarantool_graphql = require('graphql.tarantool_graphql')
 
 local graphql = {}
 
-graphql.parse = require(path .. '.parse')
-graphql.types = require(path .. '.types')
-graphql.schema = require(path .. '.schema')
-graphql.validate = require(path .. '.validate')
-graphql.execute = require(path .. '.execute')
+graphql.accessor_space = accessor_space
+graphql.new = tarantool_graphql.new
 
 return graphql

@@ -1,5 +1,5 @@
 local avro_schema = require('avro_schema')
-local utils = require('utils')
+local utils = require('graphql.utils')
 
 local accessor_space = {}
 

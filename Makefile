@@ -3,13 +3,13 @@ default:
 
 .PHONY: lint
 lint:
-	luacheck *.lua --no-redefined --no-unused-args
+	luacheck {graphql,test}/*.lua --no-redefined --no-unused-args
 
 .PHONY: test
 test: lint
-	./test.lua
-	./test_space.lua
+	./test/simple.test.lua
+	./test/space.test.lua
 
 .PHONY: clean
 clean:
-	rm -f *.xlog *.snap
+	rm -f {,test/}*.{xlog,snap}

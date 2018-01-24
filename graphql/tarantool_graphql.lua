@@ -9,13 +9,13 @@
 
 local json = require('json')
 
-local parse = require('graphql.parse')
-local schema = require('graphql.schema')
-local types = require('graphql.types')
-local validate = require('graphql.validate')
-local execute = require('graphql.execute')
+local parse = require('graphql.core.parse')
+local schema = require('graphql.core.schema')
+local types = require('graphql.core.types')
+local validate = require('graphql.core.validate')
+local execute = require('graphql.core.execute')
 
-local utils = require('utils')
+local utils = require('graphql.utils')
 
 local tarantool_graphql = {}
 
