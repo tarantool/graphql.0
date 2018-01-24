@@ -7,3 +7,9 @@
 # tarantool's wal and snapshot files
 *.xlog
 *.snap
+
+# python virtualenv
+.env-2.7
+
+# temporary files from testing
+test/var

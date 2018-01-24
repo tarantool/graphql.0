@@ -1,0 +1,25 @@
+RESULT
+---
+relation_collection:
+- individual_connection:
+    first_name: first name
+    last_name: last name
+  id: abc
+...
+
+RESULT
+---
+user_collection:
+- user_id: def
+  last_name: last name
+  first_name: first name
+  order_connection:
+  - order_id: '123'
+    description: the order 123
+order_collection:
+- order_id: '123'
+  user_connection:
+    first_name: first name
+    last_name: last name
+...
+
