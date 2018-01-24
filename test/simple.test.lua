@@ -221,6 +221,13 @@ local query_2 = [[
                 description
             }
         }
+        order_collection(order_id: "123") {
+            order_id
+            user_connection {
+                first_name
+                last_name
+            }
+        }
     }
 ]]
 
