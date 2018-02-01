@@ -162,8 +162,11 @@ gql_type = function(state, avro_schema, collection, collection_name)
             ('avro_schema.fields must be a table, got %s (avro_schema %s)')
             :format(type(avro_schema.fields), json.encode(avro_schema)))
 
+        local accessor_args = convert_scalar_record_fields_to_arguments(
+            accessor:arguments('1:N'))
         local fields, args = convert_record_fields(state,
             avro_schema.fields)
+        args = utils.merge_tables(args, accessor_args)
 
         for _, c in ipairs((collection or {}).connections or {}) do
             assert(type(c.type) == 'string',
@@ -205,6 +208,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
                             type(part.destination_field))
                         filter[part.destination_field] =
                             parent[part.source_field]
+                        -- XXX: remove the filter fields from args?
                     end
                     local from = {
                         collection_name = collection_name,
@@ -302,6 +306,10 @@ local function parse_cfg(cfg)
 
     local fields = {}
 
+    -- XXX: don't convert to graphql types, we just need argument names here
+    local arguments = convert_scalar_record_fields_to_arguments(
+        accessor:arguments('1:N'))
+
     for name, collection in pairs(state.collections) do
         collection.name = name
         assert(collection.schema_name ~= nil,
@@ -322,8 +330,16 @@ local function parse_cfg(cfg)
             kind = types.nonNull(types.list(state.types[name])),
             arguments = state.arguments[name],
             resolve = function(rootValue, args, info)
-                local filter = args
-                local args = {}
+                local args = table.copy(args)
+                local filter = {}
+                for k, v in pairs(args) do
+                    -- XXX: verify filter keys against the schema, not just
+                    -- 'not in the accessor arguments'
+                    if arguments[k] == nil then
+                        filter[k] = v
+                        -- XXX: remove the filter fields from args?
+                    end
+                end
                 local from = nil
                 return accessor:select(rootValue, name, from, filter, args)
             end,

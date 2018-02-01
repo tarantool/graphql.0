@@ -75,3 +75,38 @@ user_collection:
     description: order of user 42
 ...
 
+RESULT
+---
+user_collection:
+- user_id: user_id_54
+  last_name: last name 54
+  first_name: first name 54
+- user_id: user_id_55
+  last_name: last name 55
+  first_name: first name 55
+- user_id: user_id_56
+  last_name: last name 56
+  first_name: first name 56
+- user_id: user_id_57
+  last_name: last name 57
+  first_name: first name 57
+- user_id: user_id_58
+  last_name: last name 58
+  first_name: first name 58
+- user_id: user_id_59
+  last_name: last name 59
+  first_name: first name 59
+- user_id: user_id_6
+  last_name: last name 6
+  first_name: first name 6
+- user_id: user_id_60
+  last_name: last name 60
+  first_name: first name 60
+- user_id: user_id_61
+  last_name: last name 61
+  first_name: first name 61
+- user_id: user_id_62
+  last_name: last name 62
+  first_name: first name 62
+...
+

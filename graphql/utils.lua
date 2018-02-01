@@ -66,4 +66,19 @@ function utils.is_array(table)
     return max >= 0
 end
 
+--- Creates a table containing fields from all passed tables.
+---
+--- When the field names intersects between passed tables a value from a latter
+--- table have precedence.
+function utils.merge_tables(...)
+    local res = {}
+    for i = 1, select('#', ...) do
+        local t = select(i, ...)
+        for k, v in pairs(t) do
+            res[k] = v
+        end
+    end
+    return res
+end
+
 return utils

@@ -234,4 +234,21 @@ utils.show_trace(function()
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
 
+local query_3 = [[
+    query users($limit: Int, $offset: Long) {
+        user_collection(limit: $limit, offset: $offset) {
+            user_id
+            last_name
+            first_name
+        }
+    }
+]]
+
+utils.show_trace(function()
+    local variables_3 = {limit = 10, offset = 50}
+    local gql_query_3 = gql_wrapper:compile(query_3)
+    local result = gql_query_3:execute(variables_3)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
 os.exit()
