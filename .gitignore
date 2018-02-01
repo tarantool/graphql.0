@@ -13,3 +13,6 @@
 
 # temporary files from testing
 test/var
+
+# generated API documentation
+doc/apidoc

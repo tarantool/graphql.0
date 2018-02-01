@@ -1,9 +1,21 @@
+--- Data accessor module that is base for `accessor_space` and
+--- `accessor_shard` ones.
+---
+--- It provides basic logic for such space-like data storages and abstracted
+--- away from details from where tuples are arrived into the application.
+
 local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 
 local accessor_general = {}
 
 --- Validate and compile set of avro schemas (with respect to service fields).
+--- @tparam table schemas map where keys are string names and values are
+--- avro schemas; consider an example in @{tarantool_graphql.new} function
+--- description.
+--- @tparam table service_fields map where keys are string names of avro
+--- schemas (from `schemas` argument) and values are service fields descriptions;
+--- consider the example in the @{new} function description.
 local function compile_schemas(schemas, service_fields)
     local service_fields_types = {}
     for name, service_fields_list in pairs(service_fields) do
@@ -58,11 +70,32 @@ end
 -- XXX: support partial match for primary/secondary indexes and support to skip
 -- fields to get an index (full_match must be false in the case because
 -- returned items will be additionally filtered after unflatten).
+
+--- Choose an index for lookup tuple(s) by a 'filter'. The filter holds fields
+--- values of object(s) we want to find. It uses prebuilt `lookup_index_name`
+--- table representing available indexes, which created by the
+--- `build_lookup_index_name` function.
+--- @tparam string collection_name name of a collection of whose indexes the
+--- function will search through
+--- @tparam table filter map from fields names to values; names are used for
+--- lookup needed index, values forms the `value_list` return value
+--- @tparam table lookup_index_name prebuild table representing available
+--- indexes
+--- @treturn boolean `full_match` is whether passing `value_list` to the index
+--- with name `index_name` will give tuple(s) proven to match the filter or
+--- just some subset of all tuples in the collection which need to be filtered
+--- further
+--- @treturn string `index_name` is name of the found index or nil
+--- @treturn table `value_list` is values list from the `filter` argument
+--- ordered in the such way that can be passed to the found index (has some
+--- meaning only when `index_name ~= nil`)
 local get_index_name = function(collection_name, filter, lookup_index_name)
     assert(type(collection_name) == 'string',
         'collection_name must be a string, got ' .. type(collection_name))
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
+    assert(type(lookup_index_name) == 'table',
+        'lookup_index_name must be a table, got ' .. type(lookup_index_name))
     local name_list = {}
     local value_list = {}
     local function fill_name_list(filter, base_name)
@@ -85,6 +118,10 @@ local get_index_name = function(collection_name, filter, lookup_index_name)
     return full_match, index_name, value_list
 end
 
+--- Build `lookup_index_name` table to use in the @{get_index_name} function.
+--- @tparam table indexes map of from collection names to indexes as defined in
+--- the @{new} function.
+--- @treturn table `lookup_index_name`
 local function build_lookup_index_name(indexes)
     assert(type(indexes) == 'table', 'indexes must be a table, got ' ..
         type(indexes))
@@ -138,6 +175,15 @@ local function build_lookup_index_name(indexes)
     return lookup_index_name
 end
 
+--- Set of asserts to check the `opts.collections` argument of the
+--- @{accessor_general.new} function.
+--- @tparam table collections a map from collection names to collections as
+--- defined in the @{accessor_general.new} function decription; this is subject
+--- to validate
+--- @tparam table schemas a map from schema names to schemas as defined in the
+--- @{tarantool_graphql.new} function; this is for validate collection against
+--- certain set of schemas (no 'dangling' schema names in collections)
+--- @return nil
 local function validate_collections(collections, schemas)
     for collection_name, collection in pairs(collections) do
         assert(type(collection_name) == 'string',
@@ -180,6 +226,24 @@ local function validate_collections(collections, schemas)
     end
 end
 
+--- The function is core of this module and implements logic of fetching and
+--- filtering requested objects.
+---
+--- @tparam table self the data accessor created by the `new` function
+--- (directly or indirectly using the `accessor_space.new` or the
+--- `accessor_shard.new` function)
+---
+--- @tparam string collection_name name of collection to perform select
+---
+--- @tparam table from collection and connection names we arrive from/by or nil
+--- as defined in the `tarantool_graphql.new` function description
+---
+--- @tparam table filter subset of object fields with values by which we want to find full object(s)
+---
+--- @tparam table args table of arguments passed within the query except ones
+--- that forms the `filter` parameter
+---
+--- @treturn table list of matching objects
 local function select_internal(self, collection_name, from, filter, args)
     assert(type(self) == 'table',
         'self must be a table, got ' .. type(self))
@@ -286,6 +350,11 @@ local function select_internal(self, collection_name, from, filter, args)
     return objs
 end
 
+--- Set of asserts to check the `funcs` argument of the @{accessor_general.new}
+--- function.
+--- @tparam table funcs set of function as defined in the
+--- @{accessor_general.new} function decription
+--- @return nil
 local function validate_funcs(funcs)
     assert(type(funcs) == 'table',
         'funcs must be a table, got ' .. type(funcs))
@@ -300,14 +369,31 @@ local function validate_funcs(funcs)
         type(funcs.get_primary_index))
 end
 
---- Example of service_fields item:
+--- Create a new data accessor.
+---
+--- Provided `funcs` argument determines certain functions for retrieving
+--- tuples.
+---
+--- @tparam table opts `schemas`, `collections`, `service_fields` and `indexes`
+--- to give the data accessor all needed meta-information re data; the format is
+--- shown below
+---
+--- @tparam table funcs set of functions (`is_collection_exists`, `get_index`,
+--- `get_primary_index`) allows this abstract data accessor behaves in the
+--- certain way (say, like space data accessor or shard data accessor);
+--- consider the `accessor_space` and the `accessor_shard` modules documentation
+--- for this functions description
+---
+--- For examples of `opts.schemas` and `opts.collections` consider the
+--- @{tarantool_graphql.new} function description.
+---
+--- Example of `opts.service_fields` item:
 ---
 ---     service_fields['schema_name'] = {
 ---         {name = 'expires_on', type = 'long', default = 0},
 ---     },
 ---
---- Example of indexes item (describe
---- box.space['collection_name'].index['foo_bar']):
+--- Example of `opts.indexes` item:
 ---
 ---     indexes['collection_name'] = {
 ---         foo_bar = {
@@ -316,6 +402,10 @@ end
 ---         },
 ---         ...
 ---     }
+---
+--- @treturn table data accessor instance, a table with the two methods
+--- (`select` and `arguments`) as described in the @{tarantool_graphql.new}
+--- function description.
 function accessor_general.new(opts, funcs)
     assert(type(opts) == 'table',
         'opts must be a table, got ' .. type(opts))

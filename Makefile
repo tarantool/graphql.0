@@ -16,3 +16,9 @@ test: lint
 .PHONY: clean
 clean:
 	rm -rf test/var
+
+.PHONY: apidoc
+apidoc:
+	ldoc -d doc/apidoc graphql --all -f markdown
+	# fix navigation panel width
+	sed -i -e 's/: 14em;/: 24em;/' doc/apidoc/ldoc.css

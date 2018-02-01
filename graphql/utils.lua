@@ -1,7 +1,11 @@
+--- Various utility function used across the graphql module sources and tests.
+
 local log = require('log')
 
 local utils = {}
 
+--- Log an error and the corresponding backtrace in case of the `func` function
+--- call raises the error.
 function utils.show_trace(func, ...)
     local args = {...}
     return select(2, xpcall(
@@ -13,6 +17,7 @@ function utils.show_trace(func, ...)
     ))
 end
 
+--- Recursively checks whether `sub` fields values are match `t` ones.
 function utils.is_subtable(t, sub)
     for k, v in pairs(sub) do
         if type(v) == 'table' then
@@ -30,10 +35,14 @@ function utils.is_subtable(t, sub)
 end
 
 --- Check whether table is an array.
---- Based on [that][1].
+---
+--- Based on [that][1] implementation.
 --- [1]: https://github.com/mpx/lua-cjson/blob/db122676/lua/cjson/util.lua
---- @param table
---- @return True if table is an array
+---
+--- @tparam table table to check
+--- @return[1] `true` if passed table is an array (includes the empty table
+--- case)
+--- @return[2] `false` otherwise
 function utils.is_array(table)
     if type(table) ~= 'table' then
         return false

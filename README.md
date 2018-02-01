@@ -55,6 +55,12 @@ git submodule update --recursive --init
 make test
 ```
 
+## Requirements
+
+* For use: tarantool, lulpeg.
+* For test (additionally to 'for use'): python 2.7, virtualenv.
+* For building apidoc (additionally to 'for use'): ldoc.
+
 ## License
 
 Consider LICENSE file for details. In brief:

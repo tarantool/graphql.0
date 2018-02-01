@@ -1,3 +1,7 @@
+--- The module implements functions needed to make general accessor
+--- (@{accessor_general}) behaves as shard accessor and provides the
+--- `accessor_shard.new` function to create a new shard data accessor instance.
+
 local shard = require('shard')
 local accessor_general = require('graphql.accessor_general')
 
@@ -25,6 +29,9 @@ local function is_collection_exists(collection_name)
     return exists
 end
 
+--- Internal function to use in @{get_index}; it is necessary because
+--- determining whether the index exists within a shard cluster is
+--- not-so-trivial as for local spaces.
 local function is_index_exists(collection_name, index_name)
     local exists
     for _, zone in ipairs(shard.shards) do
@@ -42,7 +49,7 @@ local function is_index_exists(collection_name, index_name)
     return exists
 end
 
---- Get index to perform :pairs({v1, ...})
+--- Get index to perform `:pairs({v1, ...})`.
 --- @return index or nil
 local function get_index(collection_name, index_name)
     if not is_index_exists(collection_name, index_name) then
@@ -68,11 +75,12 @@ local function get_index(collection_name, index_name)
     return index
 end
 
---- Get primary index to perform :pairs() (fullscan)
+--- Get primary index to perform `:pairs()` (fullscan).
 local function get_primary_index(collection_name)
     return get_index(collection_name, 0)
 end
 
+--- Create a new shard data accessor instance.
 function accessor_shard.new(opts)
     local funcs = {
         is_collection_exists = is_collection_exists,
