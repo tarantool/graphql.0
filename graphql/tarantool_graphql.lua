@@ -188,7 +188,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
             end
             -- XXX: support InputObject (non-scalar types in arguments)
             local arguments = convert_scalar_record_fields_to_arguments(
-                accessor:arguments())
+                accessor:arguments(c.type))
             fields[c.name] = {
                 name = c.name,
                 kind = destination_type,

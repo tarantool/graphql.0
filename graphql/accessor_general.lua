@@ -336,11 +336,11 @@ local function select_internal(self, collection_name, from, filter, args)
         -- fullscan
         local primary_index = self.funcs.get_primary_index(collection_name)
         for _, tuple in primary_index:pairs() do
-            if not process_tuple(tuple, true) then break end
+            if not process_tuple(tuple, not full_match) then break end
         end
     else
         for _, tuple in index:pairs(index_value) do
-            if not process_tuple(tuple, false) then break end
+            if not process_tuple(tuple, not full_match) then break end
         end
     end
     assert(limit == nil or count <= limit,
