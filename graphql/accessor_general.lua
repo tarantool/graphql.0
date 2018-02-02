@@ -75,27 +75,40 @@ end
 --- values of object(s) we want to find. It uses prebuilt `lookup_index_name`
 --- table representing available indexes, which created by the
 --- `build_lookup_index_name` function.
+---
+--- @tparam table self the data accessor created by the `new` function
+--- (directly or indirectly using the `accessor_space.new` or the
+--- `accessor_shard.new` function); this function uses the
+--- `self.lookup_index_name` prebuild table representing available indexes
+
 --- @tparam string collection_name name of a collection of whose indexes the
 --- function will search through
+---
 --- @tparam table filter map from fields names to values; names are used for
 --- lookup needed index, values forms the `value_list` return value
---- @tparam table lookup_index_name prebuild table representing available
---- indexes
+---
 --- @treturn boolean `full_match` is whether passing `value_list` to the index
 --- with name `index_name` will give tuple(s) proven to match the filter or
 --- just some subset of all tuples in the collection which need to be filtered
 --- further
+---
 --- @treturn string `index_name` is name of the found index or nil
+---
 --- @treturn table `value_list` is values list from the `filter` argument
 --- ordered in the such way that can be passed to the found index (has some
 --- meaning only when `index_name ~= nil`)
-local get_index_name = function(collection_name, filter, lookup_index_name)
+local get_index_name = function(self, collection_name, filter)
+    assert(type(self) == 'table',
+        'self must be a table, got ' .. type(self))
     assert(type(collection_name) == 'string',
         'collection_name must be a string, got ' .. type(collection_name))
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
+
+    local lookup_index_name = self.lookup_index_name
     assert(type(lookup_index_name) == 'table',
         'lookup_index_name must be a table, got ' .. type(lookup_index_name))
+
     local name_list = {}
     local value_list = {}
     local function fill_name_list(filter, base_name)
@@ -238,7 +251,8 @@ end
 --- @tparam table from collection and connection names we arrive from/by or nil
 --- as defined in the `tarantool_graphql.new` function description
 ---
---- @tparam table filter subset of object fields with values by which we want to find full object(s)
+--- @tparam table filter subset of object fields with values by which we want
+--- to find full object(s)
 ---
 --- @tparam table args table of arguments passed within the query except ones
 --- that forms the `filter` parameter
@@ -274,8 +288,8 @@ local function select_internal(self, collection_name, from, filter, args)
         collection_name))
 
     -- XXX: lookup index by connection_name, not filter?
-    local full_match, index_name, index_value = get_index_name(
-        collection_name, filter, self.lookup_index_name)
+    local full_match, index_name, index_value = get_index_name(self,
+        collection_name, filter)
     assert(self.funcs.is_collection_exists(collection_name),
         ('cannot find collection "%s"'):format(collection_name))
     local index = self.funcs.get_index(collection_name, index_name)
