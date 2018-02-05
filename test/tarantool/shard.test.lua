@@ -103,7 +103,8 @@ collections = json.decode([[{
                 "destination_collection":  "order_collection",
                 "parts": [
                     { "source_field": "user_id", "destination_field": "user_id" }
-                ]
+                ],
+                "index_name": "user_id_index"
             }
         ]
     },
@@ -116,7 +117,8 @@ collections = json.decode([[{
                 "destination_collection":  "user_collection",
                 "parts": [
                     { "source_field": "user_id", "destination_field": "user_id" }
-                ]
+                ],
+                "index_name": "user_id_index"
             }
         ]
     }
@@ -232,6 +234,78 @@ gql_query_2:execute(variables_2_3);
 --variables_3 = {limit = 10, offset = 50};
 --gql_query_3 = gql_wrapper:compile(query_3);
 --gql_query_3:execute(variables_3);
+
+-- extra filter for 1:N connection
+-- -------------------------------
+
+query_4 = [[
+    query user_order($first_name: String, $description: String) {
+        user_collection(first_name: $first_name) {
+            user_id
+            last_name
+            first_name
+            order_connection(description: $description) {
+                order_id
+                description
+            }
+        }
+    }
+]];
+
+gql_query_4 = gql_wrapper:compile(query_4);
+
+-- XXX: it triggers segfault on shard, waiting for fix
+-- https://github.com/tarantool/tarantool/issues/3101
+-- should match 1 order
+--variables_4_1 = {
+--    first_name = 'Ivan',
+--    description = 'first order of Ivan',
+--};
+--gql_query_4:execute(variables_4_1);
+
+-- XXX: it triggers segfault on shard, waiting for fix
+-- https://github.com/tarantool/tarantool/issues/3101
+-- should match no orders
+--variables_4_2 = {
+--    first_name = 'Ivan',
+--    description = 'non-existent order',
+--};
+--gql_query_4:execute(variables_4_2);
+
+-- extra filter for 1:1 connection;
+-- -------------------------------;
+
+query_5 = [[
+    query user_by_order($first_name: String, $description: String) {
+        order_collection(description: $description) {
+            order_id
+            description
+            user_connection(first_name: $first_name) {
+                user_id
+                last_name
+                first_name
+            }
+        }
+    }
+]];
+
+gql_query_5 = gql_wrapper:compile(query_5);
+
+-- should match 1 user;
+-- XXX: it triggers segfault on shard, waiting for fix
+-- https://github.com/tarantool/tarantool/issues/3101
+--variables_5_1 = {
+--    first_name = 'Ivan',
+--    description = 'first order of Ivan',
+--};
+--gql_query_5:execute(variables_5_1);
+
+-- should match no users (or give an error?);
+--variables_5_2 = {
+--    first_name = 'non-existent user',
+--    description = 'first order of Ivan',
+--};
+--gql_query_5:execute(variables_5_2);
 
 test_run:cmd("setopt delimiter ''");
 

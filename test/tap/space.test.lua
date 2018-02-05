@@ -43,7 +43,8 @@ local collections = json.decode([[{
                 "destination_collection":  "order_collection",
                 "parts": [
                     { "source_field": "user_id", "destination_field": "user_id" }
-                ]
+                ],
+                "index_name": "user_id_index"
             }
         ]
     },
@@ -56,7 +57,8 @@ local collections = json.decode([[{
                 "destination_collection":  "user_collection",
                 "parts": [
                     { "source_field": "user_id", "destination_field": "user_id" }
-                ]
+                ],
+                "index_name": "user_id_index"
             }
         ]
     }
@@ -250,5 +252,83 @@ utils.show_trace(function()
     local result = gql_query_3:execute(variables_3)
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
+
+-- extra filter for 1:N connection
+-- -------------------------------
+
+local query_4 = [[
+    query user_order($first_name: String, $description: String) {
+        user_collection(first_name: $first_name) {
+            user_id
+            last_name
+            first_name
+            order_connection(description: $description) {
+                order_id
+                description
+            }
+        }
+    }
+]]
+
+local gql_query_4 = gql_wrapper:compile(query_4)
+
+-- should match 1 order
+utils.show_trace(function()
+    local variables_4_1 = {
+        first_name = 'Ivan',
+        description = 'first order of Ivan',
+    }
+    local result = gql_query_4:execute(variables_4_1)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+-- should match no orders
+utils.show_trace(function()
+    local variables_4_2 = {
+        first_name = 'Ivan',
+        description = 'non-existent order',
+    }
+    local result = gql_query_4:execute(variables_4_2)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+-- extra filter for 1:1 connection
+-- -------------------------------
+
+local query_5 = [[
+    query user_by_order($first_name: String, $description: String) {
+        order_collection(description: $description) {
+            order_id
+            description
+            user_connection(first_name: $first_name) {
+                user_id
+                last_name
+                first_name
+            }
+        }
+    }
+]]
+
+local gql_query_5 = gql_wrapper:compile(query_5)
+
+-- should match 1 user
+utils.show_trace(function()
+    local variables_5_1 = {
+        first_name = 'Ivan',
+        description = 'first order of Ivan',
+    }
+    local result = gql_query_5:execute(variables_5_1)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+-- should match no users (or give an error?)
+--utils.show_trace(function()
+--    local variables_5_2 = {
+--        first_name = 'non-existent user',
+--        description = 'first order of Ivan',
+--    }
+--    local result = gql_query_5:execute(variables_5_2)
+--    print(('RESULT\n%s'):format(yaml.encode(result)))
+--end)
 
 os.exit()

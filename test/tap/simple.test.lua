@@ -171,7 +171,7 @@ local accessor = setmetatable({}, {
                 filter, args)
             return access_function(parent, collection_name, filter, args)
         end,
-        arguments = function(self, connection_type)
+        list_args = function(self, connection_type)
             if connection_type == '1:1' then return {} end
             return {
                 {name = 'limit', type = 'int'},
@@ -187,7 +187,7 @@ local gql_wrapper = graphql.new({
     schemas = schemas,
     -- collection_{schema_name=..., connections=...} mapping
     collections = collections,
-    -- :select() and :arguments() provider
+    -- :select() and :list_args() provider
     accessor = accessor,
 })
 

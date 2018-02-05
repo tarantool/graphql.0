@@ -79,10 +79,21 @@ end
 --- @tparam table self the data accessor created by the `new` function
 --- (directly or indirectly using the `accessor_space.new` or the
 --- `accessor_shard.new` function); this function uses the
---- `self.lookup_index_name` prebuild table representing available indexes
+--- `self.index_cache` prebuild table representing available indexes
 
 --- @tparam string collection_name name of a collection of whose indexes the
 --- function will search through
+---
+--- @tparam table from information about a connection bring executor to select
+--- from a current collection; it is nil when the executor selecting top-level
+--- objects, but has the following structure for nested collections:
+---
+---     {
+---         collection_name = <...> (string),
+---         connection_name = <...> (string),
+---         destination_args_names = <...> (list, lua table),
+---         destination_args_values = <...> (list, lua table),
+---     }
 ---
 --- @tparam table filter map from fields names to values; names are used for
 --- lookup needed index, values forms the `value_list` return value
@@ -97,17 +108,39 @@ end
 --- @treturn table `value_list` is values list from the `filter` argument
 --- ordered in the such way that can be passed to the found index (has some
 --- meaning only when `index_name ~= nil`)
-local get_index_name = function(self, collection_name, filter)
+local get_index_name = function(self, collection_name, from, filter)
     assert(type(self) == 'table',
         'self must be a table, got ' .. type(self))
     assert(type(collection_name) == 'string',
         'collection_name must be a string, got ' .. type(collection_name))
+    assert(from == nil or type(from) == 'table',
+        'from must be nil or a table, got ' .. type(from))
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
 
-    local lookup_index_name = self.lookup_index_name
+    local index_cache = self.index_cache
+    assert(type(index_cache) == 'table',
+        'index_cache must be a table, got ' .. type(index_cache))
+
+    local lookup_index_name = index_cache.lookup_index_name
     assert(type(lookup_index_name) == 'table',
         'lookup_index_name must be a table, got ' .. type(lookup_index_name))
+
+    local connection_indexes = index_cache.connection_indexes
+    assert(type(connection_indexes) == 'table',
+        'connection_indexes must be a table, got ' .. type(connection_indexes))
+
+    if from ~= nil then
+        local connection_index =
+            connection_indexes[collection_name][from.connection_name]
+        local index_name = connection_index.index_name
+        local connection_type = connection_index.connection_type
+        assert(index_name ~= nil, 'index_name must not be nil')
+        assert(connection_type ~= nil, 'connection_type must not be nil')
+        local full_match = connection_type == '1:1' and next(filter) == nil
+        local value_list = from.destination_args_values
+        return full_match, index_name, value_list
+    end
 
     local name_list = {}
     local value_list = {}
@@ -131,9 +164,12 @@ local get_index_name = function(self, collection_name, filter)
     return full_match, index_name, value_list
 end
 
---- Build `lookup_index_name` table to use in the @{get_index_name} function.
---- @tparam table indexes map of from collection names to indexes as defined in
---- the @{new} function.
+--- Build `lookup_index_name` table (part of `index_cache`) to use in the
+--- @{get_index_name} function.
+---
+--- @tparam table indexes map from collection names to indexes as defined in
+--- the @{new} function
+---
 --- @treturn table `lookup_index_name`
 local function build_lookup_index_name(indexes)
     assert(type(indexes) == 'table', 'indexes must be a table, got ' ..
@@ -188,14 +224,84 @@ local function build_lookup_index_name(indexes)
     return lookup_index_name
 end
 
+--- Build `connection_indexes` table (part of `index_cache`) to use in the
+--- @{get_index_name} function.
+---
+--- @tparam table indexes map from collection names to indexes as defined in
+--- the @{new} function; the function uses it to validate index names provided
+--- in connections (which are inside collections) and validate connection types
+--- ('1:1' or '1:N') against index uniqueness if the `unique` flag provided for
+--- corresponding index
+---
+--- @tparam table collections map from collection names to collections as
+--- defined in the @{accessor_general.new} function decription; the function
+--- uses it to extract index names from connections and create the resulting
+--- mapping
+---
+--- @treturn table `connection_indexes`
+local function build_connection_indexes(indexes, collections)
+    assert(type(indexes) == 'table', 'indexes must be a table, got ' ..
+        type(indexes))
+    assert(type(collections) == 'table', 'collections must be a table, got ' ..
+        type(collections))
+    local connection_indexes = {}
+    for _, collection in pairs(collections) do
+        for _, c in ipairs(collection.connections) do
+            if connection_indexes[c.destination_collection] == nil then
+                connection_indexes[c.destination_collection] = {}
+            end
+            local index_name = c.index_name
+            assert(type(index_name) == 'string',
+                'index_name must be a string, got ' .. type(index_name))
+
+            -- validate index_name against 'indexes'
+            local index = indexes[c.destination_collection]
+            assert(type(index) == 'table',
+                'index must be a table, got ' .. type(index))
+
+            -- XXX: validate connection parts are match or being prefix of
+            -- index fields
+
+            -- validate connection type against index uniqueness (if provided)
+            if index.unique ~= nil then
+                assert(c.type == '1:N' or index.unique == true,
+                    ('1:1 connection ("%s") cannot be implemented ' ..
+                    'on top of non-unique index ("%s")'):format(
+                    c.name, index_name))
+            end
+
+            connection_indexes[c.destination_collection][c.name] = {
+                index_name = index_name,
+                connection_type = c.type,
+            }
+        end
+    end
+    return connection_indexes
+end
+
+--- General function that build connection and index information to use in the
+--- @{get_index_name} function.
+---
+--- It uses the @{build_lookup_index_name} and the @{build_connection_indexes}
+--- functions.
+local function build_index_cache(indexes, collections)
+    return {
+        lookup_index_name = build_lookup_index_name(indexes),
+        connection_indexes = build_connection_indexes(indexes, collections),
+    }
+end
+
 --- Set of asserts to check the `opts.collections` argument of the
 --- @{accessor_general.new} function.
+---
 --- @tparam table collections a map from collection names to collections as
 --- defined in the @{accessor_general.new} function decription; this is subject
 --- to validate
+---
 --- @tparam table schemas a map from schema names to schemas as defined in the
 --- @{tarantool_graphql.new} function; this is for validate collection against
 --- certain set of schemas (no 'dangling' schema names in collections)
+---
 --- @return nil
 local function validate_collections(collections, schemas)
     for collection_name, collection in pairs(collections) do
@@ -272,6 +378,12 @@ local function select_internal(self, collection_name, from, filter, args)
     assert(from == nil or type(from.connection_name) == 'string',
         'from must be nil or from.connection_name must be a string, got ' ..
         type((from or {}).connection_name))
+    assert(from == nil or type(from.destination_args_names) == 'table',
+        'from must be nil or from.destination_args_names must be a table, ' ..
+        'got ' .. type((from or {}).destination_args_names))
+    assert(from == nil or type(from.destination_args_values) == 'table',
+        'from must be nil or from.destination_args_values must be a table, ' ..
+        'got ' .. type((from or {}).destination_args_values))
 
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
@@ -287,14 +399,11 @@ local function select_internal(self, collection_name, from, filter, args)
         ('cannot find the collection "%s"'):format(
         collection_name))
 
-    -- XXX: lookup index by connection_name, not filter?
     local full_match, index_name, index_value = get_index_name(self,
-        collection_name, filter)
+        collection_name, from, filter)
     assert(self.funcs.is_collection_exists(collection_name),
         ('cannot find collection "%s"'):format(collection_name))
     local index = self.funcs.get_index(collection_name, index_name)
-    assert(index == nil or full_match == true,
-        'only full index match is supported for now') -- XXX
     if from ~= nil then
         -- allow fullscan only for a top-level object
         assert(index ~= nil,
@@ -413,6 +522,8 @@ end
 ---         foo_bar = {
 ---             service_fields = {},
 ---             fields = {'foo', 'bar'},
+---             unique = true | false, -- optional; used to validate connection
+---                                    -- type if provided
 ---         },
 ---         ...
 ---     }
@@ -442,7 +553,7 @@ function accessor_general.new(opts, funcs)
 
     local models = compile_schemas(schemas, service_fields)
     validate_collections(collections, schemas)
-    local lookup_index_name = build_lookup_index_name(indexes)
+    local index_cache = build_index_cache(indexes, collections)
 
     validate_funcs(funcs)
 
@@ -452,7 +563,7 @@ function accessor_general.new(opts, funcs)
         service_fields = service_fields,
         indexes = indexes,
         models = models,
-        lookup_index_name = lookup_index_name,
+        index_cache = index_cache,
         funcs = funcs,
     }, {
         __index = {
@@ -473,8 +584,7 @@ function accessor_general.new(opts, funcs)
                 return select_internal(self, collection_name, from, filter,
                     args)
             end,
-            arguments = function(self, connection_type)
-                if connection_type == '1:1' then return {} end
+            list_args = function(self)
                 return {
                     {name = 'limit', type = 'int'},
                     {name = 'offset', type = 'long'},

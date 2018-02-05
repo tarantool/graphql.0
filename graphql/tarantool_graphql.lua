@@ -86,7 +86,7 @@ local function convert_scalar_type(avro_schema, opts)
     return nil
 end
 
-local function convert_scalar_record_fields_to_arguments(fields)
+local function convert_scalar_record_fields_to_args(fields)
     local args = {}
     for _, field in ipairs(fields) do
         assert(type(field.name) == 'string',
@@ -106,7 +106,7 @@ end
 --- @tparam table fields fields part from an avro-schema
 local function convert_record_fields(state, fields)
     local res = {}
-    local args = {}
+    local object_args = {}
     for _, field in ipairs(fields) do
         assert(type(field.name) == 'string',
             ('field.name must be a string, got %s (schema %s)')
@@ -115,9 +115,9 @@ local function convert_record_fields(state, fields)
             name = field.name,
             kind = gql_type(state, field.type),
         }
-        args[field.name] = nullable(res[field.name].kind)
+        object_args[field.name] = nullable(res[field.name].kind)
     end
-    return res, args
+    return res, object_args
 end
 
 --- The function recursively converts passed avro-schema to a graphql type.
@@ -151,8 +151,8 @@ gql_type = function(state, avro_schema, collection, collection_name)
     local accessor = state.accessor
     assert(accessor ~= nil, 'state.accessor must not be nil')
     assert(accessor.select ~= nil, 'state.accessor.select must not be nil')
-    assert(accessor.arguments ~= nil,
-        'state.accessor.arguments must not be nil')
+    assert(accessor.list_args ~= nil,
+        'state.accessor.list_args must not be nil')
 
     if avro_type(avro_schema) == 'record' then
         assert(type(avro_schema.name) == 'string',
@@ -162,11 +162,9 @@ gql_type = function(state, avro_schema, collection, collection_name)
             ('avro_schema.fields must be a table, got %s (avro_schema %s)')
             :format(type(avro_schema.fields), json.encode(avro_schema)))
 
-        local accessor_args = convert_scalar_record_fields_to_arguments(
-            accessor:arguments('1:N'))
-        local fields, args = convert_record_fields(state,
+        local fields, object_args = convert_record_fields(state,
             avro_schema.fields)
-        args = utils.merge_tables(args, accessor_args)
+        local args = utils.merge_tables(object_args, state.list_args)
 
         for _, c in ipairs((collection or {}).connections or {}) do
             assert(type(c.type) == 'string',
@@ -186,19 +184,24 @@ gql_type = function(state, avro_schema, collection, collection_name)
             assert(destination_type ~= nil,
                 ('destination_type (named %s) must not be nil'):format(
                 c.destination_collection))
-            if c.type == '1:N' then
+
+            local c_args
+            if c.type == '1:1' then
+                c_args = state.object_arguments[c.destination_collection]
+            elseif c.type == '1:N' then
                 destination_type = types.nonNull(types.list(destination_type))
+                c_args = state.all_arguments[c.destination_collection]
+            else
+                error('unknown connection type: ' .. tostring(c.type))
             end
-            -- XXX: support InputObject (non-scalar types in arguments)
-            local arguments = convert_scalar_record_fields_to_arguments(
-                accessor:arguments(c.type))
+
             fields[c.name] = {
                 name = c.name,
                 kind = destination_type,
-                arguments = arguments,
-                resolve = function(parent, args, info)
-                    local args = table.copy(args)
-                    local filter = {}
+                arguments = c_args,
+                resolve = function(parent, args_instance, info)
+                    local destination_args_names = {}
+                    local destination_args_values = {}
                     for _, part in ipairs(c.parts) do
                         assert(type(part.source_field) == 'string',
                             'part.source_field must be a string, got ' ..
@@ -206,16 +209,33 @@ gql_type = function(state, avro_schema, collection, collection_name)
                         assert(type(part.destination_field) == 'string',
                             'part.destination_field must be a string, got ' ..
                             type(part.destination_field))
-                        filter[part.destination_field] =
+                        destination_args_names[#destination_args_names + 1] =
+                            part.destination_field
+                        destination_args_values[#destination_args_values + 1] =
                             parent[part.source_field]
-                        -- XXX: remove the filter fields from args?
                     end
                     local from = {
                         collection_name = collection_name,
                         connection_name = c.name,
+                        destination_args_names = destination_args_names,
+                        destination_args_values = destination_args_values,
                     }
+                    local object_args_instance = {} -- passed to 'filter'
+                    local list_args_instance = {} -- passed to 'args'
+                    for k, v in pairs(args_instance) do
+                        if state.list_args[k] ~= nil then
+                            list_args_instance[k] = v
+                        elseif c_args[k] ~= nil then
+                            object_args_instance[k] = v
+                        else
+                            error(('cannot found "%s" field ("%s" value) ' ..
+                                'within allowed fields'):format(tostring(k),
+                                tostring(v)))
+                        end
+                    end
                     local objs = accessor:select(parent,
-                            c.destination_collection, from, filter, args)
+                        c.destination_collection, from,
+                        object_args_instance, list_args_instance)
                     assert(type(objs) == 'table',
                         'objs list received from an accessor ' ..
                         'must be a table, got ' .. type(objs))
@@ -238,7 +258,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
             fields = fields,
         }))
 
-       return res, args, avro_schema.name
+        return res, object_args, args, avro_schema.name
     elseif avro_type(avro_schema) == 'enum' then
         error('enums not implemented yet') -- XXX
     else
@@ -250,54 +270,17 @@ gql_type = function(state, avro_schema, collection, collection_name)
     end
 end
 
---- Generate an object that behaves like a table stores another tables as
---- values and always returns the same table (the same reference) as a value.
---- It performs copying of a value fields instead of assigning and returns an
---- empty table for fields that not yet exists. Such approach helps with
---- referencing a table that will be filled later.
----
---- @tparam table data the initial values
-local function gen_booking_table(data)
-    assert(type(data) == 'table',
-        'initial data must be a table, got ' .. type(data))
-    return setmetatable({data = data}, {
-        __index = function(table, key)
-            local data = rawget(table, 'data')
-            if data[key] == nil then
-                data[key] = {}
-            end
-            return data[key]
-        end,
-        __newindex = function(table, key, value)
-            assert(type(value) == 'table',
-                'value to set must be a table, got ' .. type(value))
-            local data = rawget(table, 'data')
-            if data[key] == nil then
-                data[key] = {}
-            end
-            for k, _ in pairs(data[key]) do
-                data[key][k] = nil
-            end
-            assert(next(data[key]) == nil,
-                ('data[%s] must be nil, got %s'):format(tostring(key),
-                tostring(next(data[key]))))
-            for k, v in pairs(value) do
-                data[key][k] = v
-            end
-        end,
-    })
-end
-
 local function parse_cfg(cfg)
     local state = {}
-    state.types = gen_booking_table({})
-    state.arguments = {}
+    state.types = utils.gen_booking_table({})
+    state.object_arguments = utils.gen_booking_table({})
+    state.all_arguments = utils.gen_booking_table({})
 
     local accessor = cfg.accessor
     assert(accessor ~= nil, 'cfg.accessor must not be nil')
     assert(accessor.select ~= nil, 'cfg.accessor.select must not be nil')
-    assert(accessor.arguments ~= nil,
-        'state.accessor.arguments must not be nil')
+    assert(accessor.list_args ~= nil,
+        'state.accessor.list_args must not be nil')
     state.accessor = accessor
 
     assert(cfg.collections ~= nil, 'cfg.collections must not be nil')
@@ -306,9 +289,10 @@ local function parse_cfg(cfg)
 
     local fields = {}
 
-    -- XXX: don't convert to graphql types, we just need argument names here
-    local arguments = convert_scalar_record_fields_to_arguments(
-        accessor:arguments('1:N'))
+    -- XXX: support InputObject (non-scalar types in arguments)
+    local list_args = convert_scalar_record_fields_to_args(
+        accessor:list_args())
+    state.list_args = list_args
 
     for name, collection in pairs(state.collections) do
         collection.name = name
@@ -318,7 +302,8 @@ local function parse_cfg(cfg)
         assert(schema ~= nil, ('cfg.schemas[%s] must not be nil'):format(
             tostring(collection.schema_name)))
         local schema_name
-        state.types[name], state.arguments[name], schema_name =
+        state.types[name], state.object_arguments[name],
+            state.all_arguments[name], schema_name =
             gql_type(state, schema, collection, name)
         assert(schema_name == nil or schema_name == collection.schema_name,
             ('top-level schema name does not match the name in ' ..
@@ -328,20 +313,24 @@ local function parse_cfg(cfg)
         -- create entry points from collection names
         fields[name] = {
             kind = types.nonNull(types.list(state.types[name])),
-            arguments = state.arguments[name],
-            resolve = function(rootValue, args, info)
-                local args = table.copy(args)
-                local filter = {}
-                for k, v in pairs(args) do
-                    -- XXX: verify filter keys against the schema, not just
-                    -- 'not in the accessor arguments'
-                    if arguments[k] == nil then
-                        filter[k] = v
-                        -- XXX: remove the filter fields from args?
+            arguments = state.all_arguments[name],
+            resolve = function(rootValue, args_instance, info)
+                local object_args_instance = {} -- passed to 'filter'
+                local list_args_instance = {} -- passed to 'args'
+                for k, v in pairs(args_instance) do
+                    if list_args[k] ~= nil then
+                        list_args_instance[k] = v
+                    elseif state.object_arguments[k] ~= nil then
+                        object_args_instance[k] = v
+                    else
+                        error(('cannot found "%s" field ("%s" value) ' ..
+                            'within allowed fields'):format(tostring(k),
+                            tostring(v)))
                     end
                 end
                 local from = nil
-                return accessor:select(rootValue, name, from, filter, args)
+                return accessor:select(rootValue, name, from,
+                    object_args_instance, list_args_instance)
             end,
         }
     end
@@ -435,8 +424,12 @@ end
 ---                         {
 ---                             source_field = 'field_name_source_1',
 ---                             destination_field = 'field_name_destination_1'
----                         }
----                     }
+---                         },
+---                         ...
+---                     },
+---                     index_name = 'index_name' -- is is for an accessor,
+---                                               -- ignored in the graphql
+---                                               -- part
 ---                 },
 ---                 ...
 ---             },
@@ -446,13 +439,19 @@ end
 ---     accessor = setmetatable({}, {
 ---         __index = {
 ---             select = function(self, parent, collection_name, from,
----                     filter, args)
+---                     object_args_instance, list_args_instance)
 ---                 -- from is nil for a top-level object, otherwise it is
----                 -- `{collection_name = ..., connection_name = ...}`
+---                 --
+---                 -- {
+---                 --     collection_name = <...>,
+---                 --     connection_name = <...>,
+---                 --     destination_args_names = <...>,
+---                 --     destination_args_values = <...>,
+---                 -- }
+---                 --
 ---                 return ...
 ---             end,
----             arguments = function(self, connection_type)
----                 if connection_type == '1:1' then return {} end
+---             list_args = function(self)
 ---                 return {
 ---                     {name = 'limit', type = 'long'},
 ---                     {name = 'offset', type = 'int'},

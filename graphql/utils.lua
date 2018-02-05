@@ -81,4 +81,55 @@ function utils.merge_tables(...)
     return res
 end
 
+local rawpairs = pairs
+
+--- Replacement for global pairs function to call __pairs() if it exists.
+function pairs(table) -- luacheck: ignore
+    local mt = getmetatable(table)
+    local p = mt and mt.__pairs or rawpairs
+    return p(table)
+end
+
+--- Generate an object that behaves like a table stores another tables as
+--- values and always returns the same table (the same reference) as a value.
+--- It performs copying of a value fields instead of assigning and returns an
+--- empty table for fields that not yet exists. Such approach helps with
+--- referencing a table that will be filled later.
+---
+--- @tparam table data the initial values
+function utils.gen_booking_table(data)
+    assert(type(data) == 'table',
+        'initial data must be a table, got ' .. type(data))
+    return setmetatable({data = data}, {
+        __index = function(table, key)
+            local data = rawget(table, 'data')
+            if data[key] == nil then
+                data[key] = {}
+            end
+            return data[key]
+        end,
+        __newindex = function(table, key, value)
+            assert(type(value) == 'table',
+                'value to set must be a table, got ' .. type(value))
+            local data = rawget(table, 'data')
+            if data[key] == nil then
+                data[key] = {}
+            end
+            for k, _ in pairs(data[key]) do
+                data[key][k] = nil
+            end
+            assert(next(data[key]) == nil,
+                ('data[%s] must be nil, got %s'):format(tostring(key),
+                tostring(next(data[key]))))
+            for k, v in pairs(value) do
+                data[key][k] = v
+            end
+        end,
+        __pairs = function(table)
+            local data = rawget(table, 'data')
+            return rawpairs(data)
+        end,
+    })
+end
+
 return utils
