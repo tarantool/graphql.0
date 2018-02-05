@@ -18,7 +18,7 @@ init_shard(SERVERS, {
     login = 'guest',
     password = '',
     redundancy = 1,
-});
+}, 'shard_no_redundancy');
 test_run:cmd("setopt delimiter ''");
 
 fill_test_data()

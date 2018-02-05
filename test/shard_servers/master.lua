@@ -9,12 +9,12 @@ function instance_uri(instance_id)
     return ('%s/shard%s.sock'):format(SOCKET_DIR, instance_id)
 end
 
-function init_shard(servers, config)
+function init_shard(servers, config, suite)
     local shard = require('shard')
     local env = require('test_run')
     local test_run = env.new()
 
-    test_run:create_cluster(SERVERS, 'tarantool')
+    test_run:create_cluster(SERVERS, suite)
     shard.init(config)
     shard.wait_connection()
 end
