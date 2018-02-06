@@ -109,6 +109,10 @@ gql_query_2:execute(variables_2_3);
 --};
 --gql_query_2:execute(variables_2_4);
 
+-- no limit, no offset
+variables_2_5 = {user_id = 'user_id_42'};
+gql_query_2:execute(variables_2_5);
+
 -- XXX: it triggers *flaky* segfault on shard, waiting for fix
 -- https://github.com/tarantool/tarantool/issues/3101
 --query_3 = [[

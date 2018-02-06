@@ -9,8 +9,6 @@ local accessor_shard = {}
 
 local LIMIT = 100000 -- XXX: we need to raise an error when a limit reached
 
--- XXX: sorting list results (by primary key?)
-
 -- Check whether a collection (it is sharded space for that accessor) exists.
 local function is_collection_exists(collection_name)
     local exists
@@ -60,7 +58,7 @@ local function get_index(collection_name, index_name)
         __index = {
             pairs = function(self, value)
                 local tuples = shard:secondary_select(collection_name,
-                    index_name, value, {limit = LIMIT})
+                    index_name, {limit = LIMIT}, value, 0)
                 local cur = 1
                 local function gen()
                     if cur > #tuples then return nil end
