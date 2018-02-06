@@ -236,6 +236,13 @@ utils.show_trace(function()
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
 
+-- no limit, no offset
+utils.show_trace(function()
+    local variables_2_5 = {user_id = 'user_id_42'}
+    local result = gql_query_2:execute(variables_2_5)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
 local query_3 = [[
     query users($limit: Int, $offset: Long) {
         user_collection(limit: $limit, offset: $offset) {

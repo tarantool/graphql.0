@@ -200,14 +200,23 @@ gql_query_2:execute(variables_2_3);
     - order_id: order_id_1603
       description: order of user 42
 ...
--- XXX: it triggers segfault on shard, waiting for fix
--- https://github.com/tarantool/tarantool/issues/3101
---variables_2_4 = {
---    first_name = 'first name 42',
---    limit = 3,
---    offset = 39,
---};
---gql_query_2:execute(variables_2_4);
+variables_2_4 = {
+    first_name = 'first name 42',
+    limit = 3,
+    offset = 39,
+};
+---
+...
+gql_query_2:execute(variables_2_4);
+---
+- user_collection:
+  - user_id: user_id_42
+    last_name: last name 42
+    first_name: first name 42
+    order_connection:
+    - order_id: order_id_1603
+      description: order of user 42
+...
 -- no limit, no offset
 variables_2_5 = {user_id = 'user_id_42'};
 ---
@@ -300,20 +309,57 @@ gql_query_2:execute(variables_2_5);
     - order_id: order_id_1603
       description: order of user 42
 ...
--- XXX: it triggers *flaky* segfault on shard, waiting for fix
--- https://github.com/tarantool/tarantool/issues/3101
---query_3 = [[
---    query users($limit: Int, $offset: Long) {
---        user_collection(limit: $limit, offset: $offset) {
---            user_id
---            last_name
---            first_name
---        }
---    }
---]];
---variables_3 = {limit = 10, offset = 50};
---gql_query_3 = gql_wrapper:compile(query_3);
---gql_query_3:execute(variables_3);
+query_3 = [[
+    query users($limit: Int, $offset: Long) {
+        user_collection(limit: $limit, offset: $offset) {
+            user_id
+            last_name
+            first_name
+        }
+    }
+]];
+---
+...
+variables_3 = {limit = 10, offset = 50};
+---
+...
+gql_query_3 = gql_wrapper:compile(query_3);
+---
+...
+gql_query_3:execute(variables_3);
+---
+- user_collection:
+  - user_id: user_id_54
+    last_name: last name 54
+    first_name: first name 54
+  - user_id: user_id_55
+    last_name: last name 55
+    first_name: first name 55
+  - user_id: user_id_56
+    last_name: last name 56
+    first_name: first name 56
+  - user_id: user_id_57
+    last_name: last name 57
+    first_name: first name 57
+  - user_id: user_id_58
+    last_name: last name 58
+    first_name: first name 58
+  - user_id: user_id_59
+    last_name: last name 59
+    first_name: first name 59
+  - user_id: user_id_6
+    last_name: last name 6
+    first_name: first name 6
+  - user_id: user_id_60
+    last_name: last name 60
+    first_name: first name 60
+  - user_id: user_id_61
+    last_name: last name 61
+    first_name: first name 61
+  - user_id: user_id_62
+    last_name: last name 62
+    first_name: first name 62
+...
 -- extra filter for 1:N connection
 -- -------------------------------
 query_4 = [[
@@ -334,22 +380,38 @@ query_4 = [[
 gql_query_4 = gql_wrapper:compile(query_4);
 ---
 ...
--- XXX: it triggers segfault on shard, waiting for fix
--- https://github.com/tarantool/tarantool/issues/3101
 -- should match 1 order
---variables_4_1 = {
---    first_name = 'Ivan',
---    description = 'first order of Ivan',
---};
---gql_query_4:execute(variables_4_1);
--- XXX: it triggers segfault on shard, waiting for fix
--- https://github.com/tarantool/tarantool/issues/3101
+variables_4_1 = {
+    first_name = 'Ivan',
+    description = 'first order of Ivan',
+};
+---
+...
+gql_query_4:execute(variables_4_1);
+---
+- user_collection:
+  - user_id: user_id_1
+    last_name: Ivanov
+    first_name: Ivan
+    order_connection:
+    - order_id: order_id_1
+      description: first order of Ivan
+...
 -- should match no orders
---variables_4_2 = {
---    first_name = 'Ivan',
---    description = 'non-existent order',
---};
---gql_query_4:execute(variables_4_2);
+variables_4_2 = {
+    first_name = 'Ivan',
+    description = 'non-existent order',
+};
+---
+...
+gql_query_4:execute(variables_4_2);
+---
+- user_collection:
+  - user_id: user_id_1
+    last_name: Ivanov
+    first_name: Ivan
+    order_connection: []
+...
 -- extra filter for 1:1 connection;
 -- -------------------------------;
 query_5 = [[
@@ -371,13 +433,22 @@ gql_query_5 = gql_wrapper:compile(query_5);
 ---
 ...
 -- should match 1 user;
--- XXX: it triggers segfault on shard, waiting for fix
--- https://github.com/tarantool/tarantool/issues/3101
---variables_5_1 = {
---    first_name = 'Ivan',
---    description = 'first order of Ivan',
---};
---gql_query_5:execute(variables_5_1);
+variables_5_1 = {
+    first_name = 'Ivan',
+    description = 'first order of Ivan',
+};
+---
+...
+gql_query_5:execute(variables_5_1);
+---
+- order_collection:
+  - order_id: order_id_1
+    description: first order of Ivan
+    user_connection:
+      user_id: user_id_1
+      last_name: Ivanov
+      first_name: Ivan
+...
 -- should match no users (or give an error?);
 --variables_5_2 = {
 --    first_name = 'non-existent user',

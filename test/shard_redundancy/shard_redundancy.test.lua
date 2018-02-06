@@ -77,7 +77,7 @@ query_user_order = [[
 ]];
 
 gql_query_user_order = gql_wrapper:compile(query_user_order);
-variables_user_order = {user_id = 'user_id_1'};
+variables_user_order = {user_id = 'user_id_42'};
 gql_query_user_order:execute(variables_user_order);
 
 -- stop shards
