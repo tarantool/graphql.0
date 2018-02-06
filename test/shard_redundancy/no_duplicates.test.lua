@@ -8,12 +8,17 @@ test_run = env.new()
 
 shard = require('shard')
 
+-- we need at least four servers to make sure we have several (two) servers
+-- within each replica set and several (two) replica sets
+
 test_run:cmd("setopt delimiter ';'")
-SERVERS = {'shard1', 'shard2'};
+SERVERS = {'shard1', 'shard2', 'shard3', 'shard4'};
 init_shard(SERVERS, {
     servers = {
         { uri = instance_uri('1'), zone = '0' },
         { uri = instance_uri('2'), zone = '1' },
+        { uri = instance_uri('3'), zone = '2' },
+        { uri = instance_uri('4'), zone = '3' },
     },
     login = 'guest',
     password = '',
@@ -60,7 +65,7 @@ gql_wrapper = graphql.new({
 -- ---------------------------
 
 -- That is needed to make sure a select on a shard with redundancy will skip
--- duplicates of an one tuple from different zones.
+-- duplicates of an one tuple from different servers within a replica set.
 
 query_user_order = [[
     query user_order($user_id: String) {
