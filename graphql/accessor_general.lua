@@ -4,6 +4,7 @@
 --- It provides basic logic for such space-like data storages and abstracted
 --- away from details from where tuples are arrived into the application.
 
+local json = require('json')
 local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 
@@ -67,6 +68,57 @@ local function compile_schemas(schemas, service_fields)
     return models
 end
 
+--- Get user-provided meta-information about the primary index of given
+--- collection.
+---
+--- @tparam table self the data accessor
+---
+--- @tparam string collection_name the name of collection to find the primary
+--- index
+---
+--- @treturn string `index_name`
+--- @treturn table `index` (meta-information, not the index itself)
+local function get_primary_index_meta(self, collection_name)
+    assert(type(self) == 'table',
+        'self must be a table, got ' .. type(self))
+    assert(type(collection_name) == 'string',
+        'collection_name must be a string, got ' ..
+        type(collection_name))
+
+    local indexes = self.indexes[collection_name]
+    for index_name, index in pairs(indexes) do
+        if index.primary then
+            return index_name, index
+        end
+    end
+
+    error(('cannot find primary index for collection "%s"'):format(
+        collection_name))
+end
+
+--- Get a key to lookup index by `lookup_index_name` (part of `index_cache`).
+---
+--- @tparam table filter filter for objects whose keys (names of fields) will
+--- form the result
+---
+--- @treturn string `name_list_str` (key for lookup by `lookup_index_name`)
+local function filter_names_fingerprint(filter)
+    local name_list = {}
+    local function fill_name_list(filter, base_name)
+        for field_name, v in pairs(filter) do
+            if type(v) == 'table' then
+                fill_name_list(v, base_name .. field_name .. '.')
+            else
+                name_list[#name_list + 1] = base_name .. field_name
+            end
+        end
+    end
+    fill_name_list(filter, '')
+    table.sort(name_list)
+    local name_list_str = table.concat(name_list, ',')
+    return name_list_str
+end
+
 -- XXX: support partial match for primary/secondary indexes and support to skip
 -- fields to get an index (full_match must be false in the case because
 -- returned items will be additionally filtered after unflatten).
@@ -98,6 +150,10 @@ end
 --- @tparam table filter map from fields names to values; names are used for
 --- lookup needed index, values forms the `value_list` return value
 ---
+--- @tparam table args the `args` argument from the `self:select()` function,
+--- it is the `list_args_instance` variable in terms of the `tarantool_graphql`
+--- module; here we using only `args.offset` value
+---
 --- @treturn boolean `full_match` is whether passing `value_list` to the index
 --- with name `index_name` will give tuple(s) proven to match the filter or
 --- just some subset of all tuples in the collection which need to be filtered
@@ -108,7 +164,13 @@ end
 --- @treturn table `value_list` is values list from the `filter` argument
 --- ordered in the such way that can be passed to the found index (has some
 --- meaning only when `index_name ~= nil`)
-local get_index_name = function(self, collection_name, from, filter)
+---
+--- @treturn table `pivot` (optional) an offset argument represented depending
+--- of a case: whether we'll lookup for the offset by an index; it is either
+--- `nil`, or contains `value_list` field to pass to a GT (great-then) index,
+--- or contains `filter` field to use in `process_tuple` for find the pivot in
+--- a select result
+local get_index_name = function(self, collection_name, from, filter, args)
     assert(type(self) == 'table',
         'self must be a table, got ' .. type(self))
     assert(type(collection_name) == 'string',
@@ -117,6 +179,8 @@ local get_index_name = function(self, collection_name, from, filter)
         'from must be nil or a table, got ' .. type(from))
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
+    assert(type(args) == 'table',
+        'args must be a table, got ' .. type(args))
 
     local index_cache = self.index_cache
     assert(type(index_cache) == 'table',
@@ -130,6 +194,10 @@ local get_index_name = function(self, collection_name, from, filter)
     assert(type(connection_indexes) == 'table',
         'connection_indexes must be a table, got ' .. type(connection_indexes))
 
+    -- That is the 'slow offset' case. Here we fetch objects by a connection.
+    -- If an offset is set we return it as `pivot.filter`. So, select will be
+    -- performed by an index from the connection, then the result will be
+    -- postprocessed using `pivot`.
     if from ~= nil then
         local connection_index =
             connection_indexes[collection_name][from.connection_name]
@@ -139,28 +207,43 @@ local get_index_name = function(self, collection_name, from, filter)
         assert(connection_type ~= nil, 'connection_type must not be nil')
         local full_match = connection_type == '1:1' and next(filter) == nil
         local value_list = from.destination_args_values
-        return full_match, index_name, value_list
+
+        local pivot
+        if args.offset ~= nil then
+            -- XXX: support compound primary indexes
+            local _, index = get_primary_index_meta(self, collection_name)
+            local field_name = index.fields[1]
+
+            local pivot_filter = {[field_name] = args.offset}
+            pivot = {filter = pivot_filter}
+        end
+
+        return full_match, index_name, value_list, pivot
     end
 
-    local name_list = {}
-    local value_list = {}
-    local function fill_name_list(filter, base_name)
-        for field_name, v in pairs(filter) do
-            if type(v) == 'table' then
-                fill_name_list(v, base_name .. field_name .. '.')
-            else
-                name_list[#name_list + 1] = base_name .. field_name
-                value_list[#value_list + 1] = v
-            end
-        end
+    -- The 'fast offset' case. Here we fetch top-level objects starting from
+    -- passed offset. Select will be performed by the primary index and
+    -- corresponding offset in `pivot.value_list`, then the result will be
+    -- postprocessed using `filter`, if necessary.
+    if args.offset ~= nil then
+        local value_list_from = type(args.offset) == 'table' and args.offset
+            or {args.offset} -- XXX: support compound primary indexes
+        local pivot = {value_list = value_list_from}
+        local index_name, _ = get_primary_index_meta(self, collection_name)
+        local full_match = next(filter) == nil
+        return full_match, index_name, filter, pivot
     end
-    fill_name_list(filter, '')
-    table.sort(name_list)
-    local name_list_str = table.concat(name_list, ',')
+
+    -- The 'no offset' case. Here we fetch top-level object either by found
+    -- index or using full scan (if the index was not found).
+    local name_list_str = filter_names_fingerprint(filter)
     assert(lookup_index_name[collection_name] ~= nil,
         ('cannot find any index for collection "%s"'):format(collection_name))
     local index_name = lookup_index_name[collection_name][name_list_str]
-    local full_match = index_name ~= nil
+    local value_list = {select(2, next(filter))} -- XXX: support compound
+                                                 -- indexes
+    local full_match = index_name ~= nil -- XXX: subject to change when we'll
+                                         -- support index lookup y a partial key
     return full_match, index_name, value_list
 end
 
@@ -194,6 +277,16 @@ local function build_lookup_index_name(indexes)
             assert(type(index_descr.fields) == 'table',
                 'index_descr.fields must be a table, got ' ..
                 type(index_descr.fields))
+
+            -- XXX: support or remove indexes by service_fields
+            assert(#index_descr.service_fields == 0,
+                'service_fields support does not implemented yet')
+            -- XXX: support compound primary indexes
+            if index_descr.primary then
+                assert(#index_descr.fields == 1,
+                    'we do not support compound primary indexes ' ..
+                    'for now')
+            end
 
             local service_fields_list = index_descr['service_fields']
             assert(utils.is_array(service_fields_list),
@@ -345,6 +438,76 @@ local function validate_collections(collections, schemas)
     end
 end
 
+--- Perform unflatten, skipping, filtering, limiting of objects. This is the
+--- core of the `select_internal` function.
+---
+--- @tparam table state table variable where the function holds state accross
+--- invokes; fields:
+---
+--- * `count` (number),
+--- * `objs` (table, list of objects),
+--- * `pivot_found` (boolean).
+---
+--- @tparam cdata tuple flatten representation of an object to process
+---
+--- @tparam table opts read only options:
+---
+--- * `model` (compiled avro schema),
+--- * `limit` (number, max count of objects in result),
+--- * `filter` (table, set of fields to match objects by equality),
+--- * `do_filter` (boolean, whether we need to filter out non-matching
+---   objects),
+--- * `pivot_filter` (table, set of fields to match the objected pointed by
+---   `offset` arqument of the GraphQL query)
+---
+--- @return nil
+---
+--- Nothing returned, but after necessary count of invokes `state.objs` will
+--- hold list of resulting objects.
+local function process_tuple(state, tuple, opts)
+    local function maybe_unflatten(model, tuple, obj)
+        local ok, obj = model.unflatten(tuple)
+        assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
+        return obj
+    end
+
+    local model = opts.model
+    local limit = opts.limit
+    local filter = opts.filter
+    local do_filter = opts.do_filter
+    local pivot_filter = opts.pivot_filter
+
+    -- skip all items before pivot (the item pointed by offset)
+    local obj = nil
+    if not state.pivot_found and pivot_filter then
+        obj = maybe_unflatten(model, tuple, obj)
+        local match = utils.is_subtable(obj, pivot_filter)
+        if not match then return true end
+        state.pivot_found = true
+        return true -- skip pivot item too
+    end
+
+    -- convert tuple -> object, then filter out or continue
+    obj = maybe_unflatten(model, tuple, obj)
+    local match = utils.is_subtable(obj, filter)
+    if do_filter then
+        if not match then return true end
+    else
+        assert(match, 'found object do not fit passed filter')
+    end
+
+    -- add the matching object, update count and check limit
+    state.objs[#state.objs + 1] = obj
+    state.count = state.count + 1
+    if limit ~= nil and state.count >= limit then
+        assert(limit == nil or state.count <= limit,
+            ('count[%d] exceeds limit[%s] (in for)'):format(
+            state.count, limit))
+        return false
+    end
+    return true
+end
+
 --- The function is core of this module and implements logic of fetching and
 --- filtering requested objects.
 ---
@@ -384,23 +547,24 @@ local function select_internal(self, collection_name, from, filter, args)
     assert(from == nil or type(from.destination_args_values) == 'table',
         'from must be nil or from.destination_args_values must be a table, ' ..
         'got ' .. type((from or {}).destination_args_values))
-
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
     assert(type(args) == 'table',
         'args must be a table, got ' .. type(args))
     assert(args.limit == nil or type(args.limit) == 'number',
         'args.limit must be a number of nil, got ' .. type(args.limit))
-    assert(args.offset == nil or type(args.offset) == 'number',
-        'args.offset must be a number of nil, got ' .. type(args.offset))
+    -- XXX: save type at parsing and check here
+    --assert(args.offset == nil or type(args.offset) == 'number',
+    --    'args.offset must be a number of nil, got ' .. type(args.offset))
 
     local collection = self.collections[collection_name]
     assert(collection ~= nil,
         ('cannot find the collection "%s"'):format(
         collection_name))
 
-    local full_match, index_name, index_value = get_index_name(self,
-        collection_name, from, filter)
+    -- search for suitable index
+    local full_match, index_name, index_value, pivot = get_index_name(
+        self, collection_name, from, filter, args)
     assert(self.funcs.is_collection_exists(collection_name),
         ('cannot find collection "%s"'):format(collection_name))
     local index = self.funcs.get_index(collection_name, index_name)
@@ -411,6 +575,7 @@ local function select_internal(self, collection_name, from, filter, args)
             index_name, collection_name))
     end
 
+    -- lookup compiled schema for unflattening (model)
     local schema_name = collection.schema_name
     assert(type(schema_name) == 'string',
         'schema_name must be a string, got ' .. type(schema_name))
@@ -419,57 +584,68 @@ local function select_internal(self, collection_name, from, filter, args)
         ('cannot find model for collection "%s"'):format(
         collection_name))
 
-    -- XXX: this block becomes ugly after add support of filtering w/o index
-    -- (using fullscan) for top-level objects; it need to be refactored
-    local limit = args.limit
-    local offset = args.offset
-    local skipped = 0
-    local count = 0
-    local objs = {}
-    local function process_tuple(tuple, do_filter)
-        if offset ~= nil and skipped < offset then
-            if do_filter then
-                local ok, obj = model.unflatten(tuple)
-                assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
-                local match = utils.is_subtable(obj, filter)
-                if not match then return true end
-            end
-            skipped = skipped + 1
-        else
-            local ok, obj = model.unflatten(tuple)
-            assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
-            local match = utils.is_subtable(obj, filter)
-            if do_filter then
-                if not match then return true end
-            else
-                assert(match, 'found object do not fit passed filter')
-            end
-            objs[#objs + 1] = obj
-            count = count + 1
-            if limit ~= nil and count >= limit then
-                assert(limit == nil or count <= limit,
-                    ('count[%d] exceeds limit[%s] (in for)'):format(
-                    count, limit))
-                return false
-            end
-        end
-        return true
-    end
+    -- read-write variables for process_tuple
+    local select_state = {
+        count = 0,
+        objs = {},
+        pivot_found = false,
+    }
+
+    -- read only process_tuple options
+    local select_opts = {
+        model = model,
+        limit = args.limit,
+        filter = filter,
+        do_filter = not full_match,
+        pivot_filter = nil, -- filled later if needed
+    }
+
     if index == nil then
         -- fullscan
         local primary_index = self.funcs.get_primary_index(collection_name)
         for _, tuple in primary_index:pairs() do
-            if not process_tuple(tuple, not full_match) then break end
+            assert(pivot == nil,
+                'offset for top-level objects must use a primary index')
+            local continue = process_tuple(select_state, tuple, select_opts)
+            if not continue then break end
         end
     else
-        for _, tuple in index:pairs(index_value) do
-            if not process_tuple(tuple, not full_match) then break end
+        -- select by index
+        local iterator_opts = {}
+        if pivot ~= nil then
+            -- handle case when there is pivot item (offset was passed)
+            if pivot.value_list ~= nil then
+                -- the 'fast offset' case
+                assert(type(pivot.value_list) == 'table',
+                    'pivot.value_list must be nil or a table, got ' ..
+                    type(pivot.value_list))
+                index_value = pivot.value_list
+                iterator_opts.iterator = 'GT'
+            elseif pivot.filter ~= nil then
+                -- the 'slow offset' case
+                assert(type(pivot.filter) == 'table',
+                    'pivot.filter must be nil or a table, got ' ..
+                    type(pivot.filter))
+                select_opts.pivot_filter = pivot.filter
+            else
+                error('unexpected value of pivot: ' .. json.encode(pivot))
+            end
+        end
+        for _, tuple in index:pairs(index_value, iterator_opts) do
+            local continue = process_tuple(select_state, tuple, select_opts)
+            if not continue then break end
         end
     end
-    assert(limit == nil or count <= limit,
-        ('count[%d] exceeds limit[%s] (before return)'):format(count, limit))
+
+    local count = select_state.count
+    local objs = select_state.objs
+
+    assert(args.limit == nil or count <= args.limit,
+        ('count[%d] exceeds limit[%s] (before return)'):format(
+        count, args.limit))
     assert(#objs == count,
         ('count[%d] is not equal to objs count[%d]'):format(count, #objs))
+
     return objs
 end
 
@@ -524,6 +700,10 @@ end
 ---             fields = {'foo', 'bar'},
 ---             unique = true | false, -- optional; used to validate connection
 ---                                    -- type if provided
+---             primary = true | false, -- for now it is used only for 'offset'
+---                                     -- argument processing, so it is more
+---                                     -- or less optional; we do not validate
+---                                     -- that there is an one primary index
 ---         },
 ---         ...
 ---     }
@@ -584,10 +764,30 @@ function accessor_general.new(opts, funcs)
                 return select_internal(self, collection_name, from, filter,
                     args)
             end,
-            list_args = function(self)
+            list_args = function(self, collection_name)
+                -- get name of field of primary key
+                -- XXX: support compound primary indexes
+                local field_name
+                local _, index = get_primary_index_meta(self, collection_name)
+                field_name = index.fields[1]
+
+                local field_type
+                local collection = self.collections[collection_name]
+                local schema = self.schemas[collection.schema_name]
+                for _, field in ipairs(schema.fields) do
+                    if field.name == field_name then
+                        field_type = field.type
+                    end
+                end
+                assert(field_type ~= nil,
+                    ('cannot find primary index for collection "%s"'):format(
+                    collection_name))
+                assert(type(field_type) == 'string',
+                    'field type must be a string, got ' .. type(field_type))
+
                 return {
                     {name = 'limit', type = 'int'},
-                    {name = 'offset', type = 'long'},
+                    {name = 'offset', type = field_type},
                     -- {name = 'filter', type = ...},
                 }
             end,

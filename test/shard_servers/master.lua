@@ -110,6 +110,7 @@ function get_test_metadata()
                 fields = {'user_id'},
                 index_type = 'tree',
                 unique = true,
+                primary = true,
             },
         },
         order_collection = {
@@ -118,12 +119,14 @@ function get_test_metadata()
                 fields = {'order_id'},
                 index_type = 'tree',
                 unique = true,
+                primary = true,
             },
             user_id_index = {
                 service_fields = {},
                 fields = {'user_id'},
                 index_type = 'tree',
                 unique = false,
+                primary = false,
             },
         },
     }

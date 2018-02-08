@@ -162,9 +162,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
             ('avro_schema.fields must be a table, got %s (avro_schema %s)')
             :format(type(avro_schema.fields), json.encode(avro_schema)))
 
-        local fields, object_args = convert_record_fields(state,
-            avro_schema.fields)
-        local args = utils.merge_tables(object_args, state.list_args)
+        local fields, _ = convert_record_fields(state, avro_schema.fields)
 
         for _, c in ipairs((collection or {}).connections or {}) do
             assert(type(c.type) == 'string',
@@ -195,6 +193,8 @@ gql_type = function(state, avro_schema, collection, collection_name)
                 error('unknown connection type: ' .. tostring(c.type))
             end
 
+            local c_list_args = state.list_arguments[c.destination_collection]
+
             fields[c.name] = {
                 name = c.name,
                 kind = destination_type,
@@ -220,10 +220,11 @@ gql_type = function(state, avro_schema, collection, collection_name)
                         destination_args_names = destination_args_names,
                         destination_args_values = destination_args_values,
                     }
+
                     local object_args_instance = {} -- passed to 'filter'
                     local list_args_instance = {} -- passed to 'args'
                     for k, v in pairs(args_instance) do
-                        if state.list_args[k] ~= nil then
+                        if c_list_args[k] ~= nil then
                             list_args_instance[k] = v
                         elseif c_args[k] ~= nil then
                             object_args_instance[k] = v
@@ -258,7 +259,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
             fields = fields,
         }))
 
-        return res, object_args, args, avro_schema.name
+        return res
     elseif avro_type(avro_schema) == 'enum' then
         error('enums not implemented yet') -- XXX
     else
@@ -274,6 +275,7 @@ local function parse_cfg(cfg)
     local state = {}
     state.types = utils.gen_booking_table({})
     state.object_arguments = utils.gen_booking_table({})
+    state.list_arguments = utils.gen_booking_table({})
     state.all_arguments = utils.gen_booking_table({})
 
     local accessor = cfg.accessor
@@ -289,11 +291,6 @@ local function parse_cfg(cfg)
 
     local fields = {}
 
-    -- XXX: support InputObject (non-scalar types in arguments)
-    local list_args = convert_scalar_record_fields_to_args(
-        accessor:list_args())
-    state.list_args = list_args
-
     for name, collection in pairs(state.collections) do
         collection.name = name
         assert(collection.schema_name ~= nil,
@@ -301,14 +298,21 @@ local function parse_cfg(cfg)
         local schema = cfg.schemas[collection.schema_name]
         assert(schema ~= nil, ('cfg.schemas[%s] must not be nil'):format(
             tostring(collection.schema_name)))
-        local schema_name
-        state.types[name], state.object_arguments[name],
-            state.all_arguments[name], schema_name =
-            gql_type(state, schema, collection, name)
-        assert(schema_name == nil or schema_name == collection.schema_name,
+        assert(schema.name == nil or schema.name == collection.schema_name,
             ('top-level schema name does not match the name in ' ..
             'the schema itself: "%s" vs "%s"'):format(collection.schema_name,
-            schema_name))
+            schema.name))
+        state.types[name] = gql_type(state, schema, collection, name)
+
+        local _, object_args = convert_record_fields(state,
+            schema.fields)
+        -- XXX: support InputObject (non-scalar types in arguments)
+        local list_args = convert_scalar_record_fields_to_args(
+            accessor:list_args(name))
+        local args = utils.merge_tables(object_args, list_args)
+        state.object_arguments[name] = object_args
+        state.list_arguments[name] = list_args
+        state.all_arguments[name] = args
 
         -- create entry points from collection names
         fields[name] = {
@@ -451,10 +455,10 @@ end
 ---                 --
 ---                 return ...
 ---             end,
----             list_args = function(self)
+---             list_args = function(self, collection_name)
 ---                 return {
----                     {name = 'limit', type = 'long'},
----                     {name = 'offset', type = 'int'},
+---                     {name = 'limit', type = 'int'},
+---                     {name = 'offset', type = <...>}, -- type of primary key
 ---                 }
 ---             end,
 ---         }

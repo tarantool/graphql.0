@@ -56,9 +56,11 @@ local function get_index(collection_name, index_name)
 
     local index = setmetatable({}, {
         __index = {
-            pairs = function(self, value)
+            pairs = function(self, value, opts)
+                local opts = opts or {}
+                opts.limit = opts.limit or LIMIT
                 local tuples = shard:secondary_select(collection_name,
-                    index_name, {limit = LIMIT}, value, 0)
+                    index_name, opts, value, 0)
                 local cur = 1
                 local function gen()
                     if cur > #tuples then return nil end

@@ -76,7 +76,7 @@ gql_query_1:execute(variables_1);
 
 query_2 = [[
     query user_order($user_id: String, $first_name: String, $limit: Int,
-            $offset: Long) {
+            $offset: String) {
         user_collection(user_id: $user_id, first_name: $first_name) {
             user_id
             last_name
@@ -94,16 +94,24 @@ gql_query_2 = gql_wrapper:compile(query_2);
 variables_2 = {user_id = 'user_id_1'};
 gql_query_2:execute(variables_2);
 
-variables_2_2 = {user_id = 'user_id_42', limit = 10, offset = 10};
+variables_2_2 = {
+    user_id = 'user_id_42',
+    limit = 10,
+    offset = 'order_id_1573', --[[ 10th ]]
+};
 gql_query_2:execute(variables_2_2);
 
-variables_2_3 = {user_id = 'user_id_42', limit = 10, offset = 38};
+variables_2_3 = {
+    user_id = 'user_id_42',
+    limit = 10,
+    offset = 'order_id_1601', --[[ 38th ]]
+};
 gql_query_2:execute(variables_2_3);
 
 variables_2_4 = {
     first_name = 'first name 42',
     limit = 3,
-    offset = 39,
+    offset = 'order_id_1602', --[[ 39th ]]
 };
 gql_query_2:execute(variables_2_4);
 
@@ -112,7 +120,7 @@ variables_2_5 = {user_id = 'user_id_42'};
 gql_query_2:execute(variables_2_5);
 
 query_3 = [[
-    query users($limit: Int, $offset: Long) {
+    query users($limit: Int, $offset: String) {
         user_collection(limit: $limit, offset: $offset) {
             user_id
             last_name
@@ -120,7 +128,10 @@ query_3 = [[
         }
     }
 ]];
-variables_3 = {limit = 10, offset = 50};
+variables_3 = {
+    limit = 10,
+    offset = 'user_id_53', --[[ 50th (alphabetical sort) ]]
+};
 gql_query_3 = gql_wrapper:compile(query_3);
 gql_query_3:execute(variables_3);
 
