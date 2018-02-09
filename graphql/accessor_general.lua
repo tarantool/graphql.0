@@ -708,6 +708,17 @@ local function select_internal(self, collection_name, from, filter, args)
                 error('unexpected value of pivot: ' .. json.encode(pivot))
             end
         end
+
+        -- It is safe to pass limit down to the iterator when we do not filter
+        -- objects after fetching. We do not lean on assumption that an
+        -- iterator respects passed limit.
+        -- Note: accessor_space does not support limit args (we need to wrap
+        -- index:pairs() for that), but accessor_shard does (because calls
+        -- index:select() under hood)
+        if full_match and args.limit ~= nil then
+            iterator_opts.limit = args.limit
+        end
+
         for _, tuple in index:pairs(index_value, iterator_opts) do
             local continue = process_tuple(select_state, tuple, select_opts)
             if not continue then break end
