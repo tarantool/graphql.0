@@ -1,0 +1,9 @@
+RESULT
+---
+user_collection:
+- last_name: last name 42
+  user_str: user_str_42
+  first_name: first name 42
+  user_num: 42
+...
+

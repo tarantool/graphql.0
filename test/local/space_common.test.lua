@@ -352,4 +352,9 @@ end)
 --    print(('RESULT\n%s'):format(yaml.encode(result)))
 --end)
 
+-- clean up
+box.space._schema:delete('oncetest_space_init_spaces')
+box.space.user_collection:drop()
+box.space.order_collection:drop()
+
 os.exit()

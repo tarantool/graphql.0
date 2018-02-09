@@ -98,7 +98,7 @@ end
 
 --- Get a key to lookup index by `lookup_index_name` (part of `index_cache`).
 ---
---- @tparam table filter filter for objects whose keys (names of fields) will
+--- @tparam table filter filter for objects, its keys (names of fields) will
 --- form the result
 ---
 --- @treturn string `name_list_str` (key for lookup by `lookup_index_name`)
@@ -117,6 +117,73 @@ local function filter_names_fingerprint(filter)
     table.sort(name_list)
     local name_list_str = table.concat(name_list, ',')
     return name_list_str
+end
+
+-- XXX: raw idea: we can store field-to-field_no mapping when creating
+-- `lookup_index_name` to faster form the value_list
+
+--- Flatten filter values (transform to a list) against specific index to
+--- passing it to index:pairs().
+---
+--- Only full keys are supported for a compound index for now.
+---
+--- @tparam table self the data accessor
+---
+--- @tparam table filter filter for objects, its values will ordered to form
+--- the result
+---
+--- @tparam string collection_name name of collection contains the index with
+--- a name `index_name`
+---
+--- @tparam string index_name name of index against which `filter` values will
+--- be ordered
+---
+--- @treturn boolean `full_match` whether the passed filter forms full key for
+--- passed index
+---
+--- @treturn table `value_list` the value to pass to index:pairs()
+local function flatten_filter(self, filter, collection_name, index_name)
+    assert(type(self) == 'table',
+        'self must be a table, got ' .. type(self))
+    assert(type(filter) == 'table',
+        'filter must be a table, got ' .. type(filter))
+    assert(type(index_name) == 'string',
+        'index_name must be a string, got ' .. type(index_name))
+
+    local value_list = {}
+
+    -- fill value_list
+    local index_meta = self.indexes[collection_name][index_name]
+    -- XXX: support or remove indexes by service_fields
+    assert(#index_meta.service_fields == 0,
+        'service_fields support does not implemented yet')
+    for _, field_name in ipairs(index_meta.fields) do
+        local value = filter[field_name]
+        if value == nil then break end
+        value_list[#value_list + 1] = value
+    end
+
+    -- check for correctness: non-empty value_list
+    if #value_list == 0 then -- avoid extra json.encode()
+        assert(#value_list > 0,
+            ('empty index key: filter: %s, index_name: %s'):format(
+            json.encode(filter), index_name))
+    end
+
+    -- check for correctness: all filter fields are used
+    local count = 0
+    for k, v in pairs(filter) do
+        count = count + 1
+    end
+    if count ~= #value_list then -- avoid extra json.encode()
+        assert(count ~= #value_list,
+            ('filter items count does not match index fields count: ' ..
+            'filter: %s, index_name: %s'):format(json.encode(filter),
+            index_name))
+    end
+
+    local full_match = #value_list == #index_meta.fields
+    return full_match, value_list
 end
 
 -- XXX: support partial match for primary/secondary indexes and support to skip
@@ -226,9 +293,9 @@ local get_index_name = function(self, collection_name, from, filter, args)
     -- corresponding offset in `pivot.value_list`, then the result will be
     -- postprocessed using `filter`, if necessary.
     if args.offset ~= nil then
-        local value_list_from = type(args.offset) == 'table' and args.offset
+        local pivot_value_list = type(args.offset) == 'table' and args.offset
             or {args.offset} -- XXX: support compound primary indexes
-        local pivot = {value_list = value_list_from}
+        local pivot = {value_list = pivot_value_list}
         local index_name, _ = get_primary_index_meta(self, collection_name)
         local full_match = next(filter) == nil
         return full_match, index_name, filter, pivot
@@ -240,10 +307,12 @@ local get_index_name = function(self, collection_name, from, filter, args)
     assert(lookup_index_name[collection_name] ~= nil,
         ('cannot find any index for collection "%s"'):format(collection_name))
     local index_name = lookup_index_name[collection_name][name_list_str]
-    local value_list = {select(2, next(filter))} -- XXX: support compound
-                                                 -- indexes
-    local full_match = index_name ~= nil -- XXX: subject to change when we'll
-                                         -- support index lookup y a partial key
+    local full_match = false
+    local value_list = nil
+    if index_name ~= nil then
+        full_match, value_list = flatten_filter(self, filter, collection_name,
+            index_name)
+    end
     return full_match, index_name, value_list
 end
 
@@ -281,12 +350,6 @@ local function build_lookup_index_name(indexes)
             -- XXX: support or remove indexes by service_fields
             assert(#index_descr.service_fields == 0,
                 'service_fields support does not implemented yet')
-            -- XXX: support compound primary indexes
-            if index_descr.primary then
-                assert(#index_descr.fields == 1,
-                    'we do not support compound primary indexes ' ..
-                    'for now')
-            end
 
             local service_fields_list = index_descr['service_fields']
             assert(utils.is_array(service_fields_list),
@@ -493,7 +556,8 @@ local function process_tuple(state, tuple, opts)
     if do_filter then
         if not match then return true end
     else
-        assert(match, 'found object do not fit passed filter')
+        assert(match, 'found object do not fit passed filter: ' ..
+            json.encode(obj))
     end
 
     -- add the matching object, update count and check limit
