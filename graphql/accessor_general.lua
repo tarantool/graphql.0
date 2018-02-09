@@ -293,11 +293,24 @@ local get_index_name = function(self, collection_name, from, filter, args)
     -- corresponding offset in `pivot.value_list`, then the result will be
     -- postprocessed using `filter`, if necessary.
     if args.offset ~= nil then
-        local pivot_value_list = type(args.offset) == 'table' and args.offset
-            or {args.offset} -- XXX: support compound primary indexes
+        local index_name, index_meta = get_primary_index_meta(self,
+            collection_name)
+        local full_match
+        local pivot_value_list
+        if type(args.offset) == 'table' then
+            -- XXX: when flatten_filter will allow to generate list for partial
+            -- match we'll need to disable that option here: offset must be
+            -- full key
+            full_match, pivot_value_list = flatten_filter(self, filter,
+                collection_name, index_name)
+        else
+            assert(#index_meta.fields == 1,
+                ('index parts count is not 1 for scalar offset: ' ..
+                'index "%s"'):format(index_name))
+            full_match, pivot_value_list = true, {args.offset}
+        end
         local pivot = {value_list = pivot_value_list}
-        local index_name, _ = get_primary_index_meta(self, collection_name)
-        local full_match = next(filter) == nil
+        full_match = full_match and next(filter) == nil
         return full_match, index_name, filter, pivot
     end
 
