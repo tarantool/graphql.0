@@ -12,6 +12,17 @@ local yaml = require('yaml')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
 
+-- utils
+-- -----
+
+-- return an error w/o file name and line number
+local function strip_error(err)
+    return tostring(err):gsub('^.-:.-: (.*)$', '%1')
+end
+
+-- schemas and meta-information
+-- ----------------------------
+
 local schemas = json.decode([[{
     "user": {
         "type": "record",
@@ -162,8 +173,8 @@ for i = 1, 20 do
             {'user_str_' .. s, i, 'first name ' .. s, 'last name ' .. s})
         for k = 1, 10 do
             box.space.order_collection:replace(
-                {'order_id_' .. s, i * 100 + k, 'user_str_' .. s, i,
-                'description ' .. s})
+                {'order_str_' .. s .. '_' .. tostring(k), i * 100 + k,
+                'user_str_' .. s, i, 'description ' .. s})
         end
     end
 end
@@ -268,7 +279,108 @@ utils.show_trace(function()
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
 
+-- offset on top-level by a full compound primary key
+-- --------------------------------------------------
+
+local query_4 = [[
+    query users($limit: Int, $offset: user_collection_offset) {
+        user_collection(limit: $limit, offset: $offset) {
+            user_str
+            user_num
+            last_name
+            first_name
+        }
+    }
+]]
+
+local gql_query_4 = gql_wrapper:compile(query_4)
+
+utils.show_trace(function()
+    local variables_4_1 = {
+        limit = 10,
+        offset = {
+            user_str = 'user_str_b',
+            user_num = 12,
+        }
+    }
+    local result = gql_query_4:execute(variables_4_1)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+-- offset on top-level by a partial compound primary key (expected to fail)
+-- ------------------------------------------------------------------------
+
+local ok, err = pcall(function()
+    local variables_4_2 = {
+        limit = 10,
+        offset = {
+            user_str = 'user_str_b',
+        }
+    }
+    local result = gql_query_4:execute(variables_4_2)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+print(('RESULT: ok: %s; err: %s'):format(tostring(ok), strip_error(err)))
+
+-- offset when using a connection by a full compound primary key
+-- -------------------------------------------------------------
+
+local query_5 = [[
+    query users($user_str: String, $user_num: Long,
+            $limit: Int, $offset: order_collection_offset) {
+        user_collection(user_str: $user_str, user_num: $user_num) {
+            user_str
+            user_num
+            last_name
+            first_name
+            order_connection(limit: $limit, offset: $offset) {
+                order_str
+                order_num
+                description
+            }
+        }
+    }
+]]
+
+local gql_query_5 = gql_wrapper:compile(query_5)
+
+utils.show_trace(function()
+    local variables_5_1 = {
+        user_str = 'user_str_b',
+        user_num = 12,
+        limit = 4,
+        offset = {
+            order_str = 'order_str_b_2',
+            order_num = 1202,
+        }
+    }
+    local result = gql_query_5:execute(variables_5_1)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+-- offset when using a connection by a partial compound primary key (expected
+-- to fail)
+-- --------------------------------------------------------------------------
+
+local ok, err = pcall(function()
+    local variables_5_2 = {
+        user_str = 'user_str_b',
+        user_num = 12,
+        limit = 4,
+        offset = {
+            order_str = 'order_str_b_2',
+        }
+    }
+    local result = gql_query_5:execute(variables_5_2)
+    print(('RESULT\n%s'):format(yaml.encode(result)))
+end)
+
+print(('RESULT: ok: %s; err: %s'):format(tostring(ok), strip_error(err)))
+
 -- clean up
+-- --------
+
 box.space._schema:delete('oncetest_space_init_spaces')
 box.space.user_collection:drop()
 box.space.order_collection:drop()

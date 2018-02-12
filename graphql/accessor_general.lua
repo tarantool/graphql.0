@@ -277,11 +277,20 @@ local get_index_name = function(self, collection_name, from, filter, args)
 
         local pivot
         if args.offset ~= nil then
-            -- XXX: support compound primary indexes
-            local _, index = get_primary_index_meta(self, collection_name)
-            local field_name = index.fields[1]
-
-            local pivot_filter = {[field_name] = args.offset}
+            local _, index_meta = get_primary_index_meta(self, collection_name)
+            local pivot_filter
+            if #index_meta.fields == 1 then
+                -- we use simple type in case of scalar offset
+                local field_name = index_meta.fields[1]
+                pivot_filter = {[field_name] = args.offset}
+            else
+                for _, field_name in ipairs(index_meta.fields) do
+                    assert(args.offset[field_name] ~= nil,
+                        ('offset by a partial key is forbidden: ' ..
+                        'expected "%s" field'):format(field_name))
+                    pivot_filter = {[field_name] = args.offset[field_name]}
+                end
+            end
             pivot = {filter = pivot_filter}
         end
 
@@ -298,11 +307,9 @@ local get_index_name = function(self, collection_name, from, filter, args)
         local full_match
         local pivot_value_list
         if type(args.offset) == 'table' then
-            -- XXX: when flatten_filter will allow to generate list for partial
-            -- match we'll need to disable that option here: offset must be
-            -- full key
-            full_match, pivot_value_list = flatten_filter(self, filter,
+            full_match, pivot_value_list = flatten_filter(self, args.offset,
                 collection_name, index_name)
+            assert(full_match == true, 'offset by a partial key is forbidden')
         else
             assert(#index_meta.fields == 1,
                 ('index parts count is not 1 for scalar offset: ' ..
@@ -870,28 +877,51 @@ function accessor_general.new(opts, funcs)
             end,
             list_args = function(self, collection_name)
                 -- get name of field of primary key
-                -- XXX: support compound primary indexes
-                local field_name
-                local _, index = get_primary_index_meta(self, collection_name)
-                field_name = index.fields[1]
+                local _, index_meta = get_primary_index_meta(
+                    self, collection_name)
 
-                local field_type
-                local collection = self.collections[collection_name]
-                local schema = self.schemas[collection.schema_name]
-                for _, field in ipairs(schema.fields) do
-                    if field.name == field_name then
-                        field_type = field.type
+                local offset_fields = {}
+
+                for _, field_name in ipairs(index_meta.fields) do
+                    local field_type
+                    local collection = self.collections[collection_name]
+                    local schema = self.schemas[collection.schema_name]
+                    for _, field in ipairs(schema.fields) do
+                        if field.name == field_name then
+                            field_type = field.type
+                        end
                     end
+                    assert(field_type ~= nil,
+                        ('cannot find type for primary index field "%s" ' ..
+                        'for collection "%s"'):format(field_name,
+                        collection_name))
+                    assert(type(field_type) == 'string',
+                        'field type must be a string, got ' ..
+                        type(field_type))
+                    offset_fields[#offset_fields + 1] = {
+                        name = field_name,
+                        type = field_type,
+                    }
                 end
-                assert(field_type ~= nil,
-                    ('cannot find primary index for collection "%s"'):format(
-                    collection_name))
-                assert(type(field_type) == 'string',
-                    'field type must be a string, got ' .. type(field_type))
+
+                local offset_type
+                assert(#offset_fields > 0,
+                    'offset must contain at least one field')
+                if #offset_fields == 1 then
+                    -- use a scalar type
+                    offset_type = offset_fields[1].type
+                else
+                    -- construct an input type
+                    offset_type = {
+                        name = collection_name .. '_offset',
+                        type = 'record',
+                        fields = offset_fields,
+                    }
+                end
 
                 return {
                     {name = 'limit', type = 'int'},
-                    {name = 'offset', type = field_type},
+                    {name = 'offset', type = offset_type},
                     -- {name = 'filter', type = ...},
                 }
             end,

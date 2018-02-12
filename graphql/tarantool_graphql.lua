@@ -86,13 +86,59 @@ local function convert_scalar_type(avro_schema, opts)
     return nil
 end
 
-local function convert_scalar_record_fields_to_args(fields)
+--- Non-recursive version of the @{gql_type} function that returns
+--- InputObject instead of Object.
+local function gql_argument_type(state, avro_schema)
+    assert(type(state) == 'table',
+        'state must be a table, got ' .. type(state))
+    assert(avro_schema ~= nil,
+        'avro_schema must not be nil')
+
+    if avro_type(avro_schema) == 'record' then
+        assert(type(avro_schema.name) == 'string',
+            ('avro_schema.name must be a string, got %s (avro_schema %s)')
+            :format(type(avro_schema.name), json.encode(avro_schema)))
+        assert(type(avro_schema.fields) == 'table',
+            ('avro_schema.fields must be a table, got %s (avro_schema %s)')
+            :format(type(avro_schema.fields), json.encode(avro_schema)))
+
+        local fields = {}
+        for _, field in ipairs(fields) do
+            assert(type(field.name) == 'string',
+                ('field.name must be a string, got %s (schema %s)')
+                :format(type(field.name), json.encode(field)))
+            local gql_field_type = convert_scalar_type(
+                field.type, {raise = true})
+            fields[field.name] = {
+                name = field.name,
+                kind = types.nonNull(gql_field_type),
+            }
+        end
+
+        local res = types.nonNull(types.inputObject({
+            name = avro_schema.name,
+            description = 'generated from avro-schema for ' ..
+                avro_schema.name,
+            fields = fields,
+        }))
+
+        return res
+    else
+        local res = convert_scalar_type(avro_schema, {raise = false})
+        if res == nil then
+            error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
+        end
+        return res
+    end
+end
+
+local function convert_record_fields_to_args(state, fields)
     local args = {}
     for _, field in ipairs(fields) do
         assert(type(field.name) == 'string',
             ('field.name must be a string, got %s (schema %s)')
             :format(type(field.name), json.encode(field)))
-        local gql_class = convert_scalar_type(field.type, {raise = true})
+        local gql_class = gql_argument_type(state, field.type)
         args[field.name] = nullable(gql_class)
     end
     return args
@@ -135,9 +181,10 @@ end
 --- 2. The collection name will be used as the resulting graphql type name
 ---    instead of the avro-schema name.
 gql_type = function(state, avro_schema, collection, collection_name)
-    local state = state or {}
     assert(type(state) == 'table',
-        'state must be a table or nil, got ' .. type(state))
+        'state must be a table, got ' .. type(state))
+    assert(avro_schema ~= nil,
+        'avro_schema must not be nil')
     assert(collection == nil or type(collection) == 'table',
         'collection must be nil or a table, got ' .. type(collection))
     assert(collection_name == nil or type(collection_name) == 'string',
@@ -306,9 +353,8 @@ local function parse_cfg(cfg)
 
         local _, object_args = convert_record_fields(state,
             schema.fields)
-        -- XXX: support InputObject (non-scalar types in arguments)
-        local list_args = convert_scalar_record_fields_to_args(
-            accessor:list_args(name))
+        local list_args = convert_record_fields_to_args(
+            state, accessor:list_args(name))
         local args = utils.merge_tables(object_args, list_args)
         state.object_arguments[name] = object_args
         state.list_arguments[name] = list_args
