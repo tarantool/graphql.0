@@ -1,9 +1,684 @@
 RESULT
 ---
 user_collection:
-- last_name: last name 42
-  user_str: user_str_42
-  first_name: first name 42
-  user_num: 42
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 12
+...
+
+RESULT
+---
+user_collection:
+- last_name: last name a
+  user_str: user_str_a
+  first_name: first name a
+  user_num: 12
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 12
+- last_name: last name c
+  user_str: user_str_c
+  first_name: first name c
+  user_num: 12
+- last_name: last name d
+  user_str: user_str_d
+  first_name: first name d
+  user_num: 12
+- last_name: last name e
+  user_str: user_str_e
+  first_name: first name e
+  user_num: 12
+...
+
+RESULT
+---
+user_collection:
+- order_connection:
+  - order_num: 1201
+    order_str: order_id_b
+    description: description b
+  - order_num: 1202
+    order_str: order_id_b
+    description: description b
+  - order_num: 1203
+    order_str: order_id_b
+    description: description b
+  - order_num: 1204
+    order_str: order_id_b
+    description: description b
+  - order_num: 1205
+    order_str: order_id_b
+    description: description b
+  - order_num: 1206
+    order_str: order_id_b
+    description: description b
+  - order_num: 1207
+    order_str: order_id_b
+    description: description b
+  - order_num: 1208
+    order_str: order_id_b
+    description: description b
+  - order_num: 1209
+    order_str: order_id_b
+    description: description b
+  - order_num: 1210
+    order_str: order_id_b
+    description: description b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 12
+  last_name: last name b
+...
+
+RESULT
+---
+user_collection:
+- user_str: user_str_b
+  first_name: first name b
+  user_num: 12
+  last_name: last name b
+  order_str_connection:
+  - order_num: 101
+    order_str: order_id_b
+    description: description b
+  - order_num: 102
+    order_str: order_id_b
+    description: description b
+  - order_num: 103
+    order_str: order_id_b
+    description: description b
+  - order_num: 104
+    order_str: order_id_b
+    description: description b
+  - order_num: 105
+    order_str: order_id_b
+    description: description b
+  - order_num: 106
+    order_str: order_id_b
+    description: description b
+  - order_num: 107
+    order_str: order_id_b
+    description: description b
+  - order_num: 108
+    order_str: order_id_b
+    description: description b
+  - order_num: 109
+    order_str: order_id_b
+    description: description b
+  - order_num: 110
+    order_str: order_id_b
+    description: description b
+  - order_num: 201
+    order_str: order_id_b
+    description: description b
+  - order_num: 202
+    order_str: order_id_b
+    description: description b
+  - order_num: 203
+    order_str: order_id_b
+    description: description b
+  - order_num: 204
+    order_str: order_id_b
+    description: description b
+  - order_num: 205
+    order_str: order_id_b
+    description: description b
+  - order_num: 206
+    order_str: order_id_b
+    description: description b
+  - order_num: 207
+    order_str: order_id_b
+    description: description b
+  - order_num: 208
+    order_str: order_id_b
+    description: description b
+  - order_num: 209
+    order_str: order_id_b
+    description: description b
+  - order_num: 210
+    order_str: order_id_b
+    description: description b
+  - order_num: 301
+    order_str: order_id_b
+    description: description b
+  - order_num: 302
+    order_str: order_id_b
+    description: description b
+  - order_num: 303
+    order_str: order_id_b
+    description: description b
+  - order_num: 304
+    order_str: order_id_b
+    description: description b
+  - order_num: 305
+    order_str: order_id_b
+    description: description b
+  - order_num: 306
+    order_str: order_id_b
+    description: description b
+  - order_num: 307
+    order_str: order_id_b
+    description: description b
+  - order_num: 308
+    order_str: order_id_b
+    description: description b
+  - order_num: 309
+    order_str: order_id_b
+    description: description b
+  - order_num: 310
+    order_str: order_id_b
+    description: description b
+  - order_num: 401
+    order_str: order_id_b
+    description: description b
+  - order_num: 402
+    order_str: order_id_b
+    description: description b
+  - order_num: 403
+    order_str: order_id_b
+    description: description b
+  - order_num: 404
+    order_str: order_id_b
+    description: description b
+  - order_num: 405
+    order_str: order_id_b
+    description: description b
+  - order_num: 406
+    order_str: order_id_b
+    description: description b
+  - order_num: 407
+    order_str: order_id_b
+    description: description b
+  - order_num: 408
+    order_str: order_id_b
+    description: description b
+  - order_num: 409
+    order_str: order_id_b
+    description: description b
+  - order_num: 410
+    order_str: order_id_b
+    description: description b
+  - order_num: 501
+    order_str: order_id_b
+    description: description b
+  - order_num: 502
+    order_str: order_id_b
+    description: description b
+  - order_num: 503
+    order_str: order_id_b
+    description: description b
+  - order_num: 504
+    order_str: order_id_b
+    description: description b
+  - order_num: 505
+    order_str: order_id_b
+    description: description b
+  - order_num: 506
+    order_str: order_id_b
+    description: description b
+  - order_num: 507
+    order_str: order_id_b
+    description: description b
+  - order_num: 508
+    order_str: order_id_b
+    description: description b
+  - order_num: 509
+    order_str: order_id_b
+    description: description b
+  - order_num: 510
+    order_str: order_id_b
+    description: description b
+  - order_num: 601
+    order_str: order_id_b
+    description: description b
+  - order_num: 602
+    order_str: order_id_b
+    description: description b
+  - order_num: 603
+    order_str: order_id_b
+    description: description b
+  - order_num: 604
+    order_str: order_id_b
+    description: description b
+  - order_num: 605
+    order_str: order_id_b
+    description: description b
+  - order_num: 606
+    order_str: order_id_b
+    description: description b
+  - order_num: 607
+    order_str: order_id_b
+    description: description b
+  - order_num: 608
+    order_str: order_id_b
+    description: description b
+  - order_num: 609
+    order_str: order_id_b
+    description: description b
+  - order_num: 610
+    order_str: order_id_b
+    description: description b
+  - order_num: 701
+    order_str: order_id_b
+    description: description b
+  - order_num: 702
+    order_str: order_id_b
+    description: description b
+  - order_num: 703
+    order_str: order_id_b
+    description: description b
+  - order_num: 704
+    order_str: order_id_b
+    description: description b
+  - order_num: 705
+    order_str: order_id_b
+    description: description b
+  - order_num: 706
+    order_str: order_id_b
+    description: description b
+  - order_num: 707
+    order_str: order_id_b
+    description: description b
+  - order_num: 708
+    order_str: order_id_b
+    description: description b
+  - order_num: 709
+    order_str: order_id_b
+    description: description b
+  - order_num: 710
+    order_str: order_id_b
+    description: description b
+  - order_num: 801
+    order_str: order_id_b
+    description: description b
+  - order_num: 802
+    order_str: order_id_b
+    description: description b
+  - order_num: 803
+    order_str: order_id_b
+    description: description b
+  - order_num: 804
+    order_str: order_id_b
+    description: description b
+  - order_num: 805
+    order_str: order_id_b
+    description: description b
+  - order_num: 806
+    order_str: order_id_b
+    description: description b
+  - order_num: 807
+    order_str: order_id_b
+    description: description b
+  - order_num: 808
+    order_str: order_id_b
+    description: description b
+  - order_num: 809
+    order_str: order_id_b
+    description: description b
+  - order_num: 810
+    order_str: order_id_b
+    description: description b
+  - order_num: 901
+    order_str: order_id_b
+    description: description b
+  - order_num: 902
+    order_str: order_id_b
+    description: description b
+  - order_num: 903
+    order_str: order_id_b
+    description: description b
+  - order_num: 904
+    order_str: order_id_b
+    description: description b
+  - order_num: 905
+    order_str: order_id_b
+    description: description b
+  - order_num: 906
+    order_str: order_id_b
+    description: description b
+  - order_num: 907
+    order_str: order_id_b
+    description: description b
+  - order_num: 908
+    order_str: order_id_b
+    description: description b
+  - order_num: 909
+    order_str: order_id_b
+    description: description b
+  - order_num: 910
+    order_str: order_id_b
+    description: description b
+  - order_num: 1001
+    order_str: order_id_b
+    description: description b
+  - order_num: 1002
+    order_str: order_id_b
+    description: description b
+  - order_num: 1003
+    order_str: order_id_b
+    description: description b
+  - order_num: 1004
+    order_str: order_id_b
+    description: description b
+  - order_num: 1005
+    order_str: order_id_b
+    description: description b
+  - order_num: 1006
+    order_str: order_id_b
+    description: description b
+  - order_num: 1007
+    order_str: order_id_b
+    description: description b
+  - order_num: 1008
+    order_str: order_id_b
+    description: description b
+  - order_num: 1009
+    order_str: order_id_b
+    description: description b
+  - order_num: 1010
+    order_str: order_id_b
+    description: description b
+  - order_num: 1101
+    order_str: order_id_b
+    description: description b
+  - order_num: 1102
+    order_str: order_id_b
+    description: description b
+  - order_num: 1103
+    order_str: order_id_b
+    description: description b
+  - order_num: 1104
+    order_str: order_id_b
+    description: description b
+  - order_num: 1105
+    order_str: order_id_b
+    description: description b
+  - order_num: 1106
+    order_str: order_id_b
+    description: description b
+  - order_num: 1107
+    order_str: order_id_b
+    description: description b
+  - order_num: 1108
+    order_str: order_id_b
+    description: description b
+  - order_num: 1109
+    order_str: order_id_b
+    description: description b
+  - order_num: 1110
+    order_str: order_id_b
+    description: description b
+  - order_num: 1201
+    order_str: order_id_b
+    description: description b
+  - order_num: 1202
+    order_str: order_id_b
+    description: description b
+  - order_num: 1203
+    order_str: order_id_b
+    description: description b
+  - order_num: 1204
+    order_str: order_id_b
+    description: description b
+  - order_num: 1205
+    order_str: order_id_b
+    description: description b
+  - order_num: 1206
+    order_str: order_id_b
+    description: description b
+  - order_num: 1207
+    order_str: order_id_b
+    description: description b
+  - order_num: 1208
+    order_str: order_id_b
+    description: description b
+  - order_num: 1209
+    order_str: order_id_b
+    description: description b
+  - order_num: 1210
+    order_str: order_id_b
+    description: description b
+  - order_num: 1301
+    order_str: order_id_b
+    description: description b
+  - order_num: 1302
+    order_str: order_id_b
+    description: description b
+  - order_num: 1303
+    order_str: order_id_b
+    description: description b
+  - order_num: 1304
+    order_str: order_id_b
+    description: description b
+  - order_num: 1305
+    order_str: order_id_b
+    description: description b
+  - order_num: 1306
+    order_str: order_id_b
+    description: description b
+  - order_num: 1307
+    order_str: order_id_b
+    description: description b
+  - order_num: 1308
+    order_str: order_id_b
+    description: description b
+  - order_num: 1309
+    order_str: order_id_b
+    description: description b
+  - order_num: 1310
+    order_str: order_id_b
+    description: description b
+  - order_num: 1401
+    order_str: order_id_b
+    description: description b
+  - order_num: 1402
+    order_str: order_id_b
+    description: description b
+  - order_num: 1403
+    order_str: order_id_b
+    description: description b
+  - order_num: 1404
+    order_str: order_id_b
+    description: description b
+  - order_num: 1405
+    order_str: order_id_b
+    description: description b
+  - order_num: 1406
+    order_str: order_id_b
+    description: description b
+  - order_num: 1407
+    order_str: order_id_b
+    description: description b
+  - order_num: 1408
+    order_str: order_id_b
+    description: description b
+  - order_num: 1409
+    order_str: order_id_b
+    description: description b
+  - order_num: 1410
+    order_str: order_id_b
+    description: description b
+  - order_num: 1501
+    order_str: order_id_b
+    description: description b
+  - order_num: 1502
+    order_str: order_id_b
+    description: description b
+  - order_num: 1503
+    order_str: order_id_b
+    description: description b
+  - order_num: 1504
+    order_str: order_id_b
+    description: description b
+  - order_num: 1505
+    order_str: order_id_b
+    description: description b
+  - order_num: 1506
+    order_str: order_id_b
+    description: description b
+  - order_num: 1507
+    order_str: order_id_b
+    description: description b
+  - order_num: 1508
+    order_str: order_id_b
+    description: description b
+  - order_num: 1509
+    order_str: order_id_b
+    description: description b
+  - order_num: 1510
+    order_str: order_id_b
+    description: description b
+  - order_num: 1601
+    order_str: order_id_b
+    description: description b
+  - order_num: 1602
+    order_str: order_id_b
+    description: description b
+  - order_num: 1603
+    order_str: order_id_b
+    description: description b
+  - order_num: 1604
+    order_str: order_id_b
+    description: description b
+  - order_num: 1605
+    order_str: order_id_b
+    description: description b
+  - order_num: 1606
+    order_str: order_id_b
+    description: description b
+  - order_num: 1607
+    order_str: order_id_b
+    description: description b
+  - order_num: 1608
+    order_str: order_id_b
+    description: description b
+  - order_num: 1609
+    order_str: order_id_b
+    description: description b
+  - order_num: 1610
+    order_str: order_id_b
+    description: description b
+  - order_num: 1701
+    order_str: order_id_b
+    description: description b
+  - order_num: 1702
+    order_str: order_id_b
+    description: description b
+  - order_num: 1703
+    order_str: order_id_b
+    description: description b
+  - order_num: 1704
+    order_str: order_id_b
+    description: description b
+  - order_num: 1705
+    order_str: order_id_b
+    description: description b
+  - order_num: 1706
+    order_str: order_id_b
+    description: description b
+  - order_num: 1707
+    order_str: order_id_b
+    description: description b
+  - order_num: 1708
+    order_str: order_id_b
+    description: description b
+  - order_num: 1709
+    order_str: order_id_b
+    description: description b
+  - order_num: 1710
+    order_str: order_id_b
+    description: description b
+  - order_num: 1801
+    order_str: order_id_b
+    description: description b
+  - order_num: 1802
+    order_str: order_id_b
+    description: description b
+  - order_num: 1803
+    order_str: order_id_b
+    description: description b
+  - order_num: 1804
+    order_str: order_id_b
+    description: description b
+  - order_num: 1805
+    order_str: order_id_b
+    description: description b
+  - order_num: 1806
+    order_str: order_id_b
+    description: description b
+  - order_num: 1807
+    order_str: order_id_b
+    description: description b
+  - order_num: 1808
+    order_str: order_id_b
+    description: description b
+  - order_num: 1809
+    order_str: order_id_b
+    description: description b
+  - order_num: 1810
+    order_str: order_id_b
+    description: description b
+  - order_num: 1901
+    order_str: order_id_b
+    description: description b
+  - order_num: 1902
+    order_str: order_id_b
+    description: description b
+  - order_num: 1903
+    order_str: order_id_b
+    description: description b
+  - order_num: 1904
+    order_str: order_id_b
+    description: description b
+  - order_num: 1905
+    order_str: order_id_b
+    description: description b
+  - order_num: 1906
+    order_str: order_id_b
+    description: description b
+  - order_num: 1907
+    order_str: order_id_b
+    description: description b
+  - order_num: 1908
+    order_str: order_id_b
+    description: description b
+  - order_num: 1909
+    order_str: order_id_b
+    description: description b
+  - order_num: 1910
+    order_str: order_id_b
+    description: description b
+  - order_num: 2001
+    order_str: order_id_b
+    description: description b
+  - order_num: 2002
+    order_str: order_id_b
+    description: description b
+  - order_num: 2003
+    order_str: order_id_b
+    description: description b
+  - order_num: 2004
+    order_str: order_id_b
+    description: description b
+  - order_num: 2005
+    order_str: order_id_b
+    description: description b
+  - order_num: 2006
+    order_str: order_id_b
+    description: description b
+  - order_num: 2007
+    order_str: order_id_b
+    description: description b
+  - order_num: 2008
+    order_str: order_id_b
+    description: description b
+  - order_num: 2009
+    order_str: order_id_b
+    description: description b
+  - order_num: 2010
+    order_str: order_id_b
+    description: description b
 ...
 
