@@ -396,11 +396,11 @@ end
 --- Build `connection_indexes` table (part of `index_cache`) to use in the
 --- @{get_index_name} function.
 ---
---- @tparam table indexes map from collection names to indexes as defined in
---- the @{new} function; the function uses it to validate index names provided
---- in connections (which are inside collections) and validate connection types
---- ('1:1' or '1:N') against index uniqueness if the `unique` flag provided for
---- corresponding index
+--- @tparam table indexes map from collection names to indexes meta-information
+--- as defined in the @{new} function; the function uses it to validate index
+--- names provided in connections (which are inside collections) and validate
+--- connection types ('1:1' or '1:N') against index uniqueness if the `unique`
+--- flag provided for corresponding index
 ---
 --- @tparam table collections map from collection names to collections as
 --- defined in the @{accessor_general.new} function decription; the function
@@ -463,16 +463,21 @@ end
 --- Set of asserts to check the `opts.collections` argument of the
 --- @{accessor_general.new} function.
 ---
---- @tparam table collections a map from collection names to collections as
+--- @tparam table collections map from collection names to collections as
 --- defined in the @{accessor_general.new} function decription; this is subject
 --- to validate
 ---
---- @tparam table schemas a map from schema names to schemas as defined in the
+--- @tparam table schemas map from schema names to schemas as defined in the
 --- @{tarantool_graphql.new} function; this is for validate collection against
 --- certain set of schemas (no 'dangling' schema names in collections)
 ---
+--- @tparam table indexes map from collection names to indexes meta-information
+--- as defined in the @{new} function; the function uses it to check that
+--- destination parts of connections form a prefix of parts of the
+--- `connection.index_name` index
+---
 --- @return nil
-local function validate_collections(collections, schemas)
+local function validate_collections(collections, schemas, indexes)
     for collection_name, collection in pairs(collections) do
         assert(type(collection_name) == 'string',
             'collection_name must be a string, got ' ..
@@ -502,6 +507,10 @@ local function validate_collections(collections, schemas)
             assert(type(connection.parts) == 'table',
                 'connection.parts must be a string, got ' ..
                 type(connection.parts))
+            assert(type(connection.index_name) == 'string',
+                'connection.index_name must be a string, got ' ..
+                type(connection.index_name))
+            local i = 1
             for _, part in ipairs(connection.parts) do
                 assert(type(part.source_field) == 'string',
                     'part.source_field must be a string, got ' ..
@@ -509,6 +518,13 @@ local function validate_collections(collections, schemas)
                 assert(type(part.destination_field) == 'string',
                     'part.destination_field must be a string, got ' ..
                     type(part.destination_field))
+                assert(part.destination_field ==
+                    indexes[collection_name][connection.index_name].fields[i],
+                    ('connection "%s" of collection "%s" ' ..
+                    'has destination parts that is not prefix of the index ' ..
+                    '"%s" parts'):format(connection.name, collection_name,
+                    connection.index_name))
+                i = i + 1
             end
         end
     end
@@ -778,7 +794,7 @@ end
 ---
 ---     service_fields['schema_name'] = {
 ---         {name = 'expires_on', type = 'long', default = 0},
----     },
+---     }
 ---
 --- Example of `opts.indexes` item:
 ---
@@ -820,7 +836,7 @@ function accessor_general.new(opts, funcs)
         'indexes must be a table, got ' .. type(indexes))
 
     local models = compile_schemas(schemas, service_fields)
-    validate_collections(collections, schemas)
+    validate_collections(collections, schemas, indexes)
     local index_cache = build_index_cache(indexes, collections)
 
     validate_funcs(funcs)
