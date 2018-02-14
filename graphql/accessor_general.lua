@@ -405,9 +405,10 @@ end
 ---
 --- @tparam table indexes map from collection names to indexes meta-information
 --- as defined in the @{new} function; the function uses it to validate index
---- names provided in connections (which are inside collections) and validate
+--- names provided in connections (which are inside collections), validate
 --- connection types ('1:1' or '1:N') against index uniqueness if the `unique`
---- flag provided for corresponding index
+--- flag provided for corresponding index and to check that destination parts
+--- of connections form a prefix of parts of the `connection.index_name` index
 ---
 --- @tparam table collections map from collection names to collections as
 --- defined in the @{accessor_general.new} function decription; the function
@@ -431,16 +432,41 @@ local function build_connection_indexes(indexes, collections)
                 'index_name must be a string, got ' .. type(index_name))
 
             -- validate index_name against 'indexes'
-            local index = indexes[c.destination_collection]
-            assert(type(index) == 'table',
-                'index must be a table, got ' .. type(index))
+            local index_meta = indexes[c.destination_collection]
+            assert(type(index_meta) == 'table',
+                'index_meta must be a table, got ' .. type(index_meta))
 
-            -- XXX: validate connection parts are match or being prefix of
-            -- index fields
+            -- validate connection parts are match or being prefix of index
+            -- fields
+            local i = 1
+            local index_fields = index_meta[c.index_name].fields
+            for _, part in ipairs(c.parts) do
+                assert(type(part.source_field) == 'string',
+                    'part.source_field must be a string, got ' ..
+                    type(part.source_field))
+                assert(type(part.destination_field) == 'string',
+                    'part.destination_field must be a string, got ' ..
+                    type(part.destination_field))
+                assert(part.destination_field == index_fields[i],
+                    ('connection "%s" of collection "%s" ' ..
+                    'has destination parts that is not prefix of the index ' ..
+                    '"%s" parts'):format(c.name, c.destination_collection,
+                    c.index_name))
+                i = i + 1
+            end
+            local parts_cnt = i - 1
+
+            -- partial index of an unique index is not guaranteed to being
+            -- unique
+            assert(c.type == '1:N' or parts_cnt == #index_fields,
+                ('1:1 connection "%s" of collection "%s" ' ..
+                'has less fields than the index "%s" has (cannot prove ' ..
+                'uniqueness of the partial index)'):format(c.name,
+                c.destination_collection, c.index_name))
 
             -- validate connection type against index uniqueness (if provided)
-            if index.unique ~= nil then
-                assert(c.type == '1:N' or index.unique == true,
+            if index_meta.unique ~= nil then
+                assert(c.type == '1:N' or index_meta.unique == true,
                     ('1:1 connection ("%s") cannot be implemented ' ..
                     'on top of non-unique index ("%s")'):format(
                     c.name, index_name))
@@ -478,13 +504,8 @@ end
 --- @{tarantool_graphql.new} function; this is for validate collection against
 --- certain set of schemas (no 'dangling' schema names in collections)
 ---
---- @tparam table indexes map from collection names to indexes meta-information
---- as defined in the @{new} function; the function uses it to check that
---- destination parts of connections form a prefix of parts of the
---- `connection.index_name` index
----
 --- @return nil
-local function validate_collections(collections, schemas, indexes)
+local function validate_collections(collections, schemas)
     for collection_name, collection in pairs(collections) do
         assert(type(collection_name) == 'string',
             'collection_name must be a string, got ' ..
@@ -517,22 +538,6 @@ local function validate_collections(collections, schemas, indexes)
             assert(type(connection.index_name) == 'string',
                 'connection.index_name must be a string, got ' ..
                 type(connection.index_name))
-            local i = 1
-            for _, part in ipairs(connection.parts) do
-                assert(type(part.source_field) == 'string',
-                    'part.source_field must be a string, got ' ..
-                    type(part.source_field))
-                assert(type(part.destination_field) == 'string',
-                    'part.destination_field must be a string, got ' ..
-                    type(part.destination_field))
-                assert(part.destination_field ==
-                    indexes[collection_name][connection.index_name].fields[i],
-                    ('connection "%s" of collection "%s" ' ..
-                    'has destination parts that is not prefix of the index ' ..
-                    '"%s" parts'):format(connection.name, collection_name,
-                    connection.index_name))
-                i = i + 1
-            end
         end
     end
 end
