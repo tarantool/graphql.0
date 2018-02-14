@@ -8,7 +8,7 @@ lint:
 .PHONY: test
 test: lint
 	virtualenv -p python2.7 ./.env-2.7
-	source ./.env-2.7/bin/activate && \
+	. ./.env-2.7/bin/activate && \
 		pip install -r ./test-run/requirements.txt && \
 		pip install tarantool && \
 		cd test && ./test-run.py
