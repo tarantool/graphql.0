@@ -324,7 +324,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
                 avro_schema.name,
             fields = fields,
         })
-        return avro_t == 'record' and types.nonNull(res) or res
+        return avro_t == 'enum' and types.nonNull(res) or res
     elseif avro_t == 'enum' then
         error('enums not implemented yet') -- XXX
     else
