@@ -15,7 +15,9 @@ function init_shard(servers, config, suite)
     local test_run = env.new()
 
     test_run:create_cluster(SERVERS, suite)
-    shard.init(config)
+    box.once('init_shard_module', function()
+        shard.init(config)
+    end)
     shard.wait_connection()
 end
 

@@ -24,6 +24,7 @@ end
 -- -----------------------------------------------
 
 -- init box and data schema
+box.cfg{background = false}
 testdata.init_spaces()
 
 -- upload test data

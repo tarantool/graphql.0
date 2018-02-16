@@ -23,19 +23,30 @@ local tarantool_graphql = {}
 local gql_type
 
 local function avro_type(avro_schema)
-    if type(avro_schema) == 'table' and avro_schema.type == 'record' then
-        return 'record'
-    elseif type(avro_schema) == 'table' and utils.is_array(avro_schema) then
-        return 'enum'
-    elseif type(avro_schema) == 'string' and avro_schema == 'int' then
-        return 'int'
-    elseif type(avro_schema) == 'string' and avro_schema == 'long' then
-        return 'long'
-    elseif type(avro_schema) == 'string' and avro_schema == 'string' then
-        return 'string'
-    else
-        error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
+    if type(avro_schema) == 'table' then
+        if avro_schema.type == 'record' then
+            return 'record'
+        elseif avro_schema.type == 'record*' then
+            return 'record*'
+        elseif utils.is_array(avro_schema) then
+            return 'union'
+        end
+    elseif type(avro_schema) == 'string' then
+        if avro_schema == 'int' then
+            return 'int'
+        elseif avro_schema == 'int*' then
+            return 'int*'
+        elseif avro_schema == 'long' then
+            return 'long'
+        elseif avro_schema == 'long*' then
+            return 'long*'
+        elseif avro_schema == 'string' then
+            return 'string'
+        elseif avro_schema == 'string*' then
+            return 'string*'
+        end
     end
+    error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
 end
 
 -- XXX: recursive skip several NonNull's?
@@ -74,10 +85,16 @@ local function convert_scalar_type(avro_schema, opts)
     local avro_t = avro_type(avro_schema)
     if avro_t == 'int' then
         return types.int.nonNull
+    elseif avro_t == 'int*' then
+        return types.int
     elseif avro_t == 'long' then
         return types_long.nonNull
+    elseif avro_t == 'long*' then
+        return types_long
     elseif avro_t == 'string' then
         return types.string.nonNull
+    elseif avro_t == 'string*' then
+        return types.string
     end
     if raise then
         error('unrecognized avro-schema scalar type: ' ..
@@ -201,7 +218,9 @@ gql_type = function(state, avro_schema, collection, collection_name)
     assert(accessor.list_args ~= nil,
         'state.accessor.list_args must not be nil')
 
-    if avro_type(avro_schema) == 'record' then
+    local avro_t = avro_type(avro_schema)
+
+    if avro_t == 'record' or avro_t == 'record*' then
         assert(type(avro_schema.name) == 'string',
             ('avro_schema.name must be a string, got %s (avro_schema %s)')
             :format(type(avro_schema.name), json.encode(avro_schema)))
@@ -299,15 +318,14 @@ gql_type = function(state, avro_schema, collection, collection_name)
             }
         end
 
-        local res = types.nonNull(types.object({
+        local res = types.object({
             name = collection ~= nil and collection.name or avro_schema.name,
             description = 'generated from avro-schema for ' ..
                 avro_schema.name,
             fields = fields,
-        }))
-
-        return res
-    elseif avro_type(avro_schema) == 'enum' then
+        })
+        return avro_t == 'record' and types.nonNull(res) or res
+    elseif avro_t == 'enum' then
         error('enums not implemented yet') -- XXX
     else
         local res = convert_scalar_type(avro_schema, {raise = false})

@@ -124,7 +124,6 @@ function space_compound_index_testdata.init_spaces()
     local O_USER_STR_FN = 3
     local O_USER_NUM_FN = 4
 
-    box.cfg{background = false}
     box.once('test_space_init_spaces', function()
         -- users
         box.schema.create_space('user_collection')
@@ -160,12 +159,16 @@ function space_compound_index_testdata.fill_test_data()
                 j % 5 == 0 and 'e' or
                 nil
             assert(s ~= nil, 's must not be nil')
+            local user_str = 'user_str_' .. s
+            local user_num = i
             box.space.user_collection:replace(
-                {'user_str_' .. s, i, 'first name ' .. s, 'last name ' .. s})
+                {user_str, user_num, 'first name ' .. s, 'last name ' .. s})
             for k = 1, 10 do
+                local order_str = 'order_str_' .. s .. '_' .. tostring(k)
+                local order_num = i * 100 + k
                 box.space.order_collection:replace(
-                    {'order_str_' .. s .. '_' .. tostring(k), i * 100 + k,
-                    'user_str_' .. s, i, 'description ' .. s})
+                    {order_str, order_num, user_str, user_num,
+                    'description ' .. s})
             end
         end
     end
