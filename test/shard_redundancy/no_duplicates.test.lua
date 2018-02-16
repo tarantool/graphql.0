@@ -1,8 +1,3 @@
-#!/usr/bin/env tarantool
-
--- init shard, fill spaces
--- -----------------------
-
 env = require('test_run')
 test_run = env.new()
 
@@ -26,28 +21,42 @@ init_shard(SERVERS, {
 }, 'shard_redundancy');
 test_run:cmd("setopt delimiter ''");
 
-fill_test_data()
-
--- graphql queries
--- ---------------
-
 fio = require('fio')
 
 -- require in-repo version of graphql/ sources despite current working directory
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)"):gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
-json = require('json')
-yaml = require('yaml')
 graphql = require('graphql')
+testdata = require('test.testdata.common_testdata')
 
-metadata = get_test_metadata()
+-- init box, upload test data and acquire metadata
+-- -----------------------------------------------
+
+-- init box and data schema
+test_run:cmd('switch shard1')
+require('test.testdata.common_testdata').init_spaces()
+test_run:cmd('switch shard2')
+require('test.testdata.common_testdata').init_spaces()
+test_run:cmd('switch shard3')
+require('test.testdata.common_testdata').init_spaces()
+test_run:cmd('switch shard4')
+require('test.testdata.common_testdata').init_spaces()
+test_run:cmd('switch default')
+
+-- upload test data
+testdata.fill_test_data(shard)
+
+-- acquire metadata
+metadata = testdata.get_test_metadata()
 schemas = metadata.schemas
 collections = metadata.collections
 service_fields = metadata.service_fields
 indexes = metadata.indexes
 
-test_run:cmd("setopt delimiter ';'")
+-- build accessor and graphql schemas
+-- ----------------------------------
 
+test_run:cmd("setopt delimiter ';'")
 accessor = graphql.accessor_shard.new({
     schemas = schemas,
     collections = collections,
@@ -60,6 +69,7 @@ gql_wrapper = graphql.new({
     collections = collections,
     accessor = accessor,
 });
+test_run:cmd("setopt delimiter ''");
 
 -- query all orders of an user
 -- ---------------------------
@@ -67,6 +77,7 @@ gql_wrapper = graphql.new({
 -- That is needed to make sure a select on a shard with redundancy will skip
 -- duplicates of an one tuple from different servers within a replica set.
 
+test_run:cmd("setopt delimiter ';'")
 query_user_order = [[
     query user_order($user_id: String) {
         user_collection(user_id: $user_id) {
@@ -80,12 +91,23 @@ query_user_order = [[
         }
     }
 ]];
+test_run:cmd("setopt delimiter ''");
 
-gql_query_user_order = gql_wrapper:compile(query_user_order);
-variables_user_order = {user_id = 'user_id_42'};
-gql_query_user_order:execute(variables_user_order);
+gql_query_user_order = gql_wrapper:compile(query_user_order)
+variables_user_order = {user_id = 'user_id_42'}
+gql_query_user_order:execute(variables_user_order)
 
--- stop shards
--- -----------
+-- clean up
+-- --------
+
+test_run:cmd('switch shard1')
+require('test.testdata.common_testdata').drop_spaces()
+test_run:cmd('switch shard2')
+require('test.testdata.common_testdata').drop_spaces()
+test_run:cmd('switch shard3')
+require('test.testdata.common_testdata').drop_spaces()
+test_run:cmd('switch shard4')
+require('test.testdata.common_testdata').drop_spaces()
+test_run:cmd('switch default')
 
 test_run:drop_cluster(SERVERS)

@@ -29,9 +29,12 @@ init_shard(SERVERS, {
     login = 'guest',
     password = '',
     redundancy = 2,
-}, 'shard_redundancy')
+}, 'shard_redundancy');
+---
+...
 test_run:cmd("setopt delimiter ''");
 ---
+- true
 ...
 fio = require('fio')
 ---
@@ -254,4 +257,6 @@ test_run:cmd('switch default')
 ---
 - true
 ...
-os.exit()
+test_run:drop_cluster(SERVERS)
+---
+...

@@ -8,7 +8,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     package.path
 
 local graphql = require('graphql')
-local testdata = require('test.local.space_compound_index_testdata')
+local testdata = require('test.testdata.compound_index_testdata')
 
 -- utils
 -- -----
@@ -69,6 +69,6 @@ print(('INIT: ok: %s; type(res): %s'):format(tostring(ok), type(res)))
 -- clean up
 -- --------
 
-testdata.drop()
+testdata.drop_spaces()
 
 os.exit()
