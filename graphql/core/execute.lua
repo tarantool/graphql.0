@@ -88,7 +88,10 @@ local function buildContext(schema, tree, rootValue, variables, operationName)
     rootValue = rootValue,
     variables = variables,
     operation = nil,
-    fragmentMap = {}
+    fragmentMap = {},
+    -- The field is passed to resolve function within info attribute.
+    -- Can be used to store any data within one query.
+    qcontext = {}
   }
 
   for _, definition in ipairs(tree.definitions) do
@@ -222,7 +225,8 @@ local function getFieldEntry(objectType, object, fields, context)
     fragments = context.fragmentMap,
     rootValue = context.rootValue,
     operation = context.operation,
-    variableValues = context.variables
+    variableValues = context.variables,
+    qcontext = context.qcontext
   }
 
   local resolvedObject = (fieldType.resolve or defaultResolver)(object, arguments, info)
