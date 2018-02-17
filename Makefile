@@ -14,6 +14,10 @@ test: lint
 		pip install tarantool && \
 		cd test && ./test-run.py
 
+.PHONY: pure-test
+pure-test:
+	cd test && ./test-run.py
+
 .PHONY: clean
 clean:
 	rm -rf test/var
