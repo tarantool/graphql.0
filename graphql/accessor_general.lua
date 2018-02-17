@@ -9,6 +9,8 @@ local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 
 local accessor_general = {}
+local DEF_RESULTING_OBJECT_CNT_MAX = 10000
+local DEF_FETCHED_OBJECT_CNT_MAX = 10000
 
 --- Validate and compile set of avro schemas (with respect to service fields).
 --- @tparam table schemas map where keys are string names and values are
@@ -550,7 +552,8 @@ end
 ---
 --- * `count` (number),
 --- * `objs` (table, list of objects),
---- * `pivot_found` (boolean).
+--- * `pivot_found` (boolean),
+--- * `statistics` (table, per-query statistics).
 ---
 --- @tparam cdata tuple flatten representation of an object to process
 ---
@@ -562,7 +565,9 @@ end
 --- * `do_filter` (boolean, whether we need to filter out non-matching
 ---   objects),
 --- * `pivot_filter` (table, set of fields to match the objected pointed by
----   `offset` arqument of the GraphQL query)
+---   `offset` arqument of the GraphQL query),
+--- * `resulting_object_cnt_max` (number),
+--- * `fetched_object_cnt_max` (number).
 ---
 --- @return nil
 ---
@@ -580,6 +585,14 @@ local function process_tuple(state, tuple, opts)
     local filter = opts.filter
     local do_filter = opts.do_filter
     local pivot_filter = opts.pivot_filter
+    local qstats = state.statistics
+    local resulting_object_cnt_max = opts.resulting_object_cnt_max
+    local fetched_object_cnt_max = opts.fetched_object_cnt_max
+    qstats.fetched_object_cnt = qstats.fetched_object_cnt + 1
+    assert(qstats.fetched_object_cnt <= fetched_object_cnt_max,
+            ('fetched object count[%d] exceeds limit[%d] ' ..
+                    '(`fetched_object_cnt_max` in accessor)'):format(
+                    qstats.fetched_object_cnt, fetched_object_cnt_max))
 
     -- skip all items before pivot (the item pointed by offset)
     local obj = nil
@@ -604,10 +617,12 @@ local function process_tuple(state, tuple, opts)
     -- add the matching object, update count and check limit
     state.objs[#state.objs + 1] = obj
     state.count = state.count + 1
+    qstats.resulting_object_cnt = qstats.resulting_object_cnt + 1
+    assert(qstats.resulting_object_cnt <= resulting_object_cnt_max,
+            ('returning object count[%d] exceeds limit[%d] ' ..
+                    '(`resulting_object_cnt_max` in accessor)'):format(
+                    qstats.resulting_object_cnt, resulting_object_cnt_max))
     if limit ~= nil and state.count >= limit then
-        assert(limit == nil or state.count <= limit,
-            ('count[%d] exceeds limit[%s] (in for)'):format(
-            state.count, limit))
         return false
     end
     return true
@@ -631,8 +646,11 @@ end
 --- @tparam table args table of arguments passed within the query except ones
 --- that forms the `filter` parameter
 ---
+--- @tparam table extra table which contains extra information related to
+--- current select and the whole query
+---
 --- @treturn table list of matching objects
-local function select_internal(self, collection_name, from, filter, args)
+local function select_internal(self, collection_name, from, filter, args, extra)
     assert(type(self) == 'table',
         'self must be a table, got ' .. type(self))
     assert(type(collection_name) == 'string',
@@ -694,6 +712,7 @@ local function select_internal(self, collection_name, from, filter, args)
         count = 0,
         objs = {},
         pivot_found = false,
+        statistics = extra.qcontext.statistics
     }
 
     -- read only process_tuple options
@@ -703,6 +722,8 @@ local function select_internal(self, collection_name, from, filter, args)
         filter = filter,
         do_filter = not full_match,
         pivot_filter = nil, -- filled later if needed
+        resulting_object_cnt_max = self.settings.resulting_object_cnt_max,
+        fetched_object_cnt_max = self.settings.fetched_object_cnt_max
     }
 
     if index == nil then
@@ -791,7 +812,10 @@ end
 ---
 --- @tparam table opts `schemas`, `collections`, `service_fields` and `indexes`
 --- to give the data accessor all needed meta-information re data; the format is
---- shown below
+--- shown below; additional attributes `resulting_object_cnt_max` and
+--- `fetched_object_cnt_max` are optional positive numbers which help to control
+--- query behaviour in case it requires more resources than expected _(default
+--- value is 10,000)_
 ---
 --- @tparam table funcs set of functions (`is_collection_exists`, `get_index`,
 --- `get_primary_index`) allows this abstract data accessor behaves in the
@@ -837,6 +861,10 @@ function accessor_general.new(opts, funcs)
     local collections = opts.collections
     local service_fields = opts.service_fields
     local indexes = opts.indexes
+    local resulting_object_cnt_max = opts.resulting_object_cnt_max or
+                                     DEF_RESULTING_OBJECT_CNT_MAX
+    local fetched_object_cnt_max = opts.fetched_object_cnt_max or
+                                   DEF_FETCHED_OBJECT_CNT_MAX
 
     assert(type(schemas) == 'table',
         'schemas must be a table, got ' .. type(schemas))
@@ -846,6 +874,12 @@ function accessor_general.new(opts, funcs)
         'service_fields must be a table, got ' .. type(service_fields))
     assert(type(indexes) == 'table',
         'indexes must be a table, got ' .. type(indexes))
+    assert(type(resulting_object_cnt_max) == 'number' and
+                resulting_object_cnt_max > 0,
+        'resulting_object_cnt_max must be natural number')
+    assert(type(fetched_object_cnt_max) == 'number' and
+                fetched_object_cnt_max > 0,
+        'fetched_object_cnt_max must be natural number')
 
     local models = compile_schemas(schemas, service_fields)
     validate_collections(collections, schemas, indexes)
@@ -861,10 +895,14 @@ function accessor_general.new(opts, funcs)
         models = models,
         index_cache = index_cache,
         funcs = funcs,
+        settings = {
+            resulting_object_cnt_max = resulting_object_cnt_max,
+            fetched_object_cnt_max = fetched_object_cnt_max
+        }
     }, {
         __index = {
             select = function(self, parent, collection_name, from,
-                    filter, args)
+                    filter, args, extra)
                 assert(type(parent) == 'table',
                     'parent must be a table, got ' .. type(parent))
                 assert(from == nil or type(from) == 'table',
@@ -877,8 +915,13 @@ function accessor_general.new(opts, funcs)
                     'from must be nil or from.connection_name ' ..
                     'must be a string, got ' ..
                     type((from or {}).connection_name))
+                -- use `extra.qcontext` to store per-query variables
+                extra.qcontext.statistics = extra.qcontext.statistics or {
+                    resulting_object_cnt = 0,
+                    fetched_object_cnt = 0
+                }
                 return select_internal(self, collection_name, from, filter,
-                    args)
+                    args, extra)
             end,
             list_args = function(self, collection_name)
                 -- get name of field of primary key

@@ -286,7 +286,9 @@ gql_type = function(state, avro_schema, collection, collection_name)
                         destination_args_names = destination_args_names,
                         destination_args_values = destination_args_values,
                     }
-
+                    local extra = {
+                        qcontext = info.qcontext
+                    }
                     local object_args_instance = {} -- passed to 'filter'
                     local list_args_instance = {} -- passed to 'args'
                     for k, v in pairs(args_instance) do
@@ -302,7 +304,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
                     end
                     local objs = accessor:select(parent,
                         c.destination_collection, from,
-                        object_args_instance, list_args_instance)
+                        object_args_instance, list_args_instance, extra)
                     assert(type(objs) == 'table',
                         'objs list received from an accessor ' ..
                         'must be a table, got ' .. type(objs))
@@ -397,8 +399,11 @@ local function parse_cfg(cfg)
                     end
                 end
                 local from = nil
+                local extra = {
+                    qcontext = info.qcontext
+                }
                 return accessor:select(rootValue, name, from,
-                    object_args_instance, list_args_instance)
+                    object_args_instance, list_args_instance, extra)
             end,
         }
     end
@@ -507,7 +512,7 @@ end
 ---     accessor = setmetatable({}, {
 ---         __index = {
 ---             select = function(self, parent, collection_name, from,
----                     object_args_instance, list_args_instance)
+---                     object_args_instance, list_args_instance, extra)
 ---                 -- from is nil for a top-level object, otherwise it is
 ---                 --
 ---                 -- {
@@ -516,6 +521,11 @@ end
 ---                 --     destination_args_names = <...>,
 ---                 --     destination_args_values = <...>,
 ---                 -- }
+---                 --
+---                 -- extra is a table which contains additional data for the
+---                 -- query; by now it consists of a single qcontext table,
+---                 -- which can be used by accessor to store any query-related
+---                 -- data
 ---                 --
 ---                 return ...
 ---             end,

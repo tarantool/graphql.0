@@ -4,7 +4,8 @@ default:
 .PHONY: lint
 lint:
 	luacheck graphql/*.lua test/local/*.lua test/testdata/*.lua \
-		test/common/lua/*.lua --no-redefined --no-unused-args
+		test/common/*test.lua test/common/lua/*.lua \
+		--no-redefined --no-unused-args
 
 .PHONY: test
 test: lint
