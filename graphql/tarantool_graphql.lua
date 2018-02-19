@@ -414,6 +414,8 @@ local function parse_cfg(cfg)
     return state
 end
 
+--- The function checks if given query has an appropriate type
+--- (mutations are not supported yet)
 local function assert_gql_query_ast(func_name, ast)
     assert(#ast.definitions == 1,
         func_name .. ': expected an one query')
@@ -442,6 +444,8 @@ local function gql_execute(qstate, variables)
         operation_name)
 end
 
+--- The function parses a raw query string, validate the resulting query
+--- and return it ready for execution
 local function gql_compile(state, query)
     assert(type(state) == 'table' and type(query) == 'string',
         'use :validate(...) instead of .validate(...)')
