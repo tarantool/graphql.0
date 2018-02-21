@@ -22,6 +22,7 @@ local tarantool_graphql = {}
 -- forward declarations
 local gql_type
 
+--- Returns type of the top element in the avro schema
 local function avro_type(avro_schema)
     if type(avro_schema) == 'table' then
         if avro_schema.type == 'record' then
@@ -104,10 +105,18 @@ local function convert_scalar_type(avro_schema, opts)
     elseif avro_t == 'string*' then
         return types.string
     end
+
+    if opts.is_items_type then
+        error('avro array items must have know scalar type, not: ' ..
+                json.encode(avro_schema))
+    end
+
     if raise then
         error('unrecognized avro-schema scalar type: ' ..
-            json.encode(avro_schema))
+        json.encode(avro_schema))
     end
+
+
     return nil
 end
 
@@ -130,8 +139,6 @@ local function gql_argument_type(state, avro_schema)
             ('avro_schema.fields must be a table, got %s (avro_schema %s)')
             :format(type(avro_schema.fields), json.encode(avro_schema)))
 
-        ---@tfixme iteration over null table
-        --- maybe avro.scheme was meant?
         local fields = {}
         for _, field in ipairs(avro_schema.fields) do
 
@@ -170,8 +177,15 @@ end
 
 --- Returns table of record's arguments
 --- all arguments are nullable
-local function convert_record_fields_to_args(state, fields)
+---
+--- @tparam table state
+--- @tparam table fields
+--- @tparam table opts include is_for_args flag to specify
+--- case when the function is used to collect arguments
+local function convert_record_fields_to_args(state, fields, opts)
     local args = {}
+    local is_for_args = opts and opts.is_for_args or false
+
     for _, field in ipairs(fields) do
 
         assert(type(field.name) == 'string',
@@ -179,7 +193,15 @@ local function convert_record_fields_to_args(state, fields)
             :format(type(field.name), json.encode(field)))
 
         local gql_class = gql_argument_type(state, field.type)
-        args[field.name] = nullable(gql_class)
+
+        -- arrays (gql lists) and maps can't be arguments
+        -- so these kinds are to be skipped
+
+        ---@todo consider case when gql_class is wrapper nonNull around List
+        --- or Map
+        if not(is_for_args and (gql_class == 'List' or gql_class == 'Map')) then
+            args[field.name] = nullable(gql_class)
+        end
     end
     return args
 end
@@ -190,9 +212,12 @@ end
 --- @tparam table state for read state.accessor and previously filled
 --- state.types
 --- @tparam table fields fields part from an avro-schema
-local function convert_record_fields(state, fields)
+--- @tparam table opts include is_for_args flag to specify
+--- case when the function is used to collect arguments
+local function convert_record_fields(state, fields, opts)
     local res = {}
     local object_args = {}
+    local is_for_args = opts and opts.is_for_args or false
 
     for _, field in ipairs(fields) do
         assert(type(field.name) == 'string',
@@ -203,12 +228,22 @@ local function convert_record_fields(state, fields)
             name = field.name,
             kind = gql_type(state, field.type),
         }
-        object_args[field.name] = nullable(res[field.name].kind)
+
+
+        -- arrays (gql lists) and maps can't be arguments
+        -- so these kinds are to be skipped
+
+        ---@todo consider case when gql_class is wrapper nonNull around List
+        --- or Map
+        if not (is_for_args and (res[field.name].kind == 'List'
+                            or res[field.name].kind == 'Map')) then
+            object_args[field.name] = nullable(res[field.name].kind)
+        end
     end
     return res, object_args
 end
 
---- The function recursively converts passed avro-schema to a graphql type.
+--- The function recursively converts passed avro-schema to a graphql type (kind)
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.types (state.types are gql types)
@@ -237,12 +272,14 @@ gql_type = function(state, avro_schema, collection, collection_name)
         ('collection and collection_name must be nils or ' ..
         'non-nils simultaneously, got: %s and %s'):format(type(collection),
         type(collection_name)))
+
     local accessor = state.accessor
     assert(accessor ~= nil, 'state.accessor must not be nil')
     assert(accessor.select ~= nil, 'state.accessor.select must not be nil')
     assert(accessor.list_args ~= nil,
         'state.accessor.list_args must not be nil')
 
+    -- type of the top element in the avro schema
     local avro_t = avro_type(avro_schema)
 
     if avro_t == 'record' or avro_t == 'record*' then
@@ -255,7 +292,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
 
         local fields, _ = convert_record_fields(state, avro_schema.fields)
 
-        -- if collection param is passed
+        -- if collection param is passed then go over all connections
         for _, c in ipairs((collection or {}).connections or {}) do
             assert(type(c.type) == 'string',
                 'connection.type must be a string, got ' .. type(c.type))
@@ -269,6 +306,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
             assert(type(c.parts) == 'table',
                 'connection.parts must be a string, got ' .. type(c.parts))
 
+            -- gql type of connection field
             local destination_type =
                 state.types[c.destination_collection]
             assert(destination_type ~= nil,
@@ -287,6 +325,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
 
             local c_list_args = state.list_arguments[c.destination_collection]
 
+            -- change fields that are represented by connections
             fields[c.name] = {
                 name = c.name,
                 kind = destination_type,
@@ -294,13 +333,16 @@ gql_type = function(state, avro_schema, collection, collection_name)
                 resolve = function(parent, args_instance, info)
                     local destination_args_names = {}
                     local destination_args_values = {}
+
                     for _, part in ipairs(c.parts) do
+
                         assert(type(part.source_field) == 'string',
                             'part.source_field must be a string, got ' ..
                             type(part.destination_field))
                         assert(type(part.destination_field) == 'string',
                             'part.destination_field must be a string, got ' ..
                             type(part.destination_field))
+
                         destination_args_names[#destination_args_names + 1] =
                             part.destination_field
                         destination_args_values[#destination_args_values + 1] =
@@ -344,6 +386,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
             }
         end
 
+        -- create gql schema
         local res = types.object({
             name = collection ~= nil and collection.name or avro_schema.name,
             description = 'generated from avro-schema for ' ..
@@ -351,8 +394,30 @@ gql_type = function(state, avro_schema, collection, collection_name)
             fields = fields,
         })
         return avro_t == 'enum' and types.nonNull(res) or res
+
     elseif avro_t == 'enum' then
         error('enums not implemented yet') -- XXX
+
+    elseif avro_t == 'array' or avro_t == 'array*' then
+
+        assert(avro_schema.items ~= nil,
+            'items field must not be nil in array avro schema')
+        assert(type(avro_schema.items) == 'string',
+            'avro_schema.items must be a string, got ' .. type(avro_schema.item))
+
+        local gql_items_type = convert_scalar_type(avro_schema.items,
+            {is_items_type=true, raise=true})
+
+        local gql_array = types.list(gql_items_type)
+
+        if  avro_t == 'array*' then
+            return gql_array
+        end
+
+        if avro_t == 'array' then
+            return types.nonNull(gql_array)
+        end
+
     else
         local res = convert_scalar_type(avro_schema, {raise = false})
         if res == nil then
@@ -399,14 +464,18 @@ local function parse_cfg(cfg)
             schema.name))
 
         -- recursively converts all avro types into gql types in the given schema
+        assert(schema.type == 'record',
+            'top-level schema must have record avro type, not' .. schema.type)
         state.types[collection_name] = gql_type(state, schema, collection, collection_name)
 
-        -- prepare arguments
+        -- prepare arguments (their kinds)
         local _, object_args = convert_record_fields(state,
-            schema.fields)
+            schema.fields, {is_for_args=true})
         local list_args = convert_record_fields_to_args(
-            state, accessor:list_args(collection_name))
+            state, accessor:list_args(collection_name), {is_for_args=true})
         local args = utils.merge_tables(object_args, list_args)
+
+        -- list and map (avro array and map) can't be arguments
 
         state.object_arguments[collection_name] = object_args
         state.list_arguments[collection_name] = list_args
