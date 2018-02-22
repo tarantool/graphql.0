@@ -199,7 +199,7 @@ local function convert_record_fields_to_args(state, fields, opts)
 
         ---@todo consider case when gql_class is wrapper nonNull around List
         --- or Map
-        if not(is_for_args and (gql_class == 'List' or gql_class == 'Map')) then
+        if (not is_for_args) or (gql_class ~= 'List' and gql_class ~= 'Map') then
             args[field.name] = nullable(gql_class)
         end
     end
@@ -235,8 +235,8 @@ local function convert_record_fields(state, fields, opts)
 
         ---@todo consider case when gql_class is wrapper nonNull around List
         --- or Map
-        if not (is_for_args and (res[field.name].kind == 'List'
-                            or res[field.name].kind == 'Map')) then
+        if (not is_for_args) or (res[field.name].kind ~= 'List'
+                            and res[field.name].kind ~= 'Map') then
             object_args[field.name] = nullable(res[field.name].kind)
         end
     end
@@ -257,6 +257,9 @@ end
 ---    automatically generate corresponding decucible fields.
 --- 2. The collection name will be used as the resulting graphql type name
 ---    instead of the avro-schema name.
+---
+--- Resulting object will look like this:
+---
 gql_type = function(state, avro_schema, collection, collection_name)
     assert(type(state) == 'table',
         'state must be a table, got ' .. type(state))
@@ -450,6 +453,7 @@ local function parse_cfg(cfg)
 
     local fields = {}
 
+    -- create fields (from collections) for top-level gql type 'query)
     for collection_name, collection in pairs(state.collections) do
         collection.name = collection_name
         assert(collection.schema_name ~= nil,
