@@ -1,0 +1,7 @@
+RESULT
+---
+user_collection:
+- user_id: def
+  favs:
+    - potato
+    - fruit
