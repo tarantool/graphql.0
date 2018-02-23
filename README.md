@@ -57,11 +57,10 @@ make test
 
 ## Requirements
 
-* For use: tarantool, lua, lulpeg, luacheck
-luajit (http://luajit.org/install.html), >=tarantool/shard-1.1-91-gfa88bf8 (optional).
-* For test (additionally to 'for use'): python 2.7, virtualenv.
+* For use: tarantool, lua, lulpeg, >=tarantool/shard-1.1-91-gfa88bf8 (optional), 
+tarantool/avro-schema
+* For test (additionally to 'for use'): python 2.7, virtualenv, luacheck
 * For building apidoc (additionally to 'for use'): ldoc.
-
 
 ## License
 
