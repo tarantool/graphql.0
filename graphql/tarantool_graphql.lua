@@ -17,12 +17,13 @@ local execute = require('graphql.core.execute')
 
 local utils = require('graphql.utils')
 
+--local nullable = utils.nullable
+
 local tarantool_graphql = {}
 
 -- forward declarations
 local gql_type
 
---- Returns type of the top element in the avro schema
 local function avro_type(avro_schema)
     if type(avro_schema) == 'table' then
         if avro_schema.type == 'record' then
@@ -58,16 +59,7 @@ local function avro_type(avro_schema)
     error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
 end
 
--- XXX: recursive skip several NonNull's?
-local function nullable(gql_class)
-    assert(type(gql_class) == 'table', 'gql_class must be a table, got ' ..
-        type(gql_class))
-
-    if gql_class.__type ~= 'NonNull' then return gql_class end
-
-    assert(gql_class.ofType ~= nil, 'gql_class.ofType must not be nil')
-    return gql_class.ofType
-end
+local nullable = utils.nullable
 
 local types_long = types.scalar({
     name = 'Long',
@@ -123,7 +115,7 @@ end
 --- Non-recursive version of the @{gql_type} function that returns
 --- InputObject instead of Object.
 --- An error will be raised in case of fields that are not scalar types
---- as there are no sense in non scalar arguments
+--- as there are no sense in non scalar arguments.
 local function gql_argument_type(state, avro_schema)
     assert(type(state) == 'table',
         'state must be a table, got ' .. type(state))
@@ -163,8 +155,6 @@ local function gql_argument_type(state, avro_schema)
         }))
 
         return res
-    --- elseif avro_type(avro_schema) == 'array' then
-
     else
         local res = convert_scalar_type(avro_schema, {raise = false})
         if res == nil then
@@ -175,17 +165,13 @@ local function gql_argument_type(state, avro_schema)
 end
 
 
---- Returns table of record's arguments
---- all arguments are nullable
+--- Recursively convert each field of an avro-schema to a graphql type and
+--- corresponding argument for an upper graphql type.
 ---
 --- @tparam table state
 --- @tparam table fields
---- @tparam table opts include is_for_args flag to specify
---- case when the function is used to collect arguments
-local function convert_record_fields_to_args(state, fields, opts)
+local function convert_record_fields_to_args(state, fields)
     local args = {}
-    local is_for_args = opts and opts.is_for_args or false
-
     for _, field in ipairs(fields) do
 
         assert(type(field.name) == 'string',
@@ -197,9 +183,8 @@ local function convert_record_fields_to_args(state, fields, opts)
         -- arrays (gql lists) and maps can't be arguments
         -- so these kinds are to be skipped
 
-        ---@todo consider case when gql_class is wrapper nonNull around List
-        --- or Map
-        if not(is_for_args and (gql_class == 'List' or gql_class == 'Map')) then
+        if (nullable(gql_class) ~= 'List'
+                            and nullable(gql_class) ~= 'Map') then
             args[field.name] = nullable(gql_class)
         end
     end
@@ -217,7 +202,8 @@ end
 local function convert_record_fields(state, fields, opts)
     local res = {}
     local object_args = {}
-    local is_for_args = opts and opts.is_for_args or false
+    local opts = opts or {}
+    local is_for_args = opts.is_for_args or false
 
     for _, field in ipairs(fields) do
         assert(type(field.name) == 'string',
@@ -231,19 +217,15 @@ local function convert_record_fields(state, fields, opts)
 
 
         -- arrays (gql lists) and maps can't be arguments
-        -- so these kinds are to be skipped
-
-        ---@todo consider case when gql_class is wrapper nonNull around List
-        --- or Map
-        if not (is_for_args and (res[field.name].kind == 'List'
-                            or res[field.name].kind == 'Map')) then
+        if not is_for_args or (nullable(res[field.name].kind) ~= 'List'
+                            and nullable(res[field.name].kind) ~= 'Map') then
             object_args[field.name] = nullable(res[field.name].kind)
         end
     end
     return res, object_args
 end
 
---- The function recursively converts passed avro-schema to a graphql type (kind)
+--- The function recursively converts passed avro-schema to a graphql type (kind).
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.types (state.types are gql types)
@@ -518,7 +500,7 @@ local function parse_cfg(cfg)
 end
 
 --- The function checks if given query has an appropriate type 'query'
---- (mutations are not supported yet)
+--- (mutations are not supported yet).
 local function assert_gql_query_ast(func_name, ast)
     assert(#ast.definitions == 1,
         func_name .. ': expected an one query')
@@ -530,7 +512,8 @@ local function assert_gql_query_ast(func_name, ast)
         type(operation_name))
 end
 
---- The function just makes some assertions and then call graphql-lua execute
+--- The function just makes some reasonable assertions on input
+--- and then call graphql-lua execute.
 local function gql_execute(qstate, variables)
     assert(qstate.state)
     local state = qstate.state
@@ -549,7 +532,8 @@ local function gql_execute(qstate, variables)
 end
 
 --- The function parses a raw query string, validate the resulting query
---- and return it ready for execution
+--- and make it ready for execution.
+---
 --- @tparam table state current state of graphql-lib, including
 --- schemas, collections and accessor
 --- @tparam string query raw query string
