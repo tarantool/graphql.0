@@ -17,8 +17,6 @@ local execute = require('graphql.core.execute')
 
 local utils = require('graphql.utils')
 
---local nullable = utils.nullable
-
 local tarantool_graphql = {}
 
 -- forward declarations
