@@ -132,4 +132,16 @@ function utils.gen_booking_table(data)
     })
 end
 
+-- XXX: recursive skip several NonNull's?
+function utils.nullable(gql_class)
+    assert(type(gql_class) == 'table', 'gql_class must be a table, got ' ..
+            type(gql_class))
+
+    if gql_class.__type ~= 'NonNull' then return gql_class end
+
+    assert(gql_class.ofType ~= nil, 'gql_class.ofType must not be nil')
+    return gql_class.ofType
+end
+
+
 return utils
