@@ -96,24 +96,20 @@ local function convert_scalar_type(avro_schema, opts)
         return types.string
     end
 
-    if opts.is_items_type then
-        error('avro array items must have know scalar type, not: ' ..
-                json.encode(avro_schema))
-    end
-
     if raise then
         error('unrecognized avro-schema scalar type: ' ..
         json.encode(avro_schema))
     end
-
 
     return nil
 end
 
 --- Non-recursive version of the @{gql_type} function that returns
 --- InputObject instead of Object.
---- An error will be raised in case of fields that are not scalar types
---- as there are no sense in non scalar arguments.
+--- An error will be raised if avro_schema type is 'record'
+--- and its' fields are not scalar type because currently
+--- triple nesting level (record with record as a field - ok,
+--- record with record wich has inside another level - not ok)
 local function gql_argument_type(state, avro_schema)
     assert(type(state) == 'table',
         'state must be a table, got ' .. type(state))
@@ -131,7 +127,6 @@ local function gql_argument_type(state, avro_schema)
 
         local fields = {}
         for _, field in ipairs(avro_schema.fields) do
-
             assert(type(field.name) == 'string',
                 ('field.name must be a string, got %s (schema %s)')
                 :format(type(field.name), json.encode(field)))
@@ -163,15 +158,17 @@ local function gql_argument_type(state, avro_schema)
 end
 
 
---- Recursively convert each field of an avro-schema to a graphql type and
---- corresponding argument for an upper graphql type.
+-- Convert list of fields in the avro-schema format to list of GraphQL types
+-- with intention to use it as GraphQL arguments later.
+-- It uses the @{gql_argument_type} function to convert each field, then skips
+-- fields of array and map types and gives the resulting list of converted fields.
 ---
---- @tparam table state
---- @tparam table fields
+--- @tparam table state for read state.accessor and previously filled
+--- state.types
+--- @tparam table fields fields part from an avro-schema
 local function convert_record_fields_to_args(state, fields)
     local args = {}
     for _, field in ipairs(fields) do
-
         assert(type(field.name) == 'string',
             ('field.name must be a string, got %s (schema %s)')
             :format(type(field.name), json.encode(field)))
@@ -179,10 +176,8 @@ local function convert_record_fields_to_args(state, fields)
         local gql_class = gql_argument_type(state, field.type)
 
         -- arrays (gql lists) and maps can't be arguments
-        -- so these kinds are to be skipped
-
-        if (nullable(gql_class) ~= 'List'
-                            and nullable(gql_class) ~= 'Map') then
+        -- so these graphql types are to be skipped
+        if nullable(gql_class) ~= 'List' and nullable(gql_class) ~= 'Map' then
             args[field.name] = nullable(gql_class)
         end
     end
@@ -213,7 +208,6 @@ local function convert_record_fields(state, fields, opts)
             kind = gql_type(state, field.type),
         }
 
-
         -- arrays (gql lists) and maps can't be arguments
         if not is_for_args or (nullable(res[field.name].kind) ~= 'List'
                             and nullable(res[field.name].kind) ~= 'Map') then
@@ -223,7 +217,7 @@ local function convert_record_fields(state, fields, opts)
     return res, object_args
 end
 
---- The function recursively converts passed avro-schema to a graphql type (kind).
+--- The function converts passed avro-schema to a GraphQL type.
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.types (state.types are gql types)
@@ -379,15 +373,13 @@ gql_type = function(state, avro_schema, collection, collection_name)
         error('enums not implemented yet') -- XXX
 
     elseif avro_t == 'array' or avro_t == 'array*' then
-
         assert(avro_schema.items ~= nil,
             'items field must not be nil in array avro schema')
         assert(type(avro_schema.items) == 'string',
             'avro_schema.items must be a string, got ' .. type(avro_schema.item))
 
         local gql_items_type = convert_scalar_type(avro_schema.items,
-            {is_items_type=true, raise=true})
-
+            {raise=true})
         local gql_array = types.list(gql_items_type)
 
         if  avro_t == 'array*' then
@@ -397,16 +389,13 @@ gql_type = function(state, avro_schema, collection, collection_name)
         if avro_t == 'array' then
             return types.nonNull(gql_array)
         end
-
     else
         local res = convert_scalar_type(avro_schema, {raise = false})
         if res == nil then
             error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
         end
         return res
-
     end
-
 end
 
 
