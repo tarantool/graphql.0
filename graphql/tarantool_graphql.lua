@@ -78,7 +78,7 @@ local function convert_scalar_type(avro_schema, opts)
     assert(type(opts) == 'table', 'opts must be nil or table, got ' ..
         type(opts))
     local raise = opts.raise or false
-    assert(type(opts.raise) == 'boolean', 'opts.raise must be boolean, got ' ..
+    assert(type(raise) == 'boolean', 'opts.raise must be boolean, got ' ..
         type(opts.raise))
 
     local avro_t = avro_type(avro_schema)
@@ -381,8 +381,8 @@ gql_type = function(state, avro_schema, collection, collection_name)
 
         local gql_items_type = convert_scalar_type(avro_schema.items)
 
-        assert(gql_items_type, "only scalars are supported as array items for now,
-            and " .. avro_type(avro_schema.items) .. " is not a scalar")
+        assert(gql_items_type, "only scalars are supported as array items for now "
+            .. avro_type(avro_schema.items) .. " is not a scalar")
         local gql_array = types.list(gql_items_type)
         return avro_t == 'array' and types.nonNull(gql_array) or gql_array
     else
