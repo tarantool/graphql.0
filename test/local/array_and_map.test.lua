@@ -20,23 +20,12 @@ local schemas = json.decode([[{
             { "name": "user_id", "type": "string" },
             { "name": "favorite_food", "type": {"type": "array", "items": "string"} }
         ]
-    },
-    "organization": {
-        "name": "organization",
-        "type": "record",
-        "fields": [
-            { "name": "organization_id", "type": "string" },
-            { "name": "organization_events", "type": {"type": "map", "values": "string"} }
-        ]
-    }
-}]])
+        }
+    }]])
 
 local collections = json.decode([[{
     "user_collection": {
         "schema_name": "user"
-    },
-    "organization_collection": {
-        "schema_name": "organization"
     }
 }]])
 
@@ -52,12 +41,6 @@ local function access_function(parent, collection_name, filter, args)
         obj = {
             user_id = 'def',
             favorite_food = { 'meat', 'potato' },
-        }
-    elseif collection_name == 'organization_collection' then
-        obj = {
-            organization_id = 'def',
-            organization_events = { holiday = 'nice holiday',
-                                    new_year = 'hey hou' },
         }
     else
         error('NIY: ' .. collection_name)
@@ -105,17 +88,6 @@ local query_with_list = [[
     }
 ]]
 
-
-local query_with_map = [[
-    query obtainOrganizationEvents($organization_id: String) {
-        organization_collection(organization_id: $organization_id) {
-            organization_id,
-            organization_events
-        }
-    }
-]]
-
-
 utils.show_trace(function()
     local variables_2 = { user_id = 'def' }
     local gql_query_2 = gql_wrapper:compile(query_with_list)
@@ -123,9 +95,3 @@ utils.show_trace(function()
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
 
-utils.show_trace(function()
-    local variables_1 = {organization_id = 'def'}
-    local gql_query_1 = gql_wrapper:compile(query_with_map)
-    local result = gql_query_1:execute(variables_1)
-    print(('RESULT\n%s'):format(yaml.encode(result)))
-end)

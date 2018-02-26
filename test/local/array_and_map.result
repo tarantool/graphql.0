@@ -7,12 +7,3 @@ user_collection:
   - potato
 ...
 
-RESULT
----
-organization_collection:
-- organization_id: def
-  organization_events:
-    holiday: nice holiday
-    new_year: hey hou
-...
-
