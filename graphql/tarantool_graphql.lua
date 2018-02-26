@@ -57,7 +57,16 @@ local function avro_type(avro_schema)
     error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
 end
 
-local nullable = utils.nullable
+-- XXX: recursive skip several NonNull's?
+local function nullable(gql_class)
+    assert(type(gql_class) == 'table', 'gql_class must be a table, got ' ..
+        type(gql_class))
+
+    if gql_class.__type ~= 'NonNull' then return gql_class end
+
+    assert(gql_class.ofType ~= nil, 'gql_class.ofType must not be nil')
+    return gql_class.ofType
+end
 
 local types_long = types.scalar({
     name = 'Long',
