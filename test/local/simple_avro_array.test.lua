@@ -2,10 +2,11 @@
 
 local fio = require('fio')
 
--- require in-repo version of graphql/ sources despite current working directory
+ --require in-repo version of graphql/ sources despite current working directory
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
                                 :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
         package.path
+
 
 local json = require('json')
 local yaml = require('yaml')
@@ -29,7 +30,7 @@ local collections = json.decode([[{
     }
 }]])
 
-local function access_function(parent, collection_name, filter, args)
+local function simple_access_function(parent, collection_name, filter, args)
     --[[
     print('DEBUG: collection_name: ' .. collection_name)
     print('DEBUG: filter: ' .. json.encode(filter))
@@ -51,11 +52,11 @@ local function access_function(parent, collection_name, filter, args)
     return { obj }
 end
 
-local accessor = setmetatable({}, {
+local simple_accessor = setmetatable({}, {
     __index = {
         select = function(self, parent, collection_name, connection_name,
                           filter, args)
-            return access_function(parent, collection_name, filter, args)
+            return simple_access_function(parent, collection_name, filter, args)
         end,
         list_args = function(self, connection_type)
             if connection_type == '1:1' then
@@ -70,13 +71,13 @@ local accessor = setmetatable({}, {
     }
 })
 
-local gql_wrapper = graphql.new({
+local gql_wrapper_simple_accessor = graphql.new({
 -- class_name:class mapping
     schemas = schemas,
 -- collection_{schema_name=..., connections=...} mapping
     collections = collections,
 -- :select() and :list_args() provider
-    accessor = accessor,
+    accessor = simple_accessor,
 })
 
 local query_with_list = [[
@@ -90,7 +91,7 @@ local query_with_list = [[
 
 utils.show_trace(function()
     local variables_2 = { user_id = 'def' }
-    local gql_query_2 = gql_wrapper:compile(query_with_list)
+    local gql_query_2 = gql_wrapper_simple_accessor:compile(query_with_list)
     local result = gql_query_2:execute(variables_2)
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
