@@ -1,0 +1,93 @@
+Shard 2x2
+RUN 1 {{{
+QUERY
+        query getUserByUid($uid: Long) {
+            user(uid: $uid) {
+                uid
+                p1
+                p2
+                nested {
+                    x
+                    y
+                }
+            }
+        }
+VARIABLES
+---
+uid: 5
+...
+
+RESULT
+---
+user:
+- p2: p2 5
+  p1: p1 5
+  uid: 5
+  nested:
+    y: 2005
+    x: 1005
+...
+
+}}}
+Shard 4x1
+RUN 1 {{{
+QUERY
+        query getUserByUid($uid: Long) {
+            user(uid: $uid) {
+                uid
+                p1
+                p2
+                nested {
+                    x
+                    y
+                }
+            }
+        }
+VARIABLES
+---
+uid: 5
+...
+
+RESULT
+---
+user:
+- p2: p2 5
+  p1: p1 5
+  uid: 5
+  nested:
+    y: 2005
+    x: 1005
+...
+
+}}}
+Local (box)
+RUN 1 {{{
+QUERY
+        query getUserByUid($uid: Long) {
+            user(uid: $uid) {
+                uid
+                p1
+                p2
+                nested {
+                    x
+                    y
+                }
+            }
+        }
+VARIABLES
+---
+uid: 5
+...
+
+RESULT
+---
+user:
+- p2: p2 5
+  p1: p1 5
+  uid: 5
+  nested:
+    y: 2005
+    x: 1005
+...
+
+}}}

@@ -105,9 +105,7 @@ end
 
 --- Non-recursive version of the @{gql_type} function that returns
 --- InputObject instead of Object.
-local function gql_argument_type(state, avro_schema)
-    assert(type(state) == 'table',
-        'state must be a table, got ' .. type(state))
+local function gql_argument_type(avro_schema)
     assert(avro_schema ~= nil,
         'avro_schema must not be nil')
 
@@ -149,27 +147,53 @@ local function gql_argument_type(state, avro_schema)
     end
 end
 
-local function convert_record_fields_to_args(state, fields)
+--- Convert each field of an avro-schema to a scalar graphql type or an input
+--- object.
+---
+--- @tparam table fields list of fields of the avro-schema record fields format
+---
+--- @tparam[opt] table opts optional options:
+---
+--- * `skip_compound` -- do not add fields of record type to the arguments;
+--- default: false.
+---
+--- @treturn table `args` -- map with type names as keys and graphql types as
+--- values
+local function convert_record_fields_to_args(fields, opts)
+    assert(type(fields) == 'table',
+        'fields must be a table, got ' .. type(fields))
+
+    local opts = opts or {}
+    assert(type(opts) == 'table',
+        'opts must be a table, got ' .. type(opts))
+
+    local skip_compound = opts.skip_compound or false
+    assert(type(skip_compound) == 'boolean',
+        'skip_compound must be a boolean, got ' .. type(skip_compound))
+
     local args = {}
     for _, field in ipairs(fields) do
         assert(type(field.name) == 'string',
             ('field.name must be a string, got %s (schema %s)')
             :format(type(field.name), json.encode(field)))
-        local gql_class = gql_argument_type(state, field.type)
-        args[field.name] = nullable(gql_class)
+        if not skip_compound or avro_type(field.type) ~= 'record' then
+            local gql_class = gql_argument_type(field.type)
+            args[field.name] = nullable(gql_class)
+        end
     end
     return args
 end
 
---- Convert each field of an avro-schema to a graphql type and corresponding
---- argument for an upper graphql type.
+--- Convert each field of an avro-schema to a graphql type.
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.types
 --- @tparam table fields fields part from an avro-schema
+---
+--- @treturn table `res` -- map with type names as keys and graphql types as
+--- values
 local function convert_record_fields(state, fields)
     local res = {}
-    local object_args = {}
     for _, field in ipairs(fields) do
         assert(type(field.name) == 'string',
             ('field.name must be a string, got %s (schema %s)')
@@ -178,9 +202,8 @@ local function convert_record_fields(state, fields)
             name = field.name,
             kind = gql_type(state, field.type),
         }
-        object_args[field.name] = nullable(res[field.name].kind)
     end
-    return res, object_args
+    return res
 end
 
 --- The function recursively converts passed avro-schema to a graphql type.
@@ -228,7 +251,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
             ('avro_schema.fields must be a table, got %s (avro_schema %s)')
             :format(type(avro_schema.fields), json.encode(avro_schema)))
 
-        local fields, _ = convert_record_fields(state, avro_schema.fields)
+        local fields = convert_record_fields(state, avro_schema.fields)
 
         for _, c in ipairs((collection or {}).connections or {}) do
             assert(type(c.type) == 'string',
@@ -371,10 +394,10 @@ local function parse_cfg(cfg)
             schema.name))
         state.types[name] = gql_type(state, schema, collection, name)
 
-        local _, object_args = convert_record_fields(state,
-            schema.fields)
+        local object_args = convert_record_fields_to_args(schema.fields,
+            {skip_compound = true})
         local list_args = convert_record_fields_to_args(
-            state, accessor:list_args(name))
+            accessor:list_args(name))
         local args = utils.merge_tables(object_args, list_args)
         state.object_arguments[name] = object_args
         state.list_arguments[name] = list_args

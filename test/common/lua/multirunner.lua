@@ -1,6 +1,8 @@
 #!/usr/bin/env tarantool
+
 local net_box = require('net.box')
-local shard = require('shard')
+
+local initialized = false
 
 local function instance_uri(instance_id)
     local socket_dir = require('fio').cwd()
@@ -9,13 +11,21 @@ local function instance_uri(instance_id)
 end
 
 local function init_shard(test_run, servers, config)
-    local shard = require('shard')
-    local suite = "common"
+    local suite = 'common'
     test_run:create_cluster(servers, suite)
-    box.once('init_shard_module', function()
+
+    -- XXX: for now we always use one shard configuration (a first one),
+    -- because it is unclear how to reload shard module with an another
+    -- configuration; the another way is use several test configurations, but
+    -- it seems to be non-working in 'core = app' tests with current test-run.
+    -- Ways to better handle this is subject to future digging.
+    local shard = require('shard')
+    if not initialized then
         shard.init(config)
-    end)
+        initialized = true
+    end
     shard.wait_connection()
+    return shard
 end
 
 local function shard_cleanup(test_run, servers)
@@ -29,6 +39,14 @@ local function shard_cleanup(test_run, servers)
     end
 end
 
+local function for_each_server(shard, func)
+    for _, zone in ipairs(shard.shards) do
+        for _, node in ipairs(zone) do
+            func(node.uri)
+        end
+    end
+end
+
 -- Run tests on multiple accessors and configurations.
 -- Feel free to add more configurations.
 local function run(test_run, init_function, cleanup_function, callback)
@@ -38,8 +56,8 @@ local function run(test_run, init_function, cleanup_function, callback)
 
     local servers = {'shard1', 'shard2', 'shard3', 'shard4'};
 
-    -- Test sharding without redundancy = 2.
-    init_shard(test_run, servers, {
+    -- Test sharding with redundancy = 2.
+    local shard = init_shard(test_run, servers, {
         servers = {
             { uri = instance_uri('1'), zone = '0' },
             { uri = instance_uri('2'), zone = '1' },
@@ -50,23 +68,23 @@ local function run(test_run, init_function, cleanup_function, callback)
         password = '',
         redundancy = 2,
         monitor = false
-    });
+    })
 
-    for _, shard_server in ipairs(shard_status().online) do
-        local c = net_box.connect(shard_server.uri)
+    for_each_server(shard, function(uri)
+        local c = net_box.connect(uri)
         c:eval(init_script)
-    end
+    end)
 
     callback("Shard 2x2", shard)
 
-    for _, shard_server in ipairs(shard_status().online) do
-        local c = net_box.connect(shard_server.uri)
+    for_each_server(shard, function(uri)
+        local c = net_box.connect(uri)
         c:eval(cleanup_script)
-    end
+    end)
     shard_cleanup(test_run, servers)
 
     -- Test sharding without redundancy.
-    init_shard(test_run, servers, {
+    local shard = init_shard(test_run, servers, {
         servers = {
             { uri = instance_uri('1'), zone = '0' },
             { uri = instance_uri('2'), zone = '1' },
@@ -77,19 +95,19 @@ local function run(test_run, init_function, cleanup_function, callback)
         password = '',
         redundancy = 1,
         monitor = false
-    });
+    })
 
-    for _, shard_server in ipairs(shard_status().online) do
-        local c = net_box.connect(shard_server.uri)
+    for_each_server(shard, function(uri)
+        local c = net_box.connect(uri)
         c:eval(init_script)
-    end
+    end)
 
     callback("Shard 4x1", shard)
 
-    for _, shard_server in ipairs(shard_status().online) do
-        local c = net_box.connect(shard_server.uri)
+    for_each_server(shard, function(uri)
+        local c = net_box.connect(uri)
         c:eval(cleanup_script)
-    end
+    end)
     shard_cleanup(test_run, servers)
 
     -- Test local setup (box).
