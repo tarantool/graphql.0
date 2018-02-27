@@ -12,22 +12,22 @@ end
 function array_testdata.get_test_metadata()
 
     local schemas = json.decode([[{
-    "user": {
-        "name": "user",
-        "type": "record",
-        "fields": [
-            { "name": "user_id", "type": "string" },
-            { "name": "favorite_food", "type": {"type": "array", "items": "string"} }
-        ]
+        "user": {
+            "name": "user",
+            "type": "record",
+            "fields": [
+                { "name": "user_id", "type": "string" },
+                { "name": "favorite_food", "type": {"type": "array", "items": "string"} }
+            ]
         }
     }]])
 
     local collections = json.decode([[{
-    "user_collection": {
-        "schema_name": "user",
-        "connections": []
-    }
-}]])
+        "user_collection": {
+            "schema_name": "user",
+            "connections": []
+        }
+    }]])
 
     local service_fields = {
         user = {

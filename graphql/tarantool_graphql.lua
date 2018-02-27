@@ -80,6 +80,20 @@ local types_long = types.scalar({
     end
 })
 
+local types_map = types.scalar({
+    name = 'Map',
+    description = 'Map is a dictionary with string keys and values of ' ..
+        'arbitrary but same among all values type',
+    serialize = function(value) return value end,
+    parseValue = function(value)return value end,
+    -- node == ast
+    parseLiteral = function(node)
+        if node.kind == 'Map' then
+            return node.value
+        end
+    end
+})
+
 -- XXX: boolean
 -- XXX: float
 local function convert_scalar_type(avro_schema, opts)
@@ -394,6 +408,18 @@ gql_type = function(state, avro_schema, collection, collection_name)
             .. avro_type(avro_schema.items) .. " is not a scalar")
         local gql_array = types.list(gql_items_type)
         return avro_t == 'array' and types.nonNull(gql_array) or gql_array
+    elseif avro_t == 'map' or avro_t == 'map*' then
+        assert(avro_schema.values ~= nil,
+            'values must not be nil in map avro schema')
+        assert(type(avro_schema.values) == 'table'
+            or type(avro_schema.values) == 'string',
+            ('avro_schema.values must be a table or a string,' ..
+            'got %s (avro_schema %s)'):format(type(avro_schema.values),
+            json.encode(avro_schema)))
+
+        convert_scalar_type(avro_schema.values, {raise = true})
+        local gql_map = types_map
+        return avro_t == 'map' and types.nonNull(gql_map) or gql_map
     else
         local res = convert_scalar_type(avro_schema, {raise = false})
         if res == nil then
@@ -438,7 +464,7 @@ local function parse_cfg(cfg)
 
         -- recursively converts all avro types into gql types in the given schema
         assert(schema.type == 'record',
-            'top-level schema must have record avro type, not'
+            'top-level schema must have record avro type, not '
                 .. schema.type)
         state.types[collection_name] = gql_type(state, schema, collection,
             collection_name)
