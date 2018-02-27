@@ -2,6 +2,7 @@ local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
 local introspection = require(path .. '.introspection')
+local query_util = require(path .. '.query_util')
 
 local function typeFromAST(node, schema)
   local innerType
@@ -63,87 +64,8 @@ local function doesFragmentApply(fragment, type, context)
   end
 end
 
-local function mergeSelectionSets(fields)
-  local selections = {}
-
-  for i = 1, #fields do
-    local selectionSet = fields[i].selectionSet
-    if selectionSet then
-      for j = 1, #selectionSet.selections do
-        table.insert(selections, selectionSet.selections[j])
-      end
-    end
-  end
-
-  return selections
-end
-
 local function defaultResolver(object, arguments, info)
   return object[info.fieldASTs[1].name.value]
-end
-
-local function buildContext(schema, tree, rootValue, variables, operationName)
-  local context = {
-    schema = schema,
-    rootValue = rootValue,
-    variables = variables,
-    operation = nil,
-    fragmentMap = {},
-    -- The field is passed to resolve function within info attribute.
-    -- Can be used to store any data within one query.
-    qcontext = {}
-  }
-
-  for _, definition in ipairs(tree.definitions) do
-    if definition.kind == 'operation' then
-      if not operationName and context.operation then
-        error('Operation name must be specified if more than one operation exists.')
-      end
-
-      if not operationName or definition.name.value == operationName then
-        context.operation = definition
-      end
-    elseif definition.kind == 'fragmentDefinition' then
-      context.fragmentMap[definition.name.value] = definition
-    end
-  end
-
-  if not context.operation then
-    if operationName then
-      error('Unknown operation "' .. operationName .. '"')
-    else
-      error('Must provide an operation')
-    end
-  end
-
-  return context
-end
-
-local function collectFields(objectType, selections, visitedFragments, result, context)
-  for _, selection in ipairs(selections) do
-    if selection.kind == 'field' then
-      if shouldIncludeNode(selection, context) then
-        local name = getFieldResponseKey(selection)
-        result[name] = result[name] or {}
-        table.insert(result[name], selection)
-      end
-    elseif selection.kind == 'inlineFragment' then
-      if shouldIncludeNode(selection, context) and doesFragmentApply(selection, objectType, context) then
-        collectFields(objectType, selection.selectionSet.selections, visitedFragments, result, context)
-      end
-    elseif selection.kind == 'fragmentSpread' then
-      local fragmentName = selection.name.value
-      if shouldIncludeNode(selection, context) and not visitedFragments[fragmentName] then
-        visitedFragments[fragmentName] = true
-        local fragment = context.fragmentMap[fragmentName]
-        if fragment and shouldIncludeNode(fragment, context) and doesFragmentApply(fragment, objectType, context) then
-          collectFields(objectType, fragment.selectionSet.selections, visitedFragments, result, context)
-        end
-      end
-    end
-  end
-
-  return result
 end
 
 local evaluateSelections
@@ -230,13 +152,13 @@ local function getFieldEntry(objectType, object, fields, context)
   }
 
   local resolvedObject = (fieldType.resolve or defaultResolver)(object, arguments, info)
-  local subSelections = mergeSelectionSets(fields)
+  local subSelections = query_util.mergeSelectionSets(fields)
 
   return completeValue(fieldType.kind, resolvedObject, subSelections, context)
 end
 
 evaluateSelections = function(objectType, object, selections, context)
-  local groupedFieldSet = collectFields(objectType, selections, {}, {}, context)
+  local groupedFieldSet = query_util.collectFields(objectType, selections, {}, {}, context)
 
   return util.map(groupedFieldSet, function(fields)
     return getFieldEntry(objectType, object, fields, context)
@@ -244,7 +166,10 @@ evaluateSelections = function(objectType, object, selections, context)
 end
 
 return function(schema, tree, rootValue, variables, operationName)
-  local context = buildContext(schema, tree, rootValue, variables, operationName)
+  local context = query_util.buildContext(schema, tree, rootValue, variables, operationName)
+  -- The field is passed to resolve function within info attribute.
+  -- Can be used to store any data within one query.
+  context.qcontext = {}
   local rootType = schema[context.operation.operation]
 
   if not rootType then
