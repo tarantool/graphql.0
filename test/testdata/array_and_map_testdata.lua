@@ -17,7 +17,8 @@ function array_testdata.get_test_metadata()
             "type": "record",
             "fields": [
                 { "name": "user_id", "type": "string" },
-                { "name": "favorite_food", "type": {"type": "array", "items": "string"} }
+                { "name": "favorite_food", "type": {"type": "array", "items": "string"} },
+                { "name": "favorite_holidays", "type": {"type": "map", "values": "string"} }
             ]
         }
     }]])
@@ -74,9 +75,8 @@ function array_testdata.fill_test_data(shard)
     local shard = shard or box.space
 
     shard.user_collection:replace(
-        { 1827767717, 'user_id_1', { 'meat', 'potato' } })
-    shard.user_collection:replace(
-        { 1827767717, 'user_id_2', { 'fruit' } })
+        { 1827767717, 'user_id_1', { 'meat', 'potato' },
+        { december = 'new year', march = 'vacation'} })
     --@todo add empty array
 end
 
@@ -89,22 +89,22 @@ function array_testdata.run_queries(gql_wrapper)
 
     local results = ''
 
-    local query_1 = [[
-        query user_favorites($user_id: String) {
+    local query_map = [[
+        query user_holidays($user_id: String) {
             user_collection(user_id: $user_id) {
                 user_id
                 favorite_food
+                favorite_holidays
             }
         }
     ]]
 
-    --assert(false, 'err')
     utils.show_trace(function()
         local variables_1 = { user_id = 'user_id_1' }
-        local gql_query_1 = gql_wrapper:compile(query_1)
+        local gql_query_1 = gql_wrapper:compile(query_map)
         local result = gql_query_1:execute(variables_1)
         results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        ('RESULT\n%s'):format(yaml.encode(result)))
     end)
 
     return results

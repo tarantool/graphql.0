@@ -1,12 +1,11 @@
 #!/usr/bin/env tarantool
 
-box.cfg{background = false}
+box.cfg { background = false }
 local fio = require('fio')
 
 -- require in-repo version of graphql/ sources despite current working directory
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
-   :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
-package.path
+    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 local graphql = require('graphql')
 local testdata = require('test.testdata.array_and_map_testdata')
@@ -27,22 +26,31 @@ local schemas = metadata.schemas
 local collections = metadata.collections
 local service_fields = metadata.service_fields
 local indexes = metadata.indexes
+local utils = require('graphql.utils')
 
 -- build accessor and graphql schemas
 -- ----------------------------------
+local accessor
+utils.show_trace(
+function()
+    accessor = graphql.accessor_space.new({
+        schemas = schemas,
+        collections = collections,
+        service_fields = service_fields,
+        indexes = indexes,
+    })
+end
+)
 
-local accessor = graphql.accessor_space.new({
-    schemas = schemas,
-    collections = collections,
-    service_fields = service_fields,
-    indexes = indexes,
-})
-
-local gql_wrapper = graphql.new({
-    schemas = schemas,
-    collections = collections,
-    accessor = accessor,
-})
+local gql_wrapper
+utils.show_trace(function()
+    gql_wrapper = graphql.new({
+        schemas = schemas,
+        collections = collections,
+        accessor = accessor,
+    })
+end
+)
 
 -- run queries
 -- -----------
