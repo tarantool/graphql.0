@@ -574,12 +574,6 @@ end
 --- Nothing returned, but after necessary count of invokes `state.objs` will
 --- hold list of resulting objects.
 local function process_tuple(state, tuple, opts)
-    local function maybe_unflatten(tuple, obj, opts)
-        if obj ~= nil then return obj end
-        local default = opts.default_unflatten_tuple
-        return opts.unflatten_tuple(opts.collection_name, tuple, default)
-    end
-
     local limit = opts.limit
     local filter = opts.filter
     local do_filter = opts.do_filter
@@ -593,18 +587,19 @@ local function process_tuple(state, tuple, opts)
                     '(`fetched_object_cnt_max` in accessor)'):format(
                     qstats.fetched_object_cnt, fetched_object_cnt_max))
 
+    -- convert tuple -> object
+    local obj = opts.unflatten_tuple(opts.collection_name, tuple,
+        opts.default_unflatten_tuple)
+
     -- skip all items before pivot (the item pointed by offset)
-    local obj = nil
     if not state.pivot_found and pivot_filter then
-        obj = maybe_unflatten(tuple, obj, opts)
         local match = utils.is_subtable(obj, pivot_filter)
         if not match then return true end
         state.pivot_found = true
         return true -- skip pivot item too
     end
 
-    -- convert tuple -> object, then filter out or continue
-    obj = maybe_unflatten(tuple, obj, opts)
+    -- filter out non-matching objects
     local match = utils.is_subtable(obj, filter)
     if do_filter then
         if not match then return true end
