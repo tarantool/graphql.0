@@ -574,13 +574,6 @@ end
 --- Nothing returned, but after necessary count of invokes `state.objs` will
 --- hold list of resulting objects.
 local function process_tuple(state, tuple, opts)
-    local function maybe_unflatten(model, tuple, obj)
-        local ok, obj = model.unflatten(tuple)
-        assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
-        return obj
-    end
-
-    local model = opts.model
     local limit = opts.limit
     local filter = opts.filter
     local do_filter = opts.do_filter
@@ -594,18 +587,19 @@ local function process_tuple(state, tuple, opts)
                     '(`fetched_object_cnt_max` in accessor)'):format(
                     qstats.fetched_object_cnt, fetched_object_cnt_max))
 
+    -- convert tuple -> object
+    local obj = opts.unflatten_tuple(opts.collection_name, tuple,
+        opts.default_unflatten_tuple)
+
     -- skip all items before pivot (the item pointed by offset)
-    local obj = nil
     if not state.pivot_found and pivot_filter then
-        obj = maybe_unflatten(model, tuple, obj)
         local match = utils.is_subtable(obj, pivot_filter)
         if not match then return true end
         state.pivot_found = true
         return true -- skip pivot item too
     end
 
-    -- convert tuple -> object, then filter out or continue
-    obj = maybe_unflatten(model, tuple, obj)
+    -- filter out non-matching objects
     local match = utils.is_subtable(obj, filter)
     if do_filter then
         if not match then return true end
@@ -698,13 +692,13 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             index_name, collection_name))
     end
 
-    -- lookup compiled schema for unflattening (model)
+    -- lookup functions for unflattening
     local schema_name = collection.schema_name
     assert(type(schema_name) == 'string',
         'schema_name must be a string, got ' .. type(schema_name))
-    local model = self.models[schema_name]
-    assert(model ~= nil,
-        ('cannot find model for collection "%s"'):format(
+    local default_unflatten_tuple = self.default_unflatten_tuple[schema_name]
+    assert(default_unflatten_tuple ~= nil,
+        ('cannot find default_unflatten_tuple for collection "%s"'):format(
         collection_name))
 
     -- read-write variables for process_tuple
@@ -717,13 +711,15 @@ local function select_internal(self, collection_name, from, filter, args, extra)
 
     -- read only process_tuple options
     local select_opts = {
-        model = model,
         limit = args.limit,
         filter = filter,
         do_filter = not full_match,
         pivot_filter = nil, -- filled later if needed
         resulting_object_cnt_max = self.settings.resulting_object_cnt_max,
-        fetched_object_cnt_max = self.settings.fetched_object_cnt_max
+        fetched_object_cnt_max = self.settings.fetched_object_cnt_max,
+        collection_name = collection_name,
+        unflatten_tuple = self.funcs.unflatten_tuple,
+        default_unflatten_tuple = default_unflatten_tuple,
     }
 
     if index == nil then
@@ -803,6 +799,9 @@ local function validate_funcs(funcs)
     assert(type(funcs.get_primary_index) == 'function',
         'funcs.get_primary_index must be a function, got ' ..
         type(funcs.get_primary_index))
+    assert(type(funcs.unflatten_tuple) == 'function',
+        'funcs.unflatten_tuple must be a function, got ' ..
+        type(funcs.unflatten_tuple))
 end
 
 --- Create a new data accessor.
@@ -818,10 +817,10 @@ end
 --- value is 10,000)_
 ---
 --- @tparam table funcs set of functions (`is_collection_exists`, `get_index`,
---- `get_primary_index`) allows this abstract data accessor behaves in the
---- certain way (say, like space data accessor or shard data accessor);
---- consider the `accessor_space` and the `accessor_shard` modules documentation
---- for this functions description
+--- `get_primary_index`, `unflatten_tuple`) allows this abstract data accessor
+--- behaves in the certain way (say, like space data accessor or shard data
+--- accessor); consider the `accessor_space` and the `accessor_shard` modules
+--- documentation for this functions description
 ---
 --- For examples of `opts.schemas` and `opts.collections` consider the
 --- @{tarantool_graphql.new} function description.
@@ -885,6 +884,19 @@ function accessor_general.new(opts, funcs)
     validate_collections(collections, schemas, indexes)
     local index_cache = build_index_cache(indexes, collections)
 
+    -- create default unflatten functions, that can be called from
+    -- funcs.unflatten_tuple when an additional pre/postprocessing is not
+    -- needed
+    local default_unflatten_tuple = {}
+    for schema_name, model in pairs(models) do
+        default_unflatten_tuple[schema_name] =
+            function(_, tuple)
+                local ok, obj = model.unflatten(tuple)
+                assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
+                return obj
+            end
+    end
+
     validate_funcs(funcs)
 
     return setmetatable({
@@ -893,6 +905,7 @@ function accessor_general.new(opts, funcs)
         service_fields = service_fields,
         indexes = indexes,
         models = models,
+        default_unflatten_tuple = default_unflatten_tuple,
         index_cache = index_cache,
         funcs = funcs,
         settings = {

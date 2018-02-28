@@ -80,14 +80,41 @@ local function get_primary_index(collection_name)
     return get_index(collection_name, 0)
 end
 
+--- Convert a tuple to an object.
+---
+--- @tparam string collection_name
+--- @tparam cdata/table tuple
+--- @tparam function default unflatten action, call it in the following way:
+---
+--- ```
+--- return default(collection_name, tuple)
+--- ```
+local function unflatten_tuple(collection_name, tuple, default)
+    return default(collection_name, tuple)
+end
+
 --- Create a new shard data accessor instance.
-function accessor_shard.new(opts)
-    local funcs = {
-        is_collection_exists = is_collection_exists,
-        get_index = get_index,
-        get_primary_index = get_primary_index,
+function accessor_shard.new(opts, funcs)
+    local funcs = funcs or {}
+    assert(type(funcs) == 'table',
+        'funcs must be nil or a table, got ' .. type(funcs))
+
+    for k, v in pairs(funcs) do
+        assert(type(k) == 'string',
+            'funcs keys must be strings, got ' .. type(k))
+        assert(type(v) == 'table',
+            'funcs values must be functions, got ' .. type(v))
+    end
+
+    local res_funcs = {
+        is_collection_exists = funcs.is_collection_exists or
+            is_collection_exists,
+        get_index = funcs.get_index or get_index,
+        get_primary_index = funcs.get_primary_index or get_primary_index,
+        unflatten_tuple = funcs.unflatten_tuple or unflatten_tuple,
     }
-    return accessor_general.new(opts, funcs)
+
+    return accessor_general.new(opts, res_funcs)
 end
 
 return accessor_shard
