@@ -4,6 +4,7 @@ default:
 .PHONY: lint
 lint:
 	luacheck graphql/*.lua test/local/*.lua test/testdata/*.lua \
+		test/common/*test.lua test/common/lua/*.lua \
 		--no-redefined --no-unused-args
 
 .PHONY: test
@@ -13,6 +14,10 @@ test: lint
 		pip install -r ./test-run/requirements.txt && \
 		pip install tarantool && \
 		cd test && ./test-run.py
+
+.PHONY: pure-test
+pure-test:
+	cd test && ./test-run.py
 
 .PHONY: clean
 clean:

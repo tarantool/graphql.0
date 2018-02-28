@@ -14,7 +14,7 @@ function init_shard(servers, config, suite)
     local env = require('test_run')
     local test_run = env.new()
 
-    test_run:create_cluster(SERVERS, suite)
+    test_run:create_cluster(servers, suite)
     box.once('init_shard_module', function()
         shard.init(config)
     end)
