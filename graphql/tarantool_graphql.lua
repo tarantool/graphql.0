@@ -102,7 +102,7 @@ local function convert_scalar_type(avro_schema, opts)
         type(opts))
     local raise = opts.raise or false
     assert(type(raise) == 'boolean', 'opts.raise must be boolean, got ' ..
-        type(opts.raise))
+        type(raise))
 
     local avro_t = avro_type(avro_schema)
     if avro_t == 'int' then
@@ -121,7 +121,7 @@ local function convert_scalar_type(avro_schema, opts)
 
     if raise then
         error('unrecognized avro-schema scalar type: ' ..
-        json.encode(avro_schema))
+            json.encode(avro_schema))
     end
 
     return nil
@@ -132,7 +132,7 @@ end
 --- An error will be raised if avro_schema type is 'record'
 --- and its' fields are not scalar type because currently
 --- triple nesting level (record with record as a field - ok,
---- record with record wich has inside another level - not ok)
+--- record with record which has inside another level - not ok).
 local function gql_argument_type(state, avro_schema)
     assert(type(state) == 'table',
         'state must be a table, got ' .. type(state))
@@ -174,12 +174,12 @@ local function gql_argument_type(state, avro_schema)
     else
         local res = convert_scalar_type(avro_schema, {raise = false})
         if res == nil then
-            error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
+            error('unrecognized avro-schema type: ' ..
+                json.encode(avro_schema))
         end
         return res
     end
 end
-
 
 -- Convert list of fields in the avro-schema format to list of GraphQL types
 -- with intention to use it as GraphQL arguments later.
@@ -207,15 +207,13 @@ local function convert_record_fields_to_args(state, fields)
     return args
 end
 
---- Recursively convert each field of an avro-schema to a graphql type and
+--- Convert each field of an avro-schema to a graphql type and
 --- corresponding argument for an upper graphql type.
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.types
 --- @tparam table fields fields part from an avro-schema
---- @tparam table opts include is_for_args flag to specify
---- case when the function is used to collect arguments
-local function convert_record_fields(state, fields, opts)
+local function convert_record_fields(state, fields)
     local res = {}
     local object_args = {}
 
@@ -255,7 +253,7 @@ end
 ---    instead of the avro-schema name.
 ---
 --- XXX As it is not clear now what to do with complex types inside arrays
----(just pass to results or allow to use filters), only scalar arrays
+--- (just pass to results or allow to use filters), only scalar arrays
 --- is allowed for now.
 gql_type = function(state, avro_schema, collection, collection_name)
     assert(type(state) == 'table',
@@ -400,8 +398,8 @@ gql_type = function(state, avro_schema, collection, collection_name)
             'items field must not be nil in array avro schema')
         assert(type(avro_schema.items) == 'string'
             or type(avro_schema.items) == 'table',
-            'avro_schema.items must be a string or a table, got '
-                .. type(avro_schema.items))
+            'avro_schema.items must be a string or a table, got ' ..
+            type(avro_schema.items))
 
         local gql_items_type = gql_type(state, avro_schema.items)
         local gql_array = types.list(gql_items_type)
@@ -421,7 +419,8 @@ gql_type = function(state, avro_schema, collection, collection_name)
     else
         local res = convert_scalar_type(avro_schema, {raise = false})
         if res == nil then
-            error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
+            error('unrecognized avro-schema type: ' ..
+                json.encode(avro_schema))
         end
         return res
     end
@@ -460,10 +459,11 @@ local function parse_cfg(cfg)
             'the schema itself: "%s" vs "%s"'):format(collection.schema_name,
             schema.name))
 
-        -- recursively converts all avro types into gql types in the given schema
+        -- recursively converts all avro types into GraphQL types in the given
+        -- schema
         assert(schema.type == 'record',
-            'top-level schema must have record avro type, not '
-                .. schema.type)
+            'top-level schema must have record avro type, got ' ..
+            tostring(schema.type))
         state.types[collection_name] = gql_type(state, schema, collection,
             collection_name)
 
@@ -516,7 +516,7 @@ end
 
 --- The function checks that one and only one GraphQL operation
 --- (query/mutation/subscription) is defined in the AST and it's type
---- is 'query' as mutations and subscriptions are not supported yet
+--- is 'query' as mutations and subscriptions are not supported yet.
 local function assert_gql_query_ast(func_name, ast)
     assert(#ast.definitions == 1,
         func_name .. ': expected an one query')
@@ -549,10 +549,11 @@ end
 
 --- The function parses a query string, validate the resulting query
 --- against the GraphQL schema and provides an object with the function to
---- execute the query with specific variables values
+--- execute the query with specific variables values.
+---
 --- @tparam table state current state of graphql, including
 --- schemas, collections and accessor
---- @tparam string query raw query string
+--- @tparam string query query string
 local function gql_compile(state, query)
     assert(type(state) == 'table' and type(query) == 'string',
         'use :validate(...) instead of .validate(...)')

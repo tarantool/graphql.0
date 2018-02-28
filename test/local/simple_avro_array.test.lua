@@ -4,8 +4,7 @@ local fio = require('fio')
 
  --require in-repo version of graphql/ sources despite current working directory
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
-                                :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
-        package.path
+    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 
 local json = require('json')
@@ -72,11 +71,11 @@ local simple_accessor = setmetatable({}, {
 })
 
 local gql_wrapper_simple_accessor = graphql.new({
--- class_name:class mapping
+    -- class_name:class mapping
     schemas = schemas,
--- collection_{schema_name=..., connections=...} mapping
+    -- collection_{schema_name=..., connections=...} mapping
     collections = collections,
--- :select() and :list_args() provider
+    -- :select() and :list_args() provider
     accessor = simple_accessor,
 })
 

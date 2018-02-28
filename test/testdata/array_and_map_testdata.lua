@@ -10,7 +10,6 @@ local function print_and_return(...)
 end
 
 function array_testdata.get_test_metadata()
-
     local schemas = json.decode([[{
         "user": {
             "name": "user",
@@ -86,9 +85,7 @@ function array_testdata.init_spaces()
     box.once('test_space_init_spaces', function()
         box.schema.create_space('user_collection')
         box.space.user_collection:create_index('user_id_index',
-            { type = 'tree', unique = true, parts = {
-                U_USER_ID_FN, 'string'
-            } }
+            { type = 'tree', unique = true, parts = { U_USER_ID_FN, 'string' }}
         )
     end)
 end
@@ -100,7 +97,7 @@ function array_testdata.fill_test_data(shard)
         { 1827767717, 'user_id_1', { 'meat', 'potato' },
         { december = 'new year', march = 'vacation' },
           { { 33 }, { 44 } },
-          { salary = {333}, deposit = { 444}}
+          { salary = { 333 }, deposit = { 444 } }
         })
     --@todo add empty array
 end
@@ -111,7 +108,6 @@ function array_testdata.drop_spaces()
 end
 
 function array_testdata.run_queries(gql_wrapper)
-
     local results = ''
 
     local query = [[
