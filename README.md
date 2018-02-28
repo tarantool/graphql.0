@@ -50,17 +50,17 @@ sharded using tarantool/shard module.
 ### Notes on types
 
 User should distinguish between Object and Map types. Both of them consists of
-keys and values but there are some important differences. 
+keys and values but there are some important differences.
 
 While Object is a GraphQL
-built-in type, Map is a scalar-based type. In case of Object-based type 
+built-in type, Map is a scalar-based type. In case of Object-based type
 all key-value pairs are set during type definition and values may have different 
 arbitrary types.
 
 In contrast, all values of Map-based type must have the same
 type and specific key-value pairs are not set during type definition.
 
-Map-based types should be queried as a scalar type, not as an object type 
+Map-based types should be queried as a scalar type, not as an object type
 (because map's keys are not part of the schema)
 
 
