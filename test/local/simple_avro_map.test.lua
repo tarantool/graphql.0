@@ -74,11 +74,11 @@ local gql_wrapper_simple_accessor
 local query_with_map
 utils.show_trace(function()
     gql_wrapper_simple_accessor = graphql.new({
-    -- class_name:class mapping
+        -- class_name:class mapping
         schemas = schemas,
-    -- collection_{schema_name=..., connections=...} mapping
+        -- collection_{schema_name=..., connections=...} mapping
         collections = collections,
-    -- :select() and :list_args() provider
+        -- :select() and :list_args() provider
         accessor = simple_accessor,
     })
 
@@ -90,9 +90,7 @@ utils.show_trace(function()
             }
         }
     ]]
-
-end
-)
+end)
 
 utils.show_trace(function()
     local variables_2 = { user_id = 'def' }
@@ -100,3 +98,5 @@ utils.show_trace(function()
     local result = gql_query_2:execute(variables_2)
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
+
+os.exit()

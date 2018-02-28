@@ -85,8 +85,7 @@ local types_map = types.scalar({
     description = 'Map is a dictionary with string keys and values of ' ..
         'arbitrary but same among all values type',
     serialize = function(value) return value end,
-    parseValue = function(value)return value end,
-    -- node == ast
+    parseValue = function(value) return value end,
     parseLiteral = function(node)
         if node.kind == 'Map' then
             return node.value
@@ -129,10 +128,11 @@ end
 
 --- Non-recursive version of the @{gql_type} function that returns
 --- InputObject instead of Object.
+---
 --- An error will be raised if avro_schema type is 'record'
---- and its' fields are not scalar type because currently
---- triple nesting level (record with record as a field - ok,
---- record with record which has inside another level - not ok).
+--- and its' fields have non-scalar types. So triple nesting level is not
+--- supported (record with record as a field - ok, record with record which
+--- has inside an another level - not ok).
 local function gql_argument_type(avro_schema)
     assert(avro_schema ~= nil,
         'avro_schema must not be nil')
@@ -267,7 +267,7 @@ end
 ---
 --- XXX As it is not clear now what to do with complex types inside arrays
 --- (just pass to results or allow to use filters), only scalar arrays
---- is allowed for now.
+--- is allowed for now. Note: map is considered scalar.
 gql_type = function(state, avro_schema, collection, collection_name)
     assert(type(state) == 'table',
         'state must be a table, got ' .. type(state))
@@ -424,11 +424,13 @@ gql_type = function(state, avro_schema, collection, collection_name)
             'values must not be nil in map avro schema')
         assert(type(avro_schema.values) == 'table'
             or type(avro_schema.values) == 'string',
-            ('avro_schema.values must be a table or a string,' ..
+            ('avro_schema.values must be a table or a string, ' ..
             'got %s (avro_schema %s)'):format(type(avro_schema.values),
             json.encode(avro_schema)))
 
+        -- validate avro schema format inside 'values'
         gql_type(state, avro_schema.values)
+
         local gql_map = types_map
         return avro_t == 'map' and types.nonNull(gql_map) or gql_map
     else

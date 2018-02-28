@@ -52,10 +52,9 @@ sharded using tarantool/shard module.
 User should distinguish between Object and Map types. Both of them consists of
 keys and values but there are some important differences.
 
-While Object is a GraphQL
-built-in type, Map is a scalar-based type. In case of Object-based type
-all key-value pairs are set during type definition and values may have
-different types (as defined in the schema).
+While Object is a GraphQL built-in type, Map is a scalar-based type. In case of
+Object-based type all key-value pairs are set during type definition and values
+may have different types (as defined in the schema).
 
 In contrast, set of valid Map keys is not defined in the schema, any key-value
 pair is valid despite name of the key while value has schema-determined type
@@ -64,8 +63,8 @@ pair is valid despite name of the key while value has schema-determined type
 Map-based types should be queried as a scalar type, not as an object type
 (because map's keys are not part of the schema).
 
+The following example works:
 
-This works
 ```
 {
     …
@@ -74,7 +73,8 @@ This works
 }
 ```
 
-This doesn't work
+The following example doesn't work:
+
 ```
 {
     …
@@ -84,6 +84,7 @@ This doesn't work
     …
 }
 ```
+
 ## Run tests
 
 ```
@@ -94,7 +95,7 @@ make test
 
 ## Requirements
 
-* For use: tarantool, lulpeg, >=tarantool/shard-1.1-91-gfa88bf8 (optional), 
+* For use: tarantool, lulpeg, >=tarantool/shard-1.1-91-gfa88bf8 (optional),
   tarantool/avro-schema.
 * For test (additionally to 'for use'): python 2.7, virtualenv, luacheck.
 * For building apidoc (additionally to 'for use'): ldoc.

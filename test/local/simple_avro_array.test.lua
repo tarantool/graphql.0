@@ -6,7 +6,6 @@ local fio = require('fio')
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
-
 local json = require('json')
 local yaml = require('yaml')
 local graphql = require('graphql')
@@ -20,8 +19,8 @@ local schemas = json.decode([[{
             { "name": "user_id", "type": "string" },
             { "name": "favorite_food", "type": {"type": "array", "items": "string"} }
         ]
-        }
-    }]])
+    }
+}]])
 
 local collections = json.decode([[{
     "user_collection": {
@@ -95,3 +94,4 @@ utils.show_trace(function()
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
 
+os.exit()

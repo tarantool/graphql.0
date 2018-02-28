@@ -30,27 +30,22 @@ local utils = require('graphql.utils')
 
 -- build accessor and graphql schemas
 -- ----------------------------------
-local accessor
-utils.show_trace(
-function()
-    accessor = graphql.accessor_space.new({
+local accessor = utils.show_trace(function()
+    return graphql.accessor_space.new({
         schemas = schemas,
         collections = collections,
         service_fields = service_fields,
         indexes = indexes,
     })
-end
-)
+end)
 
-local gql_wrapper
-utils.show_trace(function()
-    gql_wrapper = graphql.new({
+local gql_wrapper = utils.show_trace(function()
+    return graphql.new({
         schemas = schemas,
         collections = collections,
         accessor = accessor,
     })
-end
-)
+end)
 
 -- run queries
 -- -----------
