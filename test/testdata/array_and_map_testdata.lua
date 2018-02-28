@@ -18,7 +18,29 @@ function array_testdata.get_test_metadata()
             "fields": [
                 { "name": "user_id", "type": "string" },
                 { "name": "favorite_food", "type": {"type": "array", "items": "string"} },
-                { "name": "favorite_holidays", "type": {"type": "map", "values": "string"} }
+                { "name": "favorite_holidays", "type": {"type": "map", "values": "string"} },
+                { "name": "user_balances", "type":
+                    {"type": "array", "items":
+                        {   "name": "balance",
+                            "type": "record",
+                            "fields": [{
+                                "name": "value",
+                                "type": "int"
+                            }]
+                        }
+                    }
+                },
+                { "name": "customer_balances", "type":
+                    {"type": "map", "values":
+                        {   "name": "another_balance",
+                            "type": "record",
+                            "fields": [{
+                                "name": "value",
+                                "type": "int"
+                            }]
+                        }
+                    }
+                }
             ]
         }
     }]])
@@ -76,7 +98,10 @@ function array_testdata.fill_test_data(shard)
 
     shard.user_collection:replace(
         { 1827767717, 'user_id_1', { 'meat', 'potato' },
-        { december = 'new year', march = 'vacation'} })
+        { december = 'new year', march = 'vacation' },
+          { { 33 }, { 44 } },
+          { salary = {333}, deposit = { 444}}
+        })
     --@todo add empty array
 end
 
@@ -89,19 +114,23 @@ function array_testdata.run_queries(gql_wrapper)
 
     local results = ''
 
-    local query_map = [[
+    local query = [[
         query user_holidays($user_id: String) {
             user_collection(user_id: $user_id) {
                 user_id
                 favorite_food
                 favorite_holidays
+                user_balances {
+                    value
+                }
+                customer_balances
             }
         }
     ]]
 
     utils.show_trace(function()
         local variables_1 = { user_id = 'user_id_1' }
-        local gql_query_1 = gql_wrapper:compile(query_map)
+        local gql_query_1 = gql_wrapper:compile(query)
         local result = gql_query_1:execute(variables_1)
         results = results .. print_and_return(
         ('RESULT\n%s'):format(yaml.encode(result)))

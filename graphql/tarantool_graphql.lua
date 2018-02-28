@@ -398,14 +398,12 @@ gql_type = function(state, avro_schema, collection, collection_name)
     elseif avro_t == 'array' or avro_t == 'array*' then
         assert(avro_schema.items ~= nil,
             'items field must not be nil in array avro schema')
-        assert(type(avro_schema.items) == 'string',
-            'avro_schema.items must be a string, got '
-                .. type(avro_schema.item))
+        assert(type(avro_schema.items) == 'string'
+            or type(avro_schema.items) == 'table',
+            'avro_schema.items must be a string or a table, got '
+                .. type(avro_schema.items))
 
-        local gql_items_type = convert_scalar_type(avro_schema.items)
-
-        assert(gql_items_type, "only scalars are supported as array items for now "
-            .. avro_type(avro_schema.items) .. " is not a scalar")
+        local gql_items_type = gql_type(state, avro_schema.items)
         local gql_array = types.list(gql_items_type)
         return avro_t == 'array' and types.nonNull(gql_array) or gql_array
     elseif avro_t == 'map' or avro_t == 'map*' then
@@ -417,7 +415,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
             'got %s (avro_schema %s)'):format(type(avro_schema.values),
             json.encode(avro_schema)))
 
-        convert_scalar_type(avro_schema.values, {raise = true})
+        gql_type(state, avro_schema.values)
         local gql_map = types_map
         return avro_t == 'map' and types.nonNull(gql_map) or gql_map
     else
