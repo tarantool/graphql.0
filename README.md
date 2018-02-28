@@ -54,14 +54,15 @@ keys and values but there are some important differences.
 
 While Object is a GraphQL
 built-in type, Map is a scalar-based type. In case of Object-based type
-all key-value pairs are set during type definition and values may have different 
-arbitrary types.
+all key-value pairs are set during type definition and values may have
+different types (as defined in the schema).
 
-In contrast, all values of Map-based type must have the same
-type and specific key-value pairs are not set during type definition.
+In contrast, set of valid Map keys is not defined in the schema, any key-value
+pair is valid despite name of the key while value has schema-determined type
+(which is the same among all values in the map).
 
 Map-based types should be queried as a scalar type, not as an object type
-(because map's keys are not part of the schema)
+(because map's keys are not part of the schema).
 
 
 This works
