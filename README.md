@@ -60,7 +60,7 @@ arbitrary types.
 In contrast, all values of Map-based type must have the same
 type and specific key-value pairs are not set during type definition.
 
-Map-based types should be queried as a scalar type, not as a object type 
+Map-based types should be queried as a scalar type, not as an object type 
 (because map's keys are not part of the schema)
 
 
