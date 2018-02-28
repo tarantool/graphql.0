@@ -14,6 +14,7 @@ local schema = require('graphql.core.schema')
 local types = require('graphql.core.types')
 local validate = require('graphql.core.validate')
 local execute = require('graphql.core.execute')
+local query_to_avro = require('graphql.query_to_avro')
 
 local utils = require('graphql.utils')
 
@@ -661,6 +662,7 @@ local function gql_compile(state, query)
     local gql_query = setmetatable(qstate, {
         __index = {
             execute = gql_execute,
+            avro_schema = query_to_avro.convert
         }
     })
     return gql_query
