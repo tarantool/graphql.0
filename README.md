@@ -47,6 +47,42 @@ GraphQL queries on data from the local Tarantool's storage called spaces.
 It is planned to implement another data accessor that allows to fetch objects
 sharded using tarantool/shard module.
 
+### Notes on types
+
+User should distinguish between Object and Map types. Both of them consists of
+keys and values but there are some important differences. 
+
+While Object is a GraphQL
+built-in type, Map is a scalar-based type. In case of Object-based type 
+all key-value pairs are set during type definition and values may have different 
+arbitrary types.
+
+In contrast, all values of Map-based type must have the same
+type and specific key-value pairs are not set during type definition.
+
+Map-based types should be queried as a scalar type, not as a object type 
+(because map's keys are not part of the schema)
+
+
+This works
+```
+{
+    …
+    map_based_type
+    …
+}
+```
+
+This doesn't work
+```
+{
+    …
+    map_based_type {
+        key_1
+    }
+    …
+}
+```
 ## Run tests
 
 ```
