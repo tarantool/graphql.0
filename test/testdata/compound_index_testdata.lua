@@ -201,8 +201,10 @@ function compound_index_testdata.run_queries(gql_wrapper)
     -- -----------------------------------------------------
 
     local query_1 = [[
-        query users($user_str: String, $user_num: Long) {
-            user_collection(user_str: $user_str, user_num: $user_num) {
+        query users($user_str: String, $user_num: Long,
+                $first_name: String) {
+            user_collection(user_str: $user_str, user_num: $user_num
+                    first_name: $first_name) {
                 user_str
                 user_num
                 last_name
@@ -220,20 +222,58 @@ function compound_index_testdata.run_queries(gql_wrapper)
             ('RESULT\n%s'):format(yaml.encode(result)))
     end)
 
-    -- select top-level objects by a partial compound primary key (or maybe use
-    -- fullscan)
-    -- ------------------------------------------------------------------------
+    -- get a top-level object by a full compound primary key plus filter
+    -- -----------------------------------------------------------------
 
     utils.show_trace(function()
-        local variables_1_2 = {user_num = 12}
+        local variables_1_2 = {
+            user_str = 'user_str_b',
+            user_num = 12,
+            first_name = 'non-existent',
+        }
         local result = gql_query_1:execute(variables_1_2)
         results = results .. print_and_return(
             ('RESULT\n%s'):format(yaml.encode(result)))
     end)
 
+    -- select top-level objects by a partial compound primary key (or maybe use
+    -- fullscan)
+    -- ------------------------------------------------------------------------
+
     utils.show_trace(function()
-        local variables_1_3 = {user_str = 'user_str_b'}
+        local variables_1_3 = {user_num = 12}
         local result = gql_query_1:execute(variables_1_3)
+        results = results .. print_and_return(
+            ('RESULT\n%s'):format(yaml.encode(result)))
+    end)
+
+    utils.show_trace(function()
+        local variables_1_4 = {user_str = 'user_str_b'}
+        local result = gql_query_1:execute(variables_1_4)
+        results = results .. print_and_return(
+            ('RESULT\n%s'):format(yaml.encode(result)))
+    end)
+
+    -- select top-level objects by a partial compound primary key plus filter
+    -- (or maybe use fullscan)
+    -- ----------------------------------------------------------------------
+
+    utils.show_trace(function()
+        local variables_1_5 = {
+            user_num = 12,
+            first_name = 'non-existent'
+        }
+        local result = gql_query_1:execute(variables_1_5)
+        results = results .. print_and_return(
+            ('RESULT\n%s'):format(yaml.encode(result)))
+    end)
+
+    utils.show_trace(function()
+        local variables_1_6 = {
+            user_str = 'user_str_b',
+            first_name = 'non-existent'
+        }
+        local result = gql_query_1:execute(variables_1_6)
         results = results .. print_and_return(
             ('RESULT\n%s'):format(yaml.encode(result)))
     end)
@@ -242,13 +282,13 @@ function compound_index_testdata.run_queries(gql_wrapper)
     -- -------------------------------------------------------
 
     local query_2 = [[
-        query users($user_str: String, $user_num: Long) {
+        query users($user_str: String, $user_num: Long, $description: String) {
             user_collection(user_str: $user_str, user_num: $user_num) {
                 user_str
                 user_num
                 last_name
                 first_name
-                order_connection {
+                order_connection(description: $description) {
                     order_str
                     order_num
                     description
@@ -257,10 +297,25 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
+    local gql_query_2 = gql_wrapper:compile(query_2)
+
     utils.show_trace(function()
-        local gql_query_2 = gql_wrapper:compile(query_2)
-        local variables_2 = {user_str = 'user_str_b', user_num = 12}
-        local result = gql_query_2:execute(variables_2)
+        local variables_2_1 = {user_str = 'user_str_b', user_num = 12}
+        local result = gql_query_2:execute(variables_2_1)
+        results = results .. print_and_return(
+            ('RESULT\n%s'):format(yaml.encode(result)))
+    end)
+
+    -- select objects by a connection by a full compound index plus filter
+    -- -------------------------------------------------------------------
+
+    utils.show_trace(function()
+        local variables_2_2 = {
+            user_str = 'user_str_b',
+            user_num = 12,
+            description = 'non-existent',
+        }
+        local result = gql_query_2:execute(variables_2_2)
         results = results .. print_and_return(
             ('RESULT\n%s'):format(yaml.encode(result)))
     end)

@@ -9,6 +9,11 @@ user_collection:
 
 RESULT
 ---
+user_collection: []
+...
+
+RESULT
+---
 user_collection:
 - last_name: last name a
   user_str: user_str_a
@@ -119,6 +124,16 @@ user_collection:
 
 RESULT
 ---
+user_collection: []
+...
+
+RESULT
+---
+user_collection: []
+...
+
+RESULT
+---
 user_collection:
 - order_connection:
   - order_num: 1201
@@ -151,6 +166,16 @@ user_collection:
   - order_num: 1209
     order_str: order_str_b_9
     description: description b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 12
+  last_name: last name b
+...
+
+RESULT
+---
+user_collection:
+- order_connection: []
   user_str: user_str_b
   first_name: first name b
   user_num: 12
