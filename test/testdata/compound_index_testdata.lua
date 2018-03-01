@@ -231,6 +231,13 @@ function compound_index_testdata.run_queries(gql_wrapper)
             ('RESULT\n%s'):format(yaml.encode(result)))
     end)
 
+    utils.show_trace(function()
+        local variables_1_3 = {user_str = 'user_str_b'}
+        local result = gql_query_1:execute(variables_1_3)
+        results = results .. print_and_return(
+            ('RESULT\n%s'):format(yaml.encode(result)))
+    end)
+
     -- select objects by a connection by a full compound index
     -- -------------------------------------------------------
 
