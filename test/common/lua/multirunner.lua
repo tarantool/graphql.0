@@ -30,13 +30,6 @@ end
 
 local function shard_cleanup(test_run, servers)
     test_run:drop_cluster(servers)
-    -- crutch!!
-    -- test_run.lua do not delete servers
-    -- todo: should be removed after #83 is fixed in test-run
-    local drop_cluster_cmd3 = 'delete server %s'
-    for _, name in ipairs(servers) do
-        test_run:cmd(drop_cluster_cmd3:format(name))
-    end
 end
 
 local function for_each_server(shard, func)
