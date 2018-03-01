@@ -103,7 +103,7 @@ end
 --- Get a key to lookup index by `lookup_index_name` (part of `index_cache`).
 ---
 --- @tparam table filter filter for objects, its keys (names of fields) will
---- form the result
+--- form the result of the function
 ---
 --- @treturn string `name_list_str` (key for lookup by `lookup_index_name`)
 local function filter_names_fingerprint(filter)
@@ -123,13 +123,90 @@ local function filter_names_fingerprint(filter)
     return name_list_str
 end
 
+--- Get an index using parts tree built by @{build_index_parts_tree}.
+---
+--- @tparam table node root of the prefix tree for certain collection
+---
+--- @tparam table filter map of key-value to filter objects against
+---
+--- @treturn string `index_name` or `nil` is found index
+---
+--- @treturn number `max_branch_len` is a number of index parts will be used at
+--- lookup plus 1 (because it calculated artificial root node as well as other
+--- nodes)
+---
+--- Complexity
+--- ----------
+---
+--- In short: O(SIZE(filter)^2 * COUNT(index parts for all indexes)).
+---
+--- Say we have N fields in filter (N = SIZE(filter), M indexes and K index
+--- parts at max ((M * K) and COUNT(index parts for all indexes) both are are
+--- upside limits of nodes count in the tree). We look for successors for
+--- each filter item (<= N items) in each of the tree node (<= M * K nodes),
+--- so have O(I * N * (M * K)) of somewhat we call 'iteration' of I
+--- complexity. Most heavy operation within an iteraton is table.copy(), we
+--- can assume it has O(N) complexity. So we have overall complexity O(N^2 *
+--- (M * K)).
+---
+--- We can consider worst case scenario when any node has any of filter keys as
+--- a successor. In this case nodes count is not real constraint for recursion.
+--- In such case we can calculate complexity as iteration of weight I
+--- (calculated above as O(N^2)) and iteration count as permutations of N
+--- filter items (N!). In such case we'll have O(N^2 * N!) or O(N^(3/2) * N^N)
+--- (Stirling's approximation).
+---
+--- Expectations
+--- ------------
+---
+--- We expect typical filter size as 1 or 2 and tree depth (excluding
+--- artificial root node) of the same order. So despite horrible complexity
+--- estimation it expected to be non-so-heavy. Our guess is that it worth to
+--- try hard to find best index before a large request.
+---
+--- Future optimizations
+--- --------------------
+---
+--- * replace table.copy() with something more light: maybe 'closed set' of
+--    filter items or {remove filter[k], invoke the function, add
+---   back filter[k]} (but it needed to be done in such way that will not
+---   invalidate pairs());
+--- * cache index name btw block requests of the same collection request (when
+---   we'll have block executor) and maybe even btw different requests with the
+--    same filter keys.
+local function get_best_matched_index(node, filter)
+    local index_name = (node.index_names or {})[1]
+    local max_branch_len = 1
+
+    -- optimization: don't run the loop below if there are no successors of the
+    -- current node
+    if node.successors == nil then
+        return index_name, 1
+    end
+
+    for k, v in pairs(filter) do
+        local successor_node = (node.successors or {})[k]
+        if successor_node ~= nil then
+            local new_filter = table.copy(filter)
+            new_filter[k] = nil
+            local branch_index_name, branch_len =
+                get_best_matched_index(successor_node, new_filter)
+            branch_len = branch_len + 1
+            if branch_index_name ~= nil and branch_len > max_branch_len then
+                index_name = branch_index_name
+                max_branch_len = branch_len
+            end
+        end
+    end
+
+    return index_name, max_branch_len
+end
+
 -- XXX: raw idea: we can store field-to-field_no mapping when creating
 -- `lookup_index_name` to faster form the value_list
 
 --- Flatten filter values (transform to a list) against specific index to
 --- passing it to index:pairs().
----
---- Only full keys are supported for a compound index for now.
 ---
 --- @tparam table self the data accessor
 ---
@@ -146,6 +223,9 @@ end
 --- passed index
 ---
 --- @treturn table `value_list` the value to pass to index:pairs()
+---
+--- @treturn table `new_filter` the `filter` value w/o values extracted to
+--- `value_list`
 local function flatten_filter(self, filter, collection_name, index_name)
     assert(type(self) == 'table',
         'self must be a table, got ' .. type(self))
@@ -155,6 +235,7 @@ local function flatten_filter(self, filter, collection_name, index_name)
         'index_name must be a string, got ' .. type(index_name))
 
     local value_list = {}
+    local new_filter = table.copy(filter)
 
     -- fill value_list
     local index_meta = self.indexes[collection_name][index_name]
@@ -165,6 +246,7 @@ local function flatten_filter(self, filter, collection_name, index_name)
         local value = filter[field_name]
         if value == nil then break end
         value_list[#value_list + 1] = value
+        new_filter[field_name] = nil
     end
 
     -- check for correctness: non-empty value_list
@@ -174,25 +256,10 @@ local function flatten_filter(self, filter, collection_name, index_name)
             json.encode(filter), index_name))
     end
 
-    -- check for correctness: all filter fields are used
-    local count = 0
-    for k, v in pairs(filter) do
-        count = count + 1
-    end
-    if count ~= #value_list then -- avoid extra json.encode()
-        assert(count ~= #value_list,
-            ('filter items count does not match index fields count: ' ..
-            'filter: %s, index_name: %s'):format(json.encode(filter),
-            index_name))
-    end
-
-    local full_match = #value_list == #index_meta.fields
-    return full_match, value_list
+    local full_match = #value_list == #index_meta.fields and
+        next(new_filter) == nil
+    return full_match, value_list, new_filter
 end
-
--- XXX: support partial match for primary/secondary indexes and support to skip
--- fields to get an index (full_match must be false in the case because
--- returned items will be additionally filtered after unflatten).
 
 --- Choose an index for lookup tuple(s) by a 'filter'. The filter holds fields
 --- values of object(s) we want to find. It uses prebuilt `lookup_index_name`
@@ -232,9 +299,12 @@ end
 ---
 --- @treturn string `index_name` is name of the found index or nil
 ---
---- @treturn table `value_list` is values list from the `filter` argument
---- ordered in the such way that can be passed to the found index (has some
---- meaning only when `index_name ~= nil`)
+--- @treturn table `new_filter` is the filter value w/o values extracted into
+--- `value_list`
+---
+--- @treturn table `value_list` (optional) is values list from the `filter`
+--- argument ordered in the such way that it can be passed to the found index
+-- (has some meaning only when `index_name ~= nil`)
 ---
 --- @treturn table `pivot` (optional) an offset argument represented depending
 --- of a case: whether we'll lookup for the offset by an index; it is either
@@ -261,6 +331,10 @@ local get_index_name = function(self, collection_name, from, filter, args)
     assert(type(lookup_index_name) == 'table',
         'lookup_index_name must be a table, got ' .. type(lookup_index_name))
 
+    local parts_tree = index_cache.parts_tree
+    assert(type(parts_tree) == 'table',
+        'parts_tree must be a table, got ' .. type(parts_tree))
+
     local connection_indexes = index_cache.connection_indexes
     assert(type(connection_indexes) == 'table',
         'connection_indexes must be a table, got ' .. type(connection_indexes))
@@ -278,6 +352,7 @@ local get_index_name = function(self, collection_name, from, filter, args)
         assert(connection_type ~= nil, 'connection_type must not be nil')
         local full_match = connection_type == '1:1' and next(filter) == nil
         local value_list = from.destination_args_values
+        local new_filter = filter
 
         local pivot
         if args.offset ~= nil then
@@ -298,21 +373,22 @@ local get_index_name = function(self, collection_name, from, filter, args)
             pivot = {filter = pivot_filter}
         end
 
-        return full_match, index_name, value_list, pivot
+        return full_match, index_name, new_filter, value_list, pivot
     end
 
     -- The 'fast offset' case. Here we fetch top-level objects starting from
     -- passed offset. Select will be performed by the primary index and
     -- corresponding offset in `pivot.value_list`, then the result will be
-    -- postprocessed using `filter`, if necessary.
+    -- postprocessed using `new_filter`, if necessary.
     if args.offset ~= nil then
         local index_name, index_meta = get_primary_index_meta(self,
             collection_name)
         local full_match
         local pivot_value_list
+        local new_filter = filter
         if type(args.offset) == 'table' then
-            full_match, pivot_value_list = flatten_filter(self, args.offset,
-                collection_name, index_name)
+            full_match, pivot_value_list, new_filter = flatten_filter(self,
+                args.offset, collection_name, index_name)
             assert(full_match == true, 'offset by a partial key is forbidden')
         else
             assert(#index_meta.fields == 1,
@@ -322,22 +398,34 @@ local get_index_name = function(self, collection_name, from, filter, args)
         end
         local pivot = {value_list = pivot_value_list}
         full_match = full_match and next(filter) == nil
-        return full_match, index_name, filter, pivot
+        return full_match, index_name, new_filter, nil, pivot
     end
 
     -- The 'no offset' case. Here we fetch top-level object either by found
     -- index or using full scan (if the index was not found).
+
+    -- try to find full index
     local name_list_str = filter_names_fingerprint(filter)
     assert(lookup_index_name[collection_name] ~= nil,
         ('cannot find any index for collection "%s"'):format(collection_name))
     local index_name = lookup_index_name[collection_name][name_list_str]
     local full_match = false
     local value_list = nil
-    if index_name ~= nil then
-        full_match, value_list = flatten_filter(self, filter, collection_name,
-            index_name)
+    local new_filter = filter
+
+    -- try to find partial index
+    if index_name == nil then
+        local root = parts_tree[collection_name]
+        index_name = get_best_matched_index(root, filter)
     end
-    return full_match, index_name, value_list
+
+    -- fill full_match and value_list appropriatelly
+    if index_name ~= nil then
+        full_match, value_list, new_filter = flatten_filter(self, filter,
+            collection_name, index_name)
+    end
+
+    return full_match, index_name, new_filter, value_list
 end
 
 --- Build `lookup_index_name` table (part of `index_cache`) to use in the
@@ -402,6 +490,67 @@ local function build_lookup_index_name(indexes)
         end
     end
     return lookup_index_name
+end
+
+--- Build `parts_tree` to use in @{get_index_name} for lookup best matching
+--- index.
+---
+--- @tparam table indexes indexes metainformation as defined in the @{new}
+--- function
+---
+--- Schetch example:
+---
+--- * collection_1:
+---   * index 1 parts: foo, bar, baz;
+---   * index 2 parts: foo, abc;
+---   * index 3 parts: abc, efg, hij;
+--    * index 4 parts: abc.
+---
+--- Resulting table of prefix trees (contains one field for collection_1):
+---
+--- ```
+--- * collection_1:
+---  \
+---   + --> root node --> foo --> bar --> baz ~~> index 1
+---          \             \
+---           \             + --> abc ~~> index 2
+---            \
+---             + ------> abc --> efg --> hij ~~ index 3
+---                        \
+---                         + ~~> index 4
+--- ```
+---
+--- @treturn table `roots` resulting table of prefix trees
+---
+--- * `roots` is a table which maps `collection names` to `root nodes` of
+--- prefix trees;
+--- * 'collection name` is a string (name of a collection);
+--- * `root node` is a table with `successors` field;
+--- * `successors` field value is a map from `index part` to `non-root node`;
+--- * `index part` is a string (name of corresponding field in an object);
+--- * `non-root node` is a table with `index_names` field and optional
+---   `successors` field;
+--- * `index_names` field value is a list of `index name`;
+--- * `index name` is a string (name of an index).
+local function build_index_parts_tree(indexes)
+    local roots = {}
+
+    for collection_name, indexes_meta in pairs(indexes) do
+        local root = {}
+        roots[collection_name] = root
+        for index_name, index_meta in pairs(indexes_meta) do
+            local cur = root
+            for _, field in ipairs(index_meta.fields) do
+                cur.successors = cur.successors or {}
+                cur.successors[field] = cur.successors[field] or {}
+                cur = cur.successors[field]
+                cur.index_names = cur.index_names or {}
+                cur.index_names[#cur.index_names + 1] = index_name
+            end
+        end
+    end
+
+    return roots
 end
 
 --- Build `connection_indexes` table (part of `index_cache`) to use in the
@@ -493,6 +642,7 @@ end
 local function build_index_cache(indexes, collections)
     return {
         lookup_index_name = build_lookup_index_name(indexes),
+        parts_tree = build_index_parts_tree(indexes),
         connection_indexes = build_connection_indexes(indexes, collections),
     }
 end
@@ -687,8 +837,8 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         ('cannot find collection "%s"'):format(collection_name))
 
     -- search for suitable index
-    local full_match, index_name, index_value, pivot = get_index_name(
-        self, collection_name, from, filter, args)
+    local full_match, index_name, filter, index_value, pivot = get_index_name(
+        self, collection_name, from, filter, args) -- we redefine filter here
     local index = index_name ~= nil and
         self.funcs.get_index(collection_name, index_name) or nil
     if from.collection_name ~= 'Query' then
