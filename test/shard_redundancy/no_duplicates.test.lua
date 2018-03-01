@@ -42,6 +42,7 @@ require('test.testdata.common_testdata').init_spaces()
 test_run:cmd('switch shard4')
 require('test.testdata.common_testdata').init_spaces()
 test_run:cmd('switch default')
+shard.reload_schema()
 
 -- upload test data
 testdata.fill_test_data(shard)

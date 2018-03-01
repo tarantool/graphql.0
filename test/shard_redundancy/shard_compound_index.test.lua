@@ -45,6 +45,7 @@ test_run:cmd('switch default')
 
 -- upload test data
 testdata.fill_test_data(shard)
+shard.reload_schema()
 
 -- acquire metadata
 metadata = testdata.get_test_metadata()

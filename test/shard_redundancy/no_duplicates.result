@@ -81,6 +81,9 @@ test_run:cmd('switch default')
 ---
 - true
 ...
+shard.reload_schema()
+---
+...
 -- upload test data
 testdata.fill_test_data(shard)
 ---
