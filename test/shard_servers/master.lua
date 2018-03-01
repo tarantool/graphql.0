@@ -1,5 +1,7 @@
 #!/usr/bin/env tarantool
 
+local shard_initialized = false
+
 box.cfg({
     listen = os.getenv('LISTEN'),
 })
@@ -15,9 +17,10 @@ function init_shard(servers, config, suite)
     local test_run = env.new()
 
     test_run:create_cluster(servers, suite)
-    box.once('init_shard_module', function()
+    if not shard_initialized then
         shard.init(config)
-    end)
+        shard_initialized = true
+    end
     shard.wait_connection()
 end
 

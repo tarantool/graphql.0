@@ -1,7 +1,3 @@
--- ----------------------------------------------------------
--- Motivation: https://github.com/tarantool/graphql/issues/43
--- ----------------------------------------------------------
-
 env = require('test_run')
 test_run = env.new()
 
@@ -31,25 +27,25 @@ fio = require('fio')
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)"):gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 graphql = require('graphql')
-testdata = require('test.testdata.nullable_index_testdata')
+testdata = require('test.testdata.compound_index_testdata')
 
 -- init box, upload test data and acquire metadata
 -- -----------------------------------------------
 
 -- init box and data schema
 test_run:cmd('switch shard1')
-require('test.testdata.nullable_index_testdata').init_spaces()
+require('test.testdata.compound_index_testdata').init_spaces()
 test_run:cmd('switch shard2')
-require('test.testdata.nullable_index_testdata').init_spaces()
+require('test.testdata.compound_index_testdata').init_spaces()
 test_run:cmd('switch shard3')
-require('test.testdata.nullable_index_testdata').init_spaces()
+require('test.testdata.compound_index_testdata').init_spaces()
 test_run:cmd('switch shard4')
-require('test.testdata.nullable_index_testdata').init_spaces()
+require('test.testdata.compound_index_testdata').init_spaces()
 test_run:cmd('switch default')
-shard.reload_schema()
 
 -- upload test data
 testdata.fill_test_data(shard)
+shard.reload_schema()
 
 -- acquire metadata
 metadata = testdata.get_test_metadata()
@@ -82,13 +78,13 @@ testdata.run_queries(gql_wrapper)
 -- --------
 
 test_run:cmd('switch shard1')
-require('test.testdata.nullable_index_testdata').drop_spaces()
+require('test.testdata.compound_index_testdata').drop_spaces()
 test_run:cmd('switch shard2')
-require('test.testdata.nullable_index_testdata').drop_spaces()
+require('test.testdata.compound_index_testdata').drop_spaces()
 test_run:cmd('switch shard3')
-require('test.testdata.nullable_index_testdata').drop_spaces()
+require('test.testdata.compound_index_testdata').drop_spaces()
 test_run:cmd('switch shard4')
-require('test.testdata.nullable_index_testdata').drop_spaces()
+require('test.testdata.compound_index_testdata').drop_spaces()
 test_run:cmd('switch default')
 
 test_run:drop_cluster(SERVERS)

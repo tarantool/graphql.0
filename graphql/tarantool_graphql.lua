@@ -280,7 +280,7 @@ local convert_simple_connection = function(state, c, collection_name)
         error('unknown connection type: ' .. tostring(c.type))
     end
 
-    local c_list_args = state.list_arguments[c.destination_collection]
+            local c_list_args = state.list_arguments[c.destination_collection]
 
     local field = {
         name = c.name,
@@ -631,6 +631,45 @@ gql_type = function(state, avro_schema, collection, collection_name)
     end
 end
 
+--- Create virtual root collection `Query`, which has connections to any
+--- collection.
+---
+--- Actually, each GQL query starts its execution from the `Query` collection.
+--- That is why it shoult contain connections to any collection.
+---
+--- @tparam table state dictionary which contains all information about the
+--- schema, arguments, types...
+local function create_root_collection(state)
+    local root_connections = {}
+    -- The fake connections have 1:N mechanics.
+    -- Create one connection for each collection.
+    for collection_name, collection in pairs(state.collections) do
+        table.insert(root_connections, {
+            parts = {},
+            name = collection_name,
+            destination_collection = collection_name,
+            type = "1:N"
+        })
+    end
+    local root_schema = {
+        type = "record",
+        name = "Query",
+        -- The fake root has no fields.
+        fields = {}
+    }
+    local root_collection = {
+        name = "Query",
+        connections = root_connections
+    }
+
+    -- `gql_type` is designed to create GQL type corresponding to a real schema
+    -- and connections. However it also works with the fake schema.
+    local root_type = gql_type(state, root_schema, root_collection, "Query")
+    state.schema = schema.create({
+        query = root_type
+    })
+end
+
 local function parse_cfg(cfg)
     local state = {}
     state.types = utils.gen_booking_table({})
@@ -649,8 +688,11 @@ local function parse_cfg(cfg)
     local collections = table.copy(cfg.collections)
     state.collections = collections
 
-    local fields = {}
-
+    -- Prepare types which represents:
+    --  - Avro schemas (collections)
+    --  - scalar field arguments (used to filter objects by value stored in it's
+    --    field)
+    --  - list arguments (offset, limit...)
     for collection_name, collection in pairs(state.collections) do
         collection.name = collection_name
         assert(collection.schema_name ~= nil,
@@ -683,43 +725,9 @@ local function parse_cfg(cfg)
         state.list_arguments[collection_name] = list_args
         state.all_arguments[collection_name] = args
 
-        -- create entry points from collection names
-        fields[collection_name] = {
-            kind = types.nonNull(types.list(state.types[collection_name])),
-            arguments = state.all_arguments[collection_name],
-            resolve = function(rootValue, args_instance, info)
-                local object_args_instance = {} -- passed to 'filter'
-                local list_args_instance = {} -- passed to 'args'
-                for k, v in pairs(args_instance) do
-                    if list_args[k] ~= nil then
-                        list_args_instance[k] = v
-                    elseif state.object_arguments[k] ~= nil then
-                        object_args_instance[k] = v
-                    else
-                        error(('cannot found "%s" field ("%s" value) ' ..
-                            'within allowed fields'):format(tostring(k),
-                            tostring(v)))
-                    end
-                end
-                local from = nil
-
-                local extra = {
-                    qcontext = info.qcontext
-                }
-                return accessor:select(rootValue, collection_name, from,
-                    object_args_instance, list_args_instance, extra)
-            end,
-        }
     end
-
-    local schema = schema.create({
-        query = types.object({
-            name = 'Query',
-            fields = fields,
-        })
-    })
-    state.schema = schema
-
+    -- create fake root `Query` collection
+    create_root_collection(state)
     return state
 end
 

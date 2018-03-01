@@ -1,28 +1,19 @@
--- ----------------------------------------------------------
--- Motivation: https://github.com/tarantool/graphql/issues/43
--- ----------------------------------------------------------
-
 env = require('test_run')
 test_run = env.new()
 
 shard = require('shard')
 
--- we need at least four servers to make sure we have several (two) servers
--- within each replica set and several (two) replica sets
-
 test_run:cmd("setopt delimiter ';'")
-SERVERS = {'shard1', 'shard2', 'shard3', 'shard4'};
+SERVERS = {'shard1', 'shard2'};
 init_shard(SERVERS, {
     servers = {
         { uri = instance_uri('1'), zone = '0' },
         { uri = instance_uri('2'), zone = '1' },
-        { uri = instance_uri('3'), zone = '2' },
-        { uri = instance_uri('4'), zone = '3' },
     },
     login = 'guest',
     password = '',
-    redundancy = 2,
-}, 'shard_redundancy');
+    redundancy = 1,
+}, 'shard_no_redundancy');
 test_run:cmd("setopt delimiter ''");
 
 fio = require('fio')
@@ -31,20 +22,16 @@ fio = require('fio')
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)"):gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 graphql = require('graphql')
-testdata = require('test.testdata.nullable_index_testdata')
+testdata = require('test.testdata.compound_index_testdata')
 
 -- init box, upload test data and acquire metadata
 -- -----------------------------------------------
 
 -- init box and data schema
 test_run:cmd('switch shard1')
-require('test.testdata.nullable_index_testdata').init_spaces()
+require('test.testdata.compound_index_testdata').init_spaces()
 test_run:cmd('switch shard2')
-require('test.testdata.nullable_index_testdata').init_spaces()
-test_run:cmd('switch shard3')
-require('test.testdata.nullable_index_testdata').init_spaces()
-test_run:cmd('switch shard4')
-require('test.testdata.nullable_index_testdata').init_spaces()
+require('test.testdata.compound_index_testdata').init_spaces()
 test_run:cmd('switch default')
 shard.reload_schema()
 
@@ -82,13 +69,9 @@ testdata.run_queries(gql_wrapper)
 -- --------
 
 test_run:cmd('switch shard1')
-require('test.testdata.nullable_index_testdata').drop_spaces()
+require('test.testdata.compound_index_testdata').drop_spaces()
 test_run:cmd('switch shard2')
-require('test.testdata.nullable_index_testdata').drop_spaces()
-test_run:cmd('switch shard3')
-require('test.testdata.nullable_index_testdata').drop_spaces()
-test_run:cmd('switch shard4')
-require('test.testdata.nullable_index_testdata').drop_spaces()
+require('test.testdata.compound_index_testdata').drop_spaces()
 test_run:cmd('switch default')
 
 test_run:drop_cluster(SERVERS)

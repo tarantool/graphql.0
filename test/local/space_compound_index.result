@@ -1,3 +1,21 @@
+RUN 1_1 {{{
+QUERY
+        query users($user_str: String, $user_num: Long,
+                $first_name: String) {
+            user_collection(user_str: $user_str, user_num: $user_num
+                    first_name: $first_name) {
+                user_str
+                user_num
+                last_name
+                first_name
+            }
+        }
+VARIABLES
+---
+user_num: 12
+user_str: user_str_b
+...
+
 RESULT
 ---
 user_collection:
@@ -5,6 +23,51 @@ user_collection:
   user_str: user_str_b
   first_name: first name b
   user_num: 12
+...
+
+}}}
+
+RUN 1_2 {{{
+QUERY
+        query users($user_str: String, $user_num: Long,
+                $first_name: String) {
+            user_collection(user_str: $user_str, user_num: $user_num
+                    first_name: $first_name) {
+                user_str
+                user_num
+                last_name
+                first_name
+            }
+        }
+VARIABLES
+---
+user_str: user_str_b
+first_name: non-existent
+user_num: 12
+...
+
+RESULT
+---
+user_collection: []
+...
+
+}}}
+
+RUN 1_3 {{{
+QUERY
+        query users($user_str: String, $user_num: Long,
+                $first_name: String) {
+            user_collection(user_str: $user_str, user_num: $user_num
+                    first_name: $first_name) {
+                user_str
+                user_num
+                last_name
+                first_name
+            }
+        }
+VARIABLES
+---
+user_num: 12
 ...
 
 RESULT
@@ -30,6 +93,183 @@ user_collection:
   user_str: user_str_e
   first_name: first name e
   user_num: 12
+...
+
+}}}
+
+RUN 1_4 {{{
+QUERY
+        query users($user_str: String, $user_num: Long,
+                $first_name: String) {
+            user_collection(user_str: $user_str, user_num: $user_num
+                    first_name: $first_name) {
+                user_str
+                user_num
+                last_name
+                first_name
+            }
+        }
+VARIABLES
+---
+user_str: user_str_b
+...
+
+RESULT
+---
+user_collection:
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 1
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 2
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 3
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 4
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 5
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 6
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 7
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 8
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 9
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 10
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 11
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 12
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 13
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 14
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 15
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 16
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 17
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 18
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 19
+- last_name: last name b
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 20
+...
+
+}}}
+
+RUN 1_5 {{{
+QUERY
+        query users($user_str: String, $user_num: Long,
+                $first_name: String) {
+            user_collection(user_str: $user_str, user_num: $user_num
+                    first_name: $first_name) {
+                user_str
+                user_num
+                last_name
+                first_name
+            }
+        }
+VARIABLES
+---
+first_name: non-existent
+user_num: 12
+...
+
+RESULT
+---
+user_collection: []
+...
+
+}}}
+
+RUN 1_6 {{{
+QUERY
+        query users($user_str: String, $user_num: Long,
+                $first_name: String) {
+            user_collection(user_str: $user_str, user_num: $user_num
+                    first_name: $first_name) {
+                user_str
+                user_num
+                last_name
+                first_name
+            }
+        }
+VARIABLES
+---
+first_name: non-existent
+user_str: user_str_b
+...
+
+RESULT
+---
+user_collection: []
+...
+
+}}}
+
+RUN 2_1 {{{
+QUERY
+        query users($user_str: String, $user_num: Long, $description: String) {
+            user_collection(user_str: $user_str, user_num: $user_num) {
+                user_str
+                user_num
+                last_name
+                first_name
+                order_connection(description: $description) {
+                    order_str
+                    order_num
+                    description
+                }
+            }
+        }
+VARIABLES
+---
+user_num: 12
+user_str: user_str_b
 ...
 
 RESULT
@@ -70,6 +310,63 @@ user_collection:
   first_name: first name b
   user_num: 12
   last_name: last name b
+...
+
+}}}
+
+RUN 2_2 {{{
+QUERY
+        query users($user_str: String, $user_num: Long, $description: String) {
+            user_collection(user_str: $user_str, user_num: $user_num) {
+                user_str
+                user_num
+                last_name
+                first_name
+                order_connection(description: $description) {
+                    order_str
+                    order_num
+                    description
+                }
+            }
+        }
+VARIABLES
+---
+user_str: user_str_b
+description: non-existent
+user_num: 12
+...
+
+RESULT
+---
+user_collection:
+- order_connection: []
+  user_str: user_str_b
+  first_name: first name b
+  user_num: 12
+  last_name: last name b
+...
+
+}}}
+
+RUN 3 {{{
+QUERY
+        query users($user_str: String, $user_num: Long) {
+            user_collection(user_str: $user_str, user_num: $user_num) {
+                user_str
+                user_num
+                last_name
+                first_name
+                order_str_connection {
+                    order_str
+                    order_num
+                    description
+                }
+            }
+        }
+VARIABLES
+---
+user_num: 12
+user_str: user_str_b
 ...
 
 RESULT
@@ -682,6 +979,26 @@ user_collection:
     description: description b
 ...
 
+}}}
+
+RUN 4_1 {{{
+QUERY
+        query users($limit: Int, $offset: user_collection_offset) {
+            user_collection(limit: $limit, offset: $offset) {
+                user_str
+                user_num
+                last_name
+                first_name
+            }
+        }
+VARIABLES
+---
+offset:
+  user_num: 12
+  user_str: user_str_b
+limit: 10
+...
+
 RESULT
 ---
 user_collection:
@@ -727,7 +1044,59 @@ user_collection:
   user_num: 2
 ...
 
-RESULT: ok: false; err: offset by a partial key is forbidden
+}}}
+
+RUN 4_2 {{{
+QUERY
+        query users($limit: Int, $offset: user_collection_offset) {
+            user_collection(limit: $limit, offset: $offset) {
+                user_str
+                user_num
+                last_name
+                first_name
+            }
+        }
+VARIABLES
+---
+offset:
+  user_str: user_str_b
+limit: 10
+...
+
+RESULT
+---
+ok: false
+err: offset by a partial key is forbidden
+...
+
+}}}
+
+RUN 5_1 {{{
+QUERY
+        query users($user_str: String, $user_num: Long,
+                $limit: Int, $offset: order_collection_offset) {
+            user_collection(user_str: $user_str, user_num: $user_num) {
+                user_str
+                user_num
+                last_name
+                first_name
+                order_connection(limit: $limit, offset: $offset) {
+                    order_str
+                    order_num
+                    description
+                }
+            }
+        }
+VARIABLES
+---
+offset:
+  order_num: 1202
+  order_str: order_str_b_2
+user_str: user_str_b
+limit: 4
+user_num: 12
+...
+
 RESULT
 ---
 user_collection:
@@ -750,4 +1119,38 @@ user_collection:
   last_name: last name b
 ...
 
-RESULT: ok: false; err: offset by a partial key is forbidden: expected "order_num" field
+}}}
+
+RUN 5_2 {{{
+QUERY
+        query users($user_str: String, $user_num: Long,
+                $limit: Int, $offset: order_collection_offset) {
+            user_collection(user_str: $user_str, user_num: $user_num) {
+                user_str
+                user_num
+                last_name
+                first_name
+                order_connection(limit: $limit, offset: $offset) {
+                    order_str
+                    order_num
+                    description
+                }
+            }
+        }
+VARIABLES
+---
+offset:
+  order_str: order_str_b_2
+user_str: user_str_b
+limit: 4
+user_num: 12
+...
+
+RESULT
+---
+ok: false
+err: 'offset by a partial key is forbidden: expected "order_num" field'
+...
+
+}}}
+
