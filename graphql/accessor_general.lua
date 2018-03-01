@@ -206,8 +206,8 @@ end
 --- function will search through
 ---
 --- @tparam table from information about a connection bring executor to select
---- from a current collection; it is nil when the executor selecting top-level
---- objects, but has the following structure for nested collections:
+--- from a current collection; its `collection_name` is 'Query' selecting
+--- top-level objects;it has the following structure:
 ---
 ---     {
 ---         collection_name = <...> (string),
@@ -267,7 +267,7 @@ local get_index_name = function(self, collection_name, from, filter, args)
     -- If an offset is set we return it as `pivot.filter`. So, select will be
     -- performed by an index from the connection, then the result will be
     -- postprocessed using `pivot`.
-    if from ~= nil then
+    if from.collection_name ~= 'Query' then
         local connection_index =
             connection_indexes[collection_name][from.connection_name]
         local index_name = connection_index.index_name
@@ -631,8 +631,8 @@ end
 ---
 --- @tparam string collection_name name of collection to perform select
 ---
---- @tparam table from collection and connection names we arrive from/by or nil
---- as defined in the `tarantool_graphql.new` function description
+--- @tparam table from collection and connection names we arrive from/by as
+--- defined in the `tarantool_graphql.new` function description
 ---
 --- @tparam table filter subset of object fields with values by which we want
 --- to find full object(s)
@@ -685,7 +685,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
     assert(self.funcs.is_collection_exists(collection_name),
         ('cannot find collection "%s"'):format(collection_name))
     local index = self.funcs.get_index(collection_name, index_name)
-    if from ~= nil then
+    if from.collection_name ~= 'Query' then
         -- allow fullscan only for a top-level object
         assert(index ~= nil,
             ('cannot find index "%s" in space "%s"'):format(
