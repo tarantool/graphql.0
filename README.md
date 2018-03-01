@@ -97,7 +97,8 @@ make test
 
 * For use: tarantool, lulpeg, >=tarantool/shard-1.1-91-gfa88bf8 (optional),
   tarantool/avro-schema.
-* For test (additionally to 'for use'): python 2.7, virtualenv, luacheck.
+* For test (additionally to 'for use'): python 2.7, virtualenv, luacheck,
+  >=tarantool/shard-1.1-92-gec1a27e.
 * For building apidoc (additionally to 'for use'): ldoc.
 
 ## License
