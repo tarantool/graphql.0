@@ -7,10 +7,12 @@
 local json = require('json')
 local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
+local clock = require('clock')
 
 local accessor_general = {}
 local DEF_RESULTING_OBJECT_CNT_MAX = 10000
 local DEF_FETCHED_OBJECT_CNT_MAX = 10000
+local DEF_TIMEOUT_MS = 1000
 
 --- Validate and compile set of avro schemas (with respect to service fields).
 --- @tparam table schemas map where keys are string names and values are
@@ -553,7 +555,7 @@ end
 --- * `count` (number),
 --- * `objs` (table, list of objects),
 --- * `pivot_found` (boolean),
---- * `statistics` (table, per-query statistics).
+--- * `qcontext` (table, per-query local storage).
 ---
 --- @tparam cdata tuple flatten representation of an object to process
 ---
@@ -578,7 +580,8 @@ local function process_tuple(state, tuple, opts)
     local filter = opts.filter
     local do_filter = opts.do_filter
     local pivot_filter = opts.pivot_filter
-    local qstats = state.statistics
+    local qcontext = state.qcontext
+    local qstats = qcontext.statistics
     local resulting_object_cnt_max = opts.resulting_object_cnt_max
     local fetched_object_cnt_max = opts.fetched_object_cnt_max
     qstats.fetched_object_cnt = qstats.fetched_object_cnt + 1
@@ -586,6 +589,8 @@ local function process_tuple(state, tuple, opts)
             ('fetched object count[%d] exceeds limit[%d] ' ..
                     '(`fetched_object_cnt_max` in accessor)'):format(
                     qstats.fetched_object_cnt, fetched_object_cnt_max))
+    assert(qcontext.deadline_clock > clock.monotonic64(),
+           'query execution timeout exceeded, use `timeout_ms` to increase it')
 
     -- convert tuple -> object
     local obj = opts.unflatten_tuple(opts.collection_name, tuple,
@@ -706,7 +711,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         count = 0,
         objs = {},
         pivot_found = false,
-        statistics = extra.qcontext.statistics
+        qcontext = extra.qcontext
     }
 
     -- read only process_tuple options
@@ -804,6 +809,22 @@ local function validate_funcs(funcs)
         type(funcs.unflatten_tuple))
 end
 
+--- This function is called on first select related to a query. Its purpose is
+--- to initialize qcontext table.
+--- @tparam table accessor
+--- @tparam table qcontext per-query table which stores query internal state;
+--- all neccessary initialization of this parameter should be performed by this
+--  function
+local function init_qcontext(accessor, qcontext)
+    local settings = accessor.settings
+    qcontext.statistics = {
+        resulting_object_cnt = 0,
+        fetched_object_cnt = 0
+    }
+    qcontext.deadline_clock = clock.monotonic64() +
+        settings.timeout_ms * 1000 * 1000
+end
+
 --- Create a new data accessor.
 ---
 --- Provided `funcs` argument determines certain functions for retrieving
@@ -814,7 +835,7 @@ end
 --- shown below; additional attributes `resulting_object_cnt_max` and
 --- `fetched_object_cnt_max` are optional positive numbers which help to control
 --- query behaviour in case it requires more resources than expected _(default
---- value is 10,000)_
+--- value is 10,000)_; `timeout_ms` _(default is 1000)_
 ---
 --- @tparam table funcs set of functions (`is_collection_exists`, `get_index`,
 --- `get_primary_index`, `unflatten_tuple`) allows this abstract data accessor
@@ -864,6 +885,8 @@ function accessor_general.new(opts, funcs)
                                      DEF_RESULTING_OBJECT_CNT_MAX
     local fetched_object_cnt_max = opts.fetched_object_cnt_max or
                                    DEF_FETCHED_OBJECT_CNT_MAX
+    -- TODO: move this setting to `tgql.compile` after #59
+    local timeout_ms = opts.timeout_ms or DEF_TIMEOUT_MS
 
     assert(type(schemas) == 'table',
         'schemas must be a table, got ' .. type(schemas))
@@ -879,6 +902,8 @@ function accessor_general.new(opts, funcs)
     assert(type(fetched_object_cnt_max) == 'number' and
                 fetched_object_cnt_max > 0,
         'fetched_object_cnt_max must be natural number')
+    assert(type(timeout_ms) == 'number',
+        'timeout ms must a number, got ' .. type(timeout_ms))
 
     local models = compile_schemas(schemas, service_fields)
     validate_collections(collections, schemas, indexes)
@@ -910,7 +935,8 @@ function accessor_general.new(opts, funcs)
         funcs = funcs,
         settings = {
             resulting_object_cnt_max = resulting_object_cnt_max,
-            fetched_object_cnt_max = fetched_object_cnt_max
+            fetched_object_cnt_max = fetched_object_cnt_max,
+            timeout_ms = timeout_ms
         }
     }, {
         __index = {
@@ -928,11 +954,11 @@ function accessor_general.new(opts, funcs)
                     'from must be nil or from.connection_name ' ..
                     'must be a string, got ' ..
                     type((from or {}).connection_name))
-                -- use `extra.qcontext` to store per-query variables
-                extra.qcontext.statistics = extra.qcontext.statistics or {
-                    resulting_object_cnt = 0,
-                    fetched_object_cnt = 0
-                }
+                --`qcontext` initialization
+                if extra.qcontext.initialized ~= true then
+                    init_qcontext(self, extra.qcontext)
+                    extra.qcontext.initialized = true
+                end
                 return select_internal(self, collection_name, from, filter,
                     args, extra)
             end,
