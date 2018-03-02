@@ -1,2 +1,2 @@
-INIT: ok: false; err: 1:1 connection "user_connection" of collection "user_collection" has less fields than the index "user_str_num_index" has (cannot prove uniqueness of the partial index)
+INIT: ok: false; err: 1:1 connection "user_connection" of collection "order_collection" has less fields than the index "user_str_num_index" has (destination collection - "user_collection")(cannot prove uniqueness of the partial index)
 INIT: ok: true; type(res): table

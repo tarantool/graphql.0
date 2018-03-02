@@ -15,6 +15,20 @@ local function getParentField(context, name, count)
     parent = parent.ofType
   end
 
+  if parent.fields == nil then
+    print('print from getParentField - 18 - parent')
+    print('trying to get ' .. name)
+    require('pl.pretty').dump(parent)
+
+  --  --@todo find in what ... on where are
+  end
+  --
+
+  --if parent.fields == nil and parent.__type == 'Union' and parent.types  ~= nil
+  --  then
+  --
+  --end
+
   return parent.fields[name]
 end
 

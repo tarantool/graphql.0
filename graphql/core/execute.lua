@@ -47,9 +47,16 @@ local function shouldIncludeNode(selection, context)
 end
 
 local function doesFragmentApply(fragment, type, context)
+
+  --print('print from doesFragmentApply - 51')
+  --print('fragment')
+  --require('pl.pretty').dump(fragment)
+
   if not fragment.typeCondition then return true end
 
   local innerType = typeFromAST(fragment.typeCondition, context.schema)
+  --print('innerType')
+  --require('pl.pretty').dump(innerType)
 
   if innerType == type then
     return true
@@ -156,6 +163,13 @@ local function completeValue(fieldType, result, subSelections, context)
     local completedResult = completeValue(innerType, result, subSelections, context)
 
     if completedResult == nil then
+        --@todo remove comments
+      --print('print from completeValue')
+      --print('result')
+      --require('pl.pretty').dump(result)
+      --print('fieldType')
+      --require('pl.pretty').dump(fieldType)
+
       error('No value provided for non-null ' .. (innerType.name or innerType.__type))
     end
 
@@ -175,6 +189,15 @@ local function completeValue(fieldType, result, subSelections, context)
 
     local values = {}
     for i, value in ipairs(result) do
+        --@todo remove comments
+      --print('print for ipairs(result) 195')
+      --require('pl.pretty').dump(result)
+      --print('value')
+      --require('pl.pretty').dump(value)
+      --print('subSelections')
+      --require('pl.pretty').dump(subSelections)
+
+
       values[i] = completeValue(innerType, value, subSelections, context)
     end
 
@@ -200,6 +223,11 @@ local function getFieldEntry(objectType, object, fields, context)
   local firstField = fields[1]
   local fieldName = firstField.name.value
   local responseKey = getFieldResponseKey(firstField)
+  --print('print from getFieldEntry')
+  --print('objectType')
+  --require('pl.pretty').dump(objectType)
+  --print('object itself')
+  --require('pl.pretty').dump(object)
   local fieldType = introspection.fieldMap[fieldName] or objectType.fields[fieldName]
 
   if fieldType == nil then
@@ -236,6 +264,16 @@ local function getFieldEntry(objectType, object, fields, context)
 end
 
 evaluateSelections = function(objectType, object, selections, context)
+
+  --@todo remove debug
+  --print('EVALUETE SELECTIONS')
+  ----print('objectType')
+  ----require('pl.pretty').dump(objectType)
+  --print('object')
+  --require('pl.pretty').dump(object)
+  --
+  --print('EVALUETE SELECTIONS CLOSE')
+
   local groupedFieldSet = collectFields(objectType, selections, {}, {}, context)
 
   return util.map(groupedFieldSet, function(fields)

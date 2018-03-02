@@ -159,7 +159,8 @@ function types.union(config)
   local instance = {
     __type = 'Union',
     name = config.name,
-    types = config.types
+    types = config.types,
+    resolveType = config.resolveType
   }
 
   instance.nonNull = types.nonNull(instance)
