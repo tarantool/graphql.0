@@ -14,6 +14,11 @@ local function print_and_return(...)
     return table.concat({...}, ' ') .. '\n'
 end
 
+local function format_result(name, query, variables, result)
+    return ('RUN %s {{{\nQUERY\n%s\nVARIABLES\n%s\nRESULT\n%s\n}}}\n'):format(
+        name, query:rstrip(), yaml.encode(variables), yaml.encode(result))
+end
+
 -- schemas and meta-information
 -- ----------------------------
 
@@ -218,8 +223,8 @@ function compound_index_testdata.run_queries(gql_wrapper)
     utils.show_trace(function()
         local variables_1_1 = {user_str = 'user_str_b', user_num = 12}
         local result = gql_query_1:execute(variables_1_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '1_1', query_1, variables_1_1, result))
     end)
 
     -- get a top-level object by a full compound primary key plus filter
@@ -232,8 +237,8 @@ function compound_index_testdata.run_queries(gql_wrapper)
             first_name = 'non-existent',
         }
         local result = gql_query_1:execute(variables_1_2)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '1_2', query_1, variables_1_2, result))
     end)
 
     -- select top-level objects by a partial compound primary key (or maybe use
@@ -243,15 +248,15 @@ function compound_index_testdata.run_queries(gql_wrapper)
     utils.show_trace(function()
         local variables_1_3 = {user_num = 12}
         local result = gql_query_1:execute(variables_1_3)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '1_3', query_1, variables_1_3, result))
     end)
 
     utils.show_trace(function()
         local variables_1_4 = {user_str = 'user_str_b'}
         local result = gql_query_1:execute(variables_1_4)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '1_4', query_1, variables_1_4, result))
     end)
 
     -- select top-level objects by a partial compound primary key plus filter
@@ -264,8 +269,8 @@ function compound_index_testdata.run_queries(gql_wrapper)
             first_name = 'non-existent'
         }
         local result = gql_query_1:execute(variables_1_5)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '1_5', query_1, variables_1_5, result))
     end)
 
     utils.show_trace(function()
@@ -274,8 +279,8 @@ function compound_index_testdata.run_queries(gql_wrapper)
             first_name = 'non-existent'
         }
         local result = gql_query_1:execute(variables_1_6)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '1_6', query_1, variables_1_6, result))
     end)
 
     -- select objects by a connection by a full compound index
@@ -302,8 +307,8 @@ function compound_index_testdata.run_queries(gql_wrapper)
     utils.show_trace(function()
         local variables_2_1 = {user_str = 'user_str_b', user_num = 12}
         local result = gql_query_2:execute(variables_2_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '2_1', query_2, variables_2_1, result))
     end)
 
     -- select objects by a connection by a full compound index plus filter
@@ -316,8 +321,8 @@ function compound_index_testdata.run_queries(gql_wrapper)
             description = 'non-existent',
         }
         local result = gql_query_2:execute(variables_2_2)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '2_2', query_2, variables_2_2, result))
     end)
 
     -- select object by a connection by a partial compound index
@@ -343,8 +348,8 @@ function compound_index_testdata.run_queries(gql_wrapper)
         local gql_query_3 = gql_wrapper:compile(query_3)
         local variables_3 = {user_str = 'user_str_b', user_num = 12}
         local result = gql_query_3:execute(variables_3)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '3', query_3, variables_3, result))
     end)
 
     -- offset on top-level by a full compound primary key
@@ -372,27 +377,28 @@ function compound_index_testdata.run_queries(gql_wrapper)
             }
         }
         local result = gql_query_4:execute(variables_4_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '4_1', query_4, variables_4_1, result))
     end)
 
     -- offset on top-level by a partial compound primary key (expected to fail)
     -- ------------------------------------------------------------------------
 
-    local ok, err = pcall(function()
-        local variables_4_2 = {
-            limit = 10,
-            offset = {
-                user_str = 'user_str_b',
-            }
+    local variables_4_2 = {
+        limit = 10,
+        offset = {
+            user_str = 'user_str_b',
         }
+    }
+    local ok, err = pcall(function()
         local result = gql_query_4:execute(variables_4_2)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '4_2', query_4, variables_4_2, result))
     end)
 
-    results = results .. print_and_return(
-        ('RESULT: ok: %s; err: %s'):format(tostring(ok), strip_error(err)))
+    local result = {ok = ok, err = strip_error(err)}
+    results = results .. print_and_return(format_result(
+        '4_2', query_4, variables_4_2, result))
 
     -- offset when using a connection by a full compound primary key
     -- -------------------------------------------------------------
@@ -427,30 +433,31 @@ function compound_index_testdata.run_queries(gql_wrapper)
             }
         }
         local result = gql_query_5:execute(variables_5_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '5_1', query_5, variables_5_1, result))
     end)
 
     -- offset when using a connection by a partial compound primary key
     -- (expected to fail)
     -- ----------------------------------------------------------------
 
-    local ok, err = pcall(function()
-        local variables_5_2 = {
-            user_str = 'user_str_b',
-            user_num = 12,
-            limit = 4,
-            offset = {
-                order_str = 'order_str_b_2',
-            }
+    local variables_5_2 = {
+        user_str = 'user_str_b',
+        user_num = 12,
+        limit = 4,
+        offset = {
+            order_str = 'order_str_b_2',
         }
+    }
+    local ok, err = pcall(function()
         local result = gql_query_5:execute(variables_5_2)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. print_and_return(format_result(
+            '5_2', query_5, variables_5_2, result))
     end)
 
-    results = results .. print_and_return(
-        ('RESULT: ok: %s; err: %s'):format(tostring(ok), strip_error(err)))
+    local result = {ok = ok, err = strip_error(err)}
+    results = results .. print_and_return(format_result(
+        '5_2', query_5, variables_5_2, result))
 
     return results
 end
