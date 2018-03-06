@@ -230,7 +230,7 @@ end
 --- Convert each field of an avro-schema to a graphql type.
 ---
 --- @tparam table state for read state.accessor and previously filled
---- state.types
+--- state.nullable_collection_types
 --- @tparam table fields fields part from an avro-schema
 ---
 --- @treturn table `res` -- map with type names as keys and graphql types as
@@ -253,7 +253,7 @@ end
 --- The function converts passed avro-schema to a GraphQL type.
 ---
 --- @tparam table state for read state.accessor and previously filled
---- state.types (state.types are gql types)
+--- state.nullable_collection_types (those are gql types)
 --- @tparam table avro_schema input avro-schema
 --- @tparam[opt] table collection table with schema_name, connections fields
 --- described a collection (e.g. tarantool's spaces)
@@ -307,8 +307,8 @@ gql_type = function(state, avro_schema, collection, collection_name)
         for _, c in ipairs((collection or {}).connections or {}) do
             assert(type(c.type) == 'string',
                 'connection.type must be a string, got ' .. type(c.type))
-            assert(c.type == '1:1' or c.type == '1:N',
-                'connection.type must be 1:1 or 1:N, got ' .. c.type)
+            assert(c.type == '1:1' or c.type == '1:1*' or c.type == '1:N',
+                'connection.type must be 1:1, 1:1* or 1:N, got ' .. c.type)
             assert(type(c.name) == 'string',
                 'connection.name must be a string, got ' .. type(c.name))
             assert(type(c.destination_collection) == 'string',
@@ -319,16 +319,20 @@ gql_type = function(state, avro_schema, collection, collection_name)
 
             -- gql type of connection field
             local destination_type =
-                state.types[c.destination_collection]
+                state.nullable_collection_types[c.destination_collection]
             assert(destination_type ~= nil,
                 ('destination_type (named %s) must not be nil'):format(
                 c.destination_collection))
 
             local c_args
             if c.type == '1:1' then
+                destination_type = types.nonNull(destination_type)
+                c_args = state.object_arguments[c.destination_collection]
+            elseif c.type == '1:1*' then
                 c_args = state.object_arguments[c.destination_collection]
             elseif c.type == '1:N' then
-                destination_type = types.nonNull(types.list(destination_type))
+                destination_type = types.nonNull(types.list(types.nonNull(
+                    destination_type)))
                 c_args = state.all_arguments[c.destination_collection]
             else
                 error('unknown connection type: ' .. tostring(c.type))
@@ -343,6 +347,8 @@ gql_type = function(state, avro_schema, collection, collection_name)
                 resolve = function(parent, args_instance, info)
                     local destination_args_names = {}
                     local destination_args_values = {}
+                    local are_all_parts_non_null = true
+                    local are_all_parts_null = true
 
                     for _, part in ipairs(c.parts) do
                         assert(type(part.source_field) == 'string',
@@ -354,8 +360,45 @@ gql_type = function(state, avro_schema, collection, collection_name)
 
                         destination_args_names[#destination_args_names + 1] =
                             part.destination_field
+
+                        local value = parent[part.source_field]
                         destination_args_values[#destination_args_values + 1] =
-                            parent[part.source_field]
+                            value
+
+                        if value ~= nil then -- nil or box.NULL
+                            are_all_parts_null = false
+                        else
+                            are_all_parts_non_null = false
+                        end
+                    end
+
+                    -- Check FULL match constraint before request of
+                    -- destination object(s). Note that connection key parts
+                    -- can be prefix of index key parts. Zero parts count
+                    -- considered as ok by this check.
+                    local ok = are_all_parts_null or are_all_parts_non_null
+                    if not ok then -- avoid extra json.encode()
+                        assert(ok,
+                            'FULL MATCH constraint was failed: connection ' ..
+                            'key parts must be all non-nulls or all nulls; ' ..
+                            'object: ' .. json.encode(parent))
+                    end
+
+                    -- Avoid non-needed index lookup on a destination
+                    -- collection when all connection parts are null:
+                    -- * return null for 1:1* connection;
+                    -- * return {} for 1:N connection (except the case when
+                    --   source collection is the Query pseudo-collection).
+                    if collection_name ~= 'Query' and are_all_parts_null then
+                        if c.type ~= '1:1*' and c.type ~= '1:N' then
+                            -- `if` is to avoid extra json.encode
+                            assert(c.type == '1:1*' or c.type == '1:N',
+                                ('only 1:1* or 1:N connections can have ' ..
+                                'all key parts null; parent is %s from ' ..
+                                'collection "%s"'):format(json.encode(parent),
+                                tostring(collection_name)))
+                        end
+                        return c.type == '1:N' and {} or nil
                     end
 
                     local from = {
@@ -386,7 +429,10 @@ gql_type = function(state, avro_schema, collection, collection_name)
                     assert(type(objs) == 'table',
                         'objs list received from an accessor ' ..
                         'must be a table, got ' .. type(objs))
-                    if c.type == '1:1' then
+                    if c.type == '1:1' or c.type == '1:1*' then
+                        -- we expect here exactly one object even for 1:1*
+                        -- connections because we processed all-parts-are-null
+                        -- situation above
                         assert(#objs == 1,
                             'expect one matching object, got ' ..
                             tostring(#objs))
@@ -405,7 +451,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
                 avro_schema.name,
             fields = fields,
         })
-        return avro_t == 'enum' and types.nonNull(res) or res
+        return avro_t == 'record' and types.nonNull(res) or res
     elseif avro_t == 'enum' then
         error('enums not implemented yet') -- XXX
     elseif avro_t == 'array' or avro_t == 'array*' then
@@ -476,15 +522,21 @@ local function create_root_collection(state)
 
     -- `gql_type` is designed to create GQL type corresponding to a real schema
     -- and connections. However it also works with the fake schema.
+    -- Query type must be the Object, so it cannot be nonNull.
     local root_type = gql_type(state, root_schema, root_collection, "Query")
     state.schema = schema.create({
-        query = root_type
+        query = nullable(root_type),
     })
 end
 
 local function parse_cfg(cfg)
     local state = {}
-    state.types = utils.gen_booking_table({})
+
+    -- collection type is always record, so always non-null; we can lazily
+    -- evaluate non-null type from nullable type, but not vice versa, so we
+    -- collect nullable types here and evaluate non-null ones where needed
+    state.nullable_collection_types = utils.gen_booking_table({})
+
     state.object_arguments = utils.gen_booking_table({})
     state.list_arguments = utils.gen_booking_table({})
     state.all_arguments = utils.gen_booking_table({})
@@ -523,8 +575,15 @@ local function parse_cfg(cfg)
         assert(schema.type == 'record',
             'top-level schema must have record avro type, got ' ..
             tostring(schema.type))
-        state.types[collection_name] = gql_type(state, schema, collection,
-            collection_name)
+        local collection_type =
+            gql_type(state, schema, collection, collection_name)
+        -- we utilize the fact that collection type is always non-null and
+        -- don't store this information; see comment above for
+        -- `nullable_collection_types` variable definition
+        assert(collection_type.__type == 'NonNull',
+            'collection must always has non-null type')
+        state.nullable_collection_types[collection_name] =
+            nullable(collection_type)
 
         -- prepare arguments' types
         local object_args = convert_record_fields_to_args(schema.fields,
@@ -536,7 +595,6 @@ local function parse_cfg(cfg)
         state.object_arguments[collection_name] = object_args
         state.list_arguments[collection_name] = list_args
         state.all_arguments[collection_name] = args
-
     end
     -- create fake root `Query` collection
     create_root_collection(state)
