@@ -1,0 +1,180 @@
+
+
+        +---------------------+
+        |  a-+      h     x y |
+        |  |\ \     |\        |
+        |  b c d    k l       |
+        |  |   |\      \      |
+        |  e   f g      m     |
+        +---------------------+
+RUN downside_a {{{
+QUERY
+        query emails_tree_downside($body: String) {
+            email(body: $body) {
+                body
+                successors {
+                    body
+                    successors {
+                        body
+                        successors {
+                            body
+                        }
+                    }
+                }
+            }
+        }
+VARIABLES
+---
+body: a
+...
+
+RESULT
+---
+email:
+- successors:
+  - successors: &0 []
+    body: c
+  - successors:
+    - successors: *0
+      body: g
+    - successors: *0
+      body: f
+    body: d
+  - successors:
+    - successors: *0
+      body: e
+    body: b
+  body: a
+...
+
+}}}
+
+RUN downside_h {{{
+QUERY
+        query emails_tree_downside($body: String) {
+            email(body: $body) {
+                body
+                successors {
+                    body
+                    successors {
+                        body
+                        successors {
+                            body
+                        }
+                    }
+                }
+            }
+        }
+VARIABLES
+---
+body: h
+...
+
+RESULT
+---
+email:
+- successors:
+  - successors:
+    - successors: &0 []
+      body: m
+    body: l
+  - successors: *0
+    body: k
+  body: h
+...
+
+}}}
+
+RUN upside {{{
+QUERY
+        query emails_trace_upside($body: String) {
+            email(body: $body) {
+                body
+                in_reply_to {
+                    body
+                    in_reply_to {
+                        body
+                        in_reply_to {
+                            body
+                        }
+                    }
+                }
+            }
+        }
+VARIABLES
+---
+body: f
+...
+
+RESULT
+---
+email:
+- body: f
+  in_reply_to:
+    body: d
+    in_reply_to:
+      body: a
+...
+
+}}}
+
+RUN upside_x {{{
+QUERY
+        query emails_trace_upside($body: String) {
+            email(body: $body) {
+                body
+                in_reply_to {
+                    body
+                    in_reply_to {
+                        body
+                        in_reply_to {
+                            body
+                        }
+                    }
+                }
+            }
+        }
+VARIABLES
+---
+body: x
+...
+
+RESULT
+---
+ok: false
+err: 'FULL MATCH constraint was failed: connection key parts must be all non-nulls
+  or all nulls; object: {"domain":"graphql.tarantool.org","localpart":"062b56b1885c71c51153ccb880ac7315","body":"x","in_reply_to_domain":"graphql.tarantool.org","in_reply_to_localpart":null}'
+...
+
+}}}
+
+RUN upside_y {{{
+QUERY
+        query emails_trace_upside($body: String) {
+            email(body: $body) {
+                body
+                in_reply_to {
+                    body
+                    in_reply_to {
+                        body
+                        in_reply_to {
+                            body
+                        }
+                    }
+                }
+            }
+        }
+VARIABLES
+---
+body: y
+...
+
+RESULT
+---
+ok: false
+err: 'FULL MATCH constraint was failed: connection key parts must be all non-nulls
+  or all nulls; object: {"domain":"graphql.tarantool.org","localpart":"1f70391f6ba858129413bd801b12acbf","body":"y","in_reply_to_domain":null,"in_reply_to_localpart":"1f70391f6ba858129413bd801b12acbf"}'
+...
+
+}}}
+

@@ -1,0 +1,353 @@
+-- ----------------------------------------------------------
+-- Motivation: https://github.com/tarantool/graphql/issues/43
+-- ----------------------------------------------------------
+env = require('test_run')
+---
+...
+test_run = env.new()
+---
+...
+shard = require('shard')
+---
+...
+-- we need at least four servers to make sure we have several (two) servers
+-- within each replica set and several (two) replica sets
+test_run:cmd("setopt delimiter ';'")
+---
+- true
+...
+SERVERS = {'shard1', 'shard2', 'shard3', 'shard4'};
+---
+...
+init_shard(SERVERS, {
+    servers = {
+        { uri = instance_uri('1'), zone = '0' },
+        { uri = instance_uri('2'), zone = '1' },
+        { uri = instance_uri('3'), zone = '2' },
+        { uri = instance_uri('4'), zone = '3' },
+    },
+    login = 'guest',
+    password = '',
+    redundancy = 2,
+}, 'shard_redundancy');
+---
+...
+test_run:cmd("setopt delimiter ''");
+---
+- true
+...
+fio = require('fio')
+---
+...
+-- require in-repo version of graphql/ sources despite current working directory
+package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)"):gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
+---
+...
+graphql = require('graphql')
+---
+...
+testdata = require('test.testdata.nullable_1_1_conn_testdata')
+---
+...
+-- init box, upload test data and acquire metadata
+-- -----------------------------------------------
+-- init box and data schema
+test_run:cmd('switch shard1')
+---
+- true
+...
+require('test.testdata.nullable_1_1_conn_testdata').init_spaces()
+---
+...
+test_run:cmd('switch shard2')
+---
+- true
+...
+require('test.testdata.nullable_1_1_conn_testdata').init_spaces()
+---
+...
+test_run:cmd('switch shard3')
+---
+- true
+...
+require('test.testdata.nullable_1_1_conn_testdata').init_spaces()
+---
+...
+test_run:cmd('switch shard4')
+---
+- true
+...
+require('test.testdata.nullable_1_1_conn_testdata').init_spaces()
+---
+...
+test_run:cmd('switch default')
+---
+- true
+...
+-- upload test data
+testdata.fill_test_data(shard)
+---
+- |2
+
+
+          +---------------------+
+          |  a-+      h     x y |
+          |  |\ \     |\        |
+          |  b c d    k l       |
+          |  |   |\      \      |
+          |  e   f g      m     |
+          +---------------------+
+...
+-- acquire metadata
+metadata = testdata.get_test_metadata()
+---
+...
+schemas = metadata.schemas
+---
+...
+collections = metadata.collections
+---
+...
+service_fields = metadata.service_fields
+---
+...
+indexes = metadata.indexes
+---
+...
+-- build accessor and graphql schemas
+-- ----------------------------------
+test_run:cmd("setopt delimiter ';'")
+---
+- true
+...
+accessor = graphql.accessor_shard.new({
+    schemas = schemas,
+    collections = collections,
+    service_fields = service_fields,
+    indexes = indexes,
+});
+---
+...
+gql_wrapper = graphql.new({
+    schemas = schemas,
+    collections = collections,
+    accessor = accessor,
+});
+---
+...
+test_run:cmd("setopt delimiter ''");
+---
+- true
+...
+testdata.run_queries(gql_wrapper)
+---
+- |+
+  RUN downside_a {{{
+  QUERY
+          query emails_tree_downside($body: String) {
+              email(body: $body) {
+                  body
+                  successors {
+                      body
+                      successors {
+                          body
+                          successors {
+                              body
+                          }
+                      }
+                  }
+              }
+          }
+  VARIABLES
+  ---
+  body: a
+  ...
+
+  RESULT
+  ---
+  email:
+  - successors:
+    - successors: &0 []
+      body: c
+    - successors:
+      - successors: *0
+        body: g
+      - successors: *0
+        body: f
+      body: d
+    - successors:
+      - successors: *0
+        body: e
+      body: b
+    body: a
+  ...
+
+  }}}
+
+  RUN downside_h {{{
+  QUERY
+          query emails_tree_downside($body: String) {
+              email(body: $body) {
+                  body
+                  successors {
+                      body
+                      successors {
+                          body
+                          successors {
+                              body
+                          }
+                      }
+                  }
+              }
+          }
+  VARIABLES
+  ---
+  body: h
+  ...
+
+  RESULT
+  ---
+  email:
+  - successors:
+    - successors:
+      - successors: &0 []
+        body: m
+      body: l
+    - successors: *0
+      body: k
+    body: h
+  ...
+
+  }}}
+
+  RUN upside {{{
+  QUERY
+          query emails_trace_upside($body: String) {
+              email(body: $body) {
+                  body
+                  in_reply_to {
+                      body
+                      in_reply_to {
+                          body
+                          in_reply_to {
+                              body
+                          }
+                      }
+                  }
+              }
+          }
+  VARIABLES
+  ---
+  body: f
+  ...
+
+  RESULT
+  ---
+  email:
+  - body: f
+    in_reply_to:
+      body: d
+      in_reply_to:
+        body: a
+  ...
+
+  }}}
+
+  RUN upside_x {{{
+  QUERY
+          query emails_trace_upside($body: String) {
+              email(body: $body) {
+                  body
+                  in_reply_to {
+                      body
+                      in_reply_to {
+                          body
+                          in_reply_to {
+                              body
+                          }
+                      }
+                  }
+              }
+          }
+  VARIABLES
+  ---
+  body: x
+  ...
+
+  RESULT
+  ---
+  ok: false
+  err: 'FULL MATCH constraint was failed: connection key parts must be all non-nulls
+    or all nulls; object: {"domain":"graphql.tarantool.org","localpart":"062b56b1885c71c51153ccb880ac7315","body":"x","in_reply_to_domain":"graphql.tarantool.org","in_reply_to_localpart":null}'
+  ...
+
+  }}}
+
+  RUN upside_y {{{
+  QUERY
+          query emails_trace_upside($body: String) {
+              email(body: $body) {
+                  body
+                  in_reply_to {
+                      body
+                      in_reply_to {
+                          body
+                          in_reply_to {
+                              body
+                          }
+                      }
+                  }
+              }
+          }
+  VARIABLES
+  ---
+  body: y
+  ...
+
+  RESULT
+  ---
+  ok: false
+  err: 'FULL MATCH constraint was failed: connection key parts must be all non-nulls
+    or all nulls; object: {"domain":"graphql.tarantool.org","localpart":"1f70391f6ba858129413bd801b12acbf","body":"y","in_reply_to_domain":null,"in_reply_to_localpart":"1f70391f6ba858129413bd801b12acbf"}'
+  ...
+
+  }}}
+
+...
+-- clean up
+-- --------
+test_run:cmd('switch shard1')
+---
+- true
+...
+require('test.testdata.nullable_1_1_conn_testdata').drop_spaces()
+---
+...
+test_run:cmd('switch shard2')
+---
+- true
+...
+require('test.testdata.nullable_1_1_conn_testdata').drop_spaces()
+---
+...
+test_run:cmd('switch shard3')
+---
+- true
+...
+require('test.testdata.nullable_1_1_conn_testdata').drop_spaces()
+---
+...
+test_run:cmd('switch shard4')
+---
+- true
+...
+require('test.testdata.nullable_1_1_conn_testdata').drop_spaces()
+---
+...
+test_run:cmd('switch default')
+---
+- true
+...
+test_run:drop_cluster(SERVERS)
+---
+...
