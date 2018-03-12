@@ -2,7 +2,10 @@
 
 local net_box = require('net.box')
 
-local initialized = false
+-- require in-repo version of graphql/ sources despite current working directory
+local fio = require('fio')
+package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
+    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 local function instance_uri(instance_id)
     local socket_dir = require('fio').cwd()
@@ -20,16 +23,52 @@ local function init_shard(test_run, servers, config)
     -- it seems to be non-working in 'core = app' tests with current test-run.
     -- Ways to better handle this is subject to future digging.
     local shard = require('shard')
-    if not initialized then
-        shard.init(config)
-        initialized = true
-    end
+    shard.init(config)
     shard.wait_connection()
     return shard
 end
 
+local function unload_shard()
+    package.loaded["shard"] = nil
+    _G.append_shard     = nil
+    _G.join_shard        = nil
+    _G.unjoin_shard      = nil
+    _G.resharding_status = nil
+    _G.remote_append     = nil
+    _G.remote_join       = nil
+    _G.remote_unjoin     = nil
+
+    _G.find_operation    = nil
+    _G.transfer_wait     = nil
+
+    _G.cluster_operation = nil
+    _G.execute_operation = nil
+    _G.force_transfer    = nil
+    _G.get_zones         = nil
+    _G.merge_sort        = nil
+    _G.shard_status      = nil
+    _G.remote_resharding_state = nil
+    for _, space in ipairs({
+            '_shard_operations',
+            '_shard_worker',
+            '_shard',
+            '_shard_worker_vinyl'
+        }) do
+        box.space[space]:drop()
+    end
+    for _, once in ipairs({
+            "onceshard_init_v01",
+            "onceshard_init_v02",
+            "onceshard_init_v03",
+        }) do
+        box.space._schema:delete{once}
+    end
+
+end
+
 local function shard_cleanup(test_run, servers)
     test_run:drop_cluster(servers)
+    unload_shard()
 end
 
 local function for_each_server(shard, func)
@@ -67,17 +106,22 @@ local function run(test_run, init_function, cleanup_function, callback)
         local c = net_box.connect(uri)
         c:eval(init_script)
     end)
-
-    callback("Shard 2x2", shard)
+    -- This crutch is necessary because we need to reloas shard module. However
+    -- graphql do `require('shard')` for its own and we have to reload it too.
+    local graphql = require('graphql')
+    callback("Shard 2x2", shard, graphql)
 
     for_each_server(shard, function(uri)
         local c = net_box.connect(uri)
         c:eval(cleanup_script)
     end)
+    package.loaded['graphql'] = nil
     shard_cleanup(test_run, servers)
+    graphql = require('graphql')
+    require('fiber').sleep(0.5)
 
     -- Test sharding without redundancy.
-    local shard = init_shard(test_run, servers, {
+    shard = init_shard(test_run, servers, {
         servers = {
             { uri = instance_uri('1'), zone = '0' },
             { uri = instance_uri('2'), zone = '1' },
@@ -95,17 +139,19 @@ local function run(test_run, init_function, cleanup_function, callback)
         c:eval(init_script)
     end)
 
-    callback("Shard 4x1", shard)
+    callback("Shard 4x1", shard, graphql)
 
     for_each_server(shard, function(uri)
         local c = net_box.connect(uri)
         c:eval(cleanup_script)
     end)
+    package.loaded['graphql'] = nil
     shard_cleanup(test_run, servers)
+    graphql = require('graphql')
 
     -- Test local setup (box).
     loadstring(init_script)()
-    callback("Local (box)", nil)
+    callback("Local (box)", nil, graphql)
     loadstring(cleanup_script)()
 end
 

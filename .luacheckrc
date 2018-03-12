@@ -5,6 +5,6 @@ std = {
         'getmetatable', 'setmetatable', 'rawget', 'print', 'shard_status',
         'loadstring',
     },
-    globals = {'package'}
+    globals = {'package', '_G'}
 }
 redefined = False

@@ -4,15 +4,10 @@ local fio = require('fio')
 local multirunner = require('multirunner')
 local testdata = require('test_data_nested_record')
 local test_run = require('test_run').new()
-local graphql = require('graphql')
 
 box.cfg({})
 
--- require in-repo version of graphql/ sources despite current working directory
-package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
-    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
-
-local function run(setup_name, shard)
+local function run(setup_name, shard, graphql)
     print(setup_name)
 
     local accessor_class = shard and graphql.accessor_shard or

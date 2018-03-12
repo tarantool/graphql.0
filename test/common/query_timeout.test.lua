@@ -3,18 +3,12 @@ local multirunner = require('multirunner')
 local data = require('test_data_user_order')
 local test_run = require('test_run').new()
 local tap = require('tap')
-local graphql = require('graphql')
 
 box.cfg({})
 local test = tap.test('result cnt')
 test:plan(3)
 
--- require in-repo version of graphql/ sources despite current working directory
-local fio = require('fio')
-package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
-    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
-
-local function run(setup_name, shard)
+local function run(setup_name, shard, graphql)
     print(setup_name)
     local accessor_class
     local virtbox
