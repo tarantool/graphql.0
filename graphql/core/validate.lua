@@ -259,7 +259,19 @@ local visitors = {
       end
     end,
 
+    children = function(node)
+        return util.map(node.value.values or {}, function(value)
+            return value.value
+        end)
+    end,
+
     rules = { rules.uniqueInputObjectFields }
+  },
+
+  variable = {
+    enter = function(node, context)
+        context.variableReferences[node.name.value] = true
+    end
   },
 
   directive = {
