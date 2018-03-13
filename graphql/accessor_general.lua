@@ -553,37 +553,6 @@ local function build_index_parts_tree(indexes)
     return roots
 end
 
---- Build `connection_indexes` table (part of `index_cache`) to use in the
---- @{get_index_name} function.
----
---- @tparam table indexes map from collection names to indexes meta-information
---- as defined in the @{new} function; the function uses it to validate index
---- names provided in connections (which are inside collections), validate
---- connection types ('1:1' or '1:N') against index uniqueness if the `unique`
---- flag provided for corresponding index and to check that destination parts
---- of connections form a prefix of parts of the `connection.index_name` index
----
---- @tparam table collections map from collection names to collections as
---- defined in the @{accessor_general.new} function decription; the function
---- uses it to extract index names from connections and create the resulting
---- mapping
----
---- @treturn table `connection_indexes`
-local function build_connection_indexes(indexes, collections)
-    assert(type(indexes) == 'table', 'indexes must be a table, got ' ..
-        type(indexes))
-    assert(type(collections) == 'table', 'collections must be a table, got ' ..
-        type(collections))
-    local connection_indexes = {}
-    for _, collection in pairs(collections) do
-        for _, c in ipairs(collection.connections) do
-            if connection_indexes[c.destination_collection] == nil then
-                connection_indexes[c.destination_collection] = {}
-            end
-            local index_name = c.index_name
-            assert(type(index_name) == 'string',
-                'index_name must be a string, got ' .. type(index_name))
---@todo add commentary and fix style
 local function set_connection_index(c, c_name, c_type, collection_name,
                                     indexes, connection_indexes)
     assert(type(c.index_name) == 'string',
