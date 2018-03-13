@@ -8,6 +8,12 @@ local json = require('json')
 local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 local clock = require('clock')
+local rex = utils.optional_require('rex_pcre')
+
+-- XXX: consider using [1] when it will be mature enough;
+-- look into [2] for the status.
+-- [1]: https://github.com/igormunkin/lua-re
+-- [2]: https://github.com/tarantool/tarantool/issues/2764
 
 local accessor_general = {}
 local DEF_RESULTING_OBJECT_CNT_MAX = 10000
@@ -553,61 +559,6 @@ local function build_index_parts_tree(indexes)
     return roots
 end
 
-local function set_connection_index(c, c_name, c_type, collection_name,
-                                    indexes, connection_indexes)
-    assert(type(c.index_name) == 'string',
-    'index_name must be a string, got ' .. type(c.index_name))
-
-    -- validate index_name against 'indexes'
-    local index_meta = indexes[c.destination_collection]
-    assert(type(index_meta) == 'table',
-    'index_meta must be a table, got ' .. type(index_meta))
-
-    assert(type(collection_name) == 'string', 'collection_name expected to ' ..
-    'be string, got ' .. type(collection_name))
-
-    -- validate connection parts are match or being prefix of index
-    -- fields
-    local i = 1
-    local index_fields = index_meta[c.index_name].fields
-    for _, part in ipairs(c.parts) do
-        assert(type(part.source_field) == 'string',
-        'part.source_field must be a string, got ' ..
-        type(part.source_field))
-        assert(type(part.destination_field) == 'string',
-        'part.destination_field must be a string, got ' ..
-        type(part.destination_field))
-        assert(part.destination_field == index_fields[i],
-        ('connection "%s" of collection "%s" ' ..
-        'has destination parts that is not prefix of the index ' ..
-        '"%s" parts (destination collection - "%s")'):format(c_name, collection_name,
-        c.index_name, c.destination_collection))
-        i = i + 1
-    end
-    local parts_cnt = i - 1
-
-    -- partial index of an unique index is not guaranteed to being
-    -- unique
-    assert(c_type == '1:N' or parts_cnt == #index_fields,
-    ('1:1 connection "%s" of collection "%s" ' ..
-    'has less fields than the index "%s" has (destination collection - "%s")' ..
-    '(cannot prove uniqueness of the partial index)'):format(c_name,
-    collection_name, c.index_name, c.destination_collection))
-
-    -- validate connection type against index uniqueness (if provided)
-    if index_meta.unique ~= nil then
-        assert(c_type == '1:N' or index_meta.unique == true,
-        ('1:1 connection ("%s") cannot be implemented ' ..
-        'on top of non-unique index ("%s")'):format(
-        c_name, c.index_name))
-    end
-
-    return {
-        index_name = c.index_name,
-        connection_type = c_type,
-    }
-end
-
 --- Build `connection_indexes` table (part of `index_cache`) to use in the
 --- @{get_index_name} function.
 ---
@@ -630,28 +581,60 @@ local function build_connection_indexes(indexes, collections)
     assert(type(collections) == 'table', 'collections must be a table, got ' ..
         type(collections))
     local connection_indexes = {}
-    for collection_name, collection in pairs(collections) do
+    for _, collection in pairs(collections) do
         for _, c in ipairs(collection.connections) do
-            if c.destination_collection ~= nil then
-                if connection_indexes[c.destination_collection] == nil then
-                    connection_indexes[c.destination_collection] = {}
-                end
+            if connection_indexes[c.destination_collection] == nil then
+                connection_indexes[c.destination_collection] = {}
+            end
+            local index_name = c.index_name
+            assert(type(index_name) == 'string',
+                'index_name must be a string, got ' .. type(index_name))
 
-                connection_indexes[c.destination_collection][c.name] =
-                set_connection_index(c, c.name, c.type, collection_name,
-                indexes, connection_indexes)
+            -- validate index_name against 'indexes'
+            local index_meta = indexes[c.destination_collection]
+            assert(type(index_meta) == 'table',
+                'index_meta must be a table, got ' .. type(index_meta))
+
+            -- validate connection parts are match or being prefix of index
+            -- fields
+            local i = 1
+            local index_fields = index_meta[c.index_name].fields
+            for _, part in ipairs(c.parts) do
+                assert(type(part.source_field) == 'string',
+                    'part.source_field must be a string, got ' ..
+                    type(part.source_field))
+                assert(type(part.destination_field) == 'string',
+                    'part.destination_field must be a string, got ' ..
+                    type(part.destination_field))
+                assert(part.destination_field == index_fields[i],
+                    ('connection "%s" of collection "%s" ' ..
+                    'has destination parts that is not prefix of the index ' ..
+                    '"%s" parts'):format(c.name, c.destination_collection,
+                    c.index_name))
+                i = i + 1
+            end
+            local parts_cnt = i - 1
+
+            -- partial index of an unique index is not guaranteed to being
+            -- unique
+            assert(c.type == '1:N' or parts_cnt == #index_fields,
+                ('1:1 connection "%s" of collection "%s" ' ..
+                'has less fields than the index "%s" has (cannot prove ' ..
+                'uniqueness of the partial index)'):format(c.name,
+                c.destination_collection, c.index_name))
+
+            -- validate connection type against index uniqueness (if provided)
+            if index_meta.unique ~= nil then
+                assert(c.type == '1:N' or index_meta.unique == true,
+                    ('1:1 connection ("%s") cannot be implemented ' ..
+                    'on top of non-unique index ("%s")'):format(
+                    c.name, index_name))
             end
 
-            if c.variants ~= nil then
-                for _, v in ipairs(c.variants) do
-                    if connection_indexes[v.destination_collection] == nil then
-                        connection_indexes[v.destination_collection] = {}
-                    end
-                    connection_indexes[v.destination_collection][c.name] =
-                    set_connection_index(v, c.name, c.type, collection_name,
-                    indexes, connection_indexes)
-                end
-            end
+            connection_indexes[c.destination_collection][c.name] = {
+                index_name = index_name,
+                connection_type = c.type,
+            }
         end
     end
     return connection_indexes
@@ -702,50 +685,52 @@ local function validate_collections(collections, schemas)
             type(connections))
         for _, connection in ipairs(connections) do
             assert(type(connection) == 'table',
-            'connection must be a table, got ' .. type(connection))
+                'connection must be a table, got ' .. type(connection))
             assert(type(connection.name) == 'string',
-            'connection.name must be a string, got ' ..
-            type(connection.name))
-            assert(type(connection.type) == 'string', 'connection.type must' ..
-            'be a string, got ' .. type(connection.type))
-            assert(connection.type == '1:1' or connection.type == '1:N',
-            'connection.type must be \'1:1\' or \'1:N\', got ' ..
-            connection.type)
-            if connection.destination_collection then
-                assert(type(connection.destination_collection) == 'string',
+                'connection.name must be a string, got ' ..
+                type(connection.name))
+            assert(type(connection.destination_collection) == 'string',
                 'connection.destination_collection must be a string, got ' ..
                 type(connection.destination_collection))
-                assert(type(connection.parts) == 'table',
-                'connection.parts must be a table, got ' ..
+            assert(type(connection.parts) == 'table',
+                'connection.parts must be a string, got ' ..
                 type(connection.parts))
-                assert(type(connection.index_name) == 'string',
+            assert(type(connection.index_name) == 'string',
                 'connection.index_name must be a string, got ' ..
                 type(connection.index_name))
-                return
-            end
-            if connection.variants then
-                for _, v in pairs(connection.variants) do
-                    assert(type(v.determinant) == 'table', 'variant\'s ' ..
-                    'determinant must be a table, got ' ..
-                    type(v.determinant))
-                    assert(type(v.destination_collection) == 'string',
-                    'variant.destination_collection must be a string, ' ..
-                    'got ' .. type(v.destination_collection))
-                    assert(type(v.parts) == 'table',
-                    'variant.parts must be a table, got ' .. type(v.parts))
-                    assert(type(v.index_name) == 'string',
-                    'variant.index_name must be a string, got ' ..
-                    type(v.index_name))
-                end
-                return
-            else
-                assert(false, ('collection doesn\'t have neither destination' ..
-                'collection nor variants field'))
-            end
         end
     end
 end
 
+--- Whether an object match set of PCRE.
+---
+--- @tparam table obj an object to check
+---
+--- @tparam table pcre map with PCRE as values; names are correspond to field
+--- names of the `obj` to match
+---
+--- @treturn boolean `res` whether the `obj` object match `pcre` set of
+--- regexps.
+local function match_using_re(obj, pcre)
+    if pcre == nil then return true end
+
+    for field_name, re in pairs(pcre) do
+        -- skip an object with null in a string* field
+        if obj[field_name] == nil then
+            return false
+        end
+        assert(rex ~= nil, 'we should not pass over :compile() ' ..
+            'with a query contains PCRE matching when there are '..
+            'no lrexlib-pcre (rex_pcre) module present')
+        -- XXX: compile re once
+        local re = rex.new(re)
+        if not re:match(obj[field_name]) then
+            return false
+        end
+    end
+
+    return true
+end
 
 --- Perform unflatten, skipping, filtering, limiting of objects. This is the
 --- core of the `select_internal` function.
@@ -792,9 +777,11 @@ local function process_tuple(state, tuple, opts)
                     qstats.fetched_object_cnt, fetched_object_cnt_max))
     assert(qcontext.deadline_clock > clock.monotonic64(),
            'query execution timeout exceeded, use `timeout_ms` to increase it')
+    local collection_name = opts.collection_name
+    local pcre = opts.pcre
 
     -- convert tuple -> object
-    local obj = opts.unflatten_tuple(opts.collection_name, tuple,
+    local obj = opts.unflatten_tuple(collection_name, tuple,
         opts.default_unflatten_tuple)
 
     -- skip all items before pivot (the item pointed by offset)
@@ -806,7 +793,8 @@ local function process_tuple(state, tuple, opts)
     end
 
     -- filter out non-matching objects
-    local match = utils.is_subtable(obj, filter)
+    local match = utils.is_subtable(obj, filter) and
+        match_using_re(obj, pcre)
     if do_filter then
         if not match then return true end
     else
@@ -879,6 +867,8 @@ local function select_internal(self, collection_name, from, filter, args, extra)
     -- XXX: save type at parsing and check here
     --assert(args.offset == nil or type(args.offset) == 'number',
     --    'args.offset must be a number of nil, got ' .. type(args.offset))
+    assert(args.pcre == nil or type(args.pcre) == 'table',
+        'args.pcre must be nil or a table, got ' .. type(args.pcre))
 
     local collection = self.collections[collection_name]
     assert(collection ~= nil,
@@ -927,6 +917,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         collection_name = collection_name,
         unflatten_tuple = self.funcs.unflatten_tuple,
         default_unflatten_tuple = default_unflatten_tuple,
+        pcre = args.pcre,
     }
 
     if index == nil then
@@ -1025,6 +1016,107 @@ local function init_qcontext(accessor, qcontext)
     }
     qcontext.deadline_clock = clock.monotonic64() +
         settings.timeout_ms * 1000 * 1000
+end
+
+--- Get an avro-schema for a primary key by a collection name.
+---
+--- @tparam table self accessor_general instance
+---
+--- @tparam string collection_name name of a collection
+---
+--- @treturn string `offset_type` is a just string in case of scalar primary
+--- key (and, then, offset) type
+---
+--- @treturn table `offset_type` is a record in case of compound (multi-part)
+--- primary key
+local function get_primary_key_type(self, collection_name)
+    -- get name of field of primary key
+    local _, index_meta = get_primary_index_meta(
+        self, collection_name)
+
+    local collection = self.collections[collection_name]
+    local schema = self.schemas[collection.schema_name]
+
+    local offset_fields = {}
+
+    for _, field_name in ipairs(index_meta.fields) do
+        local field_type
+        for _, field in ipairs(schema.fields) do
+            if field.name == field_name then
+                field_type = field.type
+            end
+        end
+        assert(field_type ~= nil,
+            ('cannot find type for primary index field "%s" ' ..
+            'for collection "%s"'):format(field_name,
+            collection_name))
+        assert(type(field_type) == 'string',
+            'field type must be a string, got ' ..
+            type(field_type))
+        offset_fields[#offset_fields + 1] = {
+            name = field_name,
+            type = field_type,
+        }
+    end
+
+    local offset_type
+    assert(#offset_fields > 0,
+        'offset must contain at least one field')
+    if #offset_fields == 1 then
+        -- use a scalar type
+        offset_type = offset_fields[1].type
+    else
+        -- construct an input type
+        offset_type = {
+            name = collection_name .. '_offset',
+            type = 'record',
+            fields = offset_fields,
+        }
+    end
+
+    return offset_type
+end
+
+-- XXX: add string fields of a nested record / 1:1 connection to
+-- get_pcre_argument_type
+
+--- Get an avro-schema for a pcre argument by a collection name.
+---
+--- Note: it is called from `list_args`, so applicable only for lists:
+--- top-level objects and 1:N connections.
+---
+--- @tparam table self accessor_general instance
+---
+--- @tparam string collection_name name of a collection
+---
+--- @treturn table `pcre_type` is a record with fields per string/string* field
+--- of an object of the collection
+local function get_pcre_argument_type(self, collection_name)
+    local collection = self.collections[collection_name]
+    assert(collection ~= nil, 'cannot found collection ' ..
+        tostring(collection_name))
+    local schema = self.schemas[collection.schema_name]
+    assert(schema ~= nil, 'cannot found schema ' ..
+        tostring(collection.schema_name))
+
+    assert(schema.type == 'record',
+        'top-level object expected to be a record, got ' ..
+        tostring(schema.type))
+
+    local string_fields = {}
+
+    for _, field in ipairs(schema.fields) do
+        if field.type == 'string' or field.type == 'string*' then
+            string_fields[#string_fields + 1] = table.copy(field)
+        end
+    end
+
+    local pcre_type = {
+        name = collection_name .. '_pcre',
+        type = 'record',
+        fields = string_fields,
+    }
+    return pcre_type
 end
 
 --- Create a new data accessor.
@@ -1165,53 +1257,20 @@ function accessor_general.new(opts, funcs)
                     args, extra)
             end,
             list_args = function(self, collection_name)
-                -- get name of field of primary key
-                local _, index_meta = get_primary_index_meta(
-                    self, collection_name)
+                local offset_type = get_primary_key_type(self, collection_name)
 
-                local offset_fields = {}
-
-                for _, field_name in ipairs(index_meta.fields) do
-                    local field_type
-                    local collection = self.collections[collection_name]
-                    local schema = self.schemas[collection.schema_name]
-                    for _, field in ipairs(schema.fields) do
-                        if field.name == field_name then
-                            field_type = field.type
-                        end
-                    end
-                    assert(field_type ~= nil,
-                        ('cannot find type for primary index field "%s" ' ..
-                        'for collection "%s"'):format(field_name,
-                        collection_name))
-                    assert(type(field_type) == 'string',
-                        'field type must be a string, got ' ..
-                        type(field_type))
-                    offset_fields[#offset_fields + 1] = {
-                        name = field_name,
-                        type = field_type,
-                    }
-                end
-
-                local offset_type
-                assert(#offset_fields > 0,
-                    'offset must contain at least one field')
-                if #offset_fields == 1 then
-                    -- use a scalar type
-                    offset_type = offset_fields[1].type
-                else
-                    -- construct an input type
-                    offset_type = {
-                        name = collection_name .. '_offset',
-                        type = 'record',
-                        fields = offset_fields,
-                    }
+                -- add `pcre` argument only if lrexlib-pcre was found
+                local pcre_field
+                if rex ~= nil then
+                    local pcre_type = get_pcre_argument_type(self, collection_name)
+                    pcre_field = {name = 'pcre', type = pcre_type}
                 end
 
                 return {
                     {name = 'limit', type = 'int'},
                     {name = 'offset', type = offset_type},
                     -- {name = 'filter', type = ...},
+                    pcre_field,
                 }
             end,
         }

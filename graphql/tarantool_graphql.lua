@@ -729,7 +729,8 @@ end
 ---             list_args = function(self, collection_name)
 ---                 return {
 ---                     {name = 'limit', type = 'int'},
----                     {name = 'offset', type = <...>}, -- type of primary key
+---                     {name = 'offset', type = <...>}, -- type of a primary key
+---                     {name = 'pcre', type = <...>},
 ---                 }
 ---             end,
 ---         }
