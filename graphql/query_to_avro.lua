@@ -2,7 +2,7 @@
 ---
 --- Random notes:
 ---
---- * The best way to use this module is to just call `avro_schema` methon on
+--- * The best way to use this module is to just call `avro_schema` method on
 ---   compiled query object.
 local path = "graphql.core"
 local introspection = require(path .. '.introspection')
@@ -10,6 +10,9 @@ local query_util = require(path .. '.query_util')
 
 -- module functions
 local query_to_avro = {}
+
+-- forward declaration
+local object_to_avro
 
 local gql_scalar_to_avro_index = {
     String = "string",
@@ -28,79 +31,84 @@ local function gql_scalar_to_avro(fieldType)
     return result
 end
 
--- The function converts avro type to nullable.
--- In current tarantool/avro-schema implementation we simply add '*'
--- to the end of type name.
--- The function do not copy the resulting type but changes it in place.
---
--- @tparam table avro schema node to be converted to nullable
---
--- @tresult table schema node; basically it is the passed schema node,
--- however in nullable type implementation through unions it can be different
--- node
+--- The function converts avro type to the corresponding nullable type in
+--- place and returns the result.
+---
+--- We make changes in place in case of table input (`avro`) because of
+--- performance reasons, but we returns the result because an input (`avro`)
+--- can be a string. Strings in Lua are immutable.
+---
+--- In the current tarantool/avro-schema implementation we simply add '*' to
+--- the end of a type name.
+---
+--- If the type is already nullable the function leaves it as is.
+---
+--- @tparam table avro avro schema node to be converted to nullable one
+---
+--- @result `result` (string or table) nullable avro type
 local function make_avro_type_nullable(avro)
-    assert(avro.type ~= nil, "Avro `type` field is necessary")
-    local type_type = type(avro.type)
-    if type_type == "string" then
-        assert(avro.type:endswith("*") == false,
-            "Avro type should not be nullable already")
-        avro.type = avro.type .. '*'
-        return avro
+    assert(avro ~= nil, "avro must not be nil")
+
+    local value_type = type(avro)
+
+    if value_type == "string" then
+        return avro:endswith("*") and avro or (avro .. '*')
+    elseif value_type == "table" then
+        return make_avro_type_nullable(avro.type)
     end
-    if type_type == "table" then
-        avro.type = make_avro_type_nullable(avro.type)
-        return avro
-    end
-    error("Avro type should be a string or table, got :" .. type_type)
+
+    error("avro should be a string or a table, got " .. value_type)
 end
 
-local object_to_avro
-
-local function complete_field_to_avro(fieldType, result, subSelections, context,
-        NonNull)
+--- Convert GraphQL type to avro-schema with selecting fields.
+---
+--- @tparam table fieldType GraphQL type
+---
+--- @tparam table subSelections fields to select from resulting avro-schema
+--- (internal graphql-lua format)
+---
+--- @tparam table context current traversal context, here it just falls to the
+--- called functions (internal graphql-lua format)
+---
+--- @tresult table `result` is the resulting avro-schema
+local function gql_type_to_avro(fieldType, subSelections, context)
     local fieldTypeName = fieldType.__type
-    if fieldTypeName == 'NonNull' then
-        -- In case the field is NonNull, the real type is in ofType attribute.
+    local isNonNull = false
+
+    -- In case the field is NonNull, the real type is in ofType attribute.
+    while fieldTypeName == 'NonNull' do
         fieldType = fieldType.ofType
         fieldTypeName = fieldType.__type
-    elseif NonNull ~= true then
-        -- Call complete_field second time and make result nullable.
-        result = complete_field_to_avro(fieldType, result, subSelections,
-            context, true)
-        result = make_avro_type_nullable(result)
-        return result
+        isNonNull = true
     end
+
+    local result
 
     if fieldTypeName == 'List' then
         local innerType = fieldType.ofType
-        -- Steal type from virtual object.
-        -- This is necessary because in case of arrays type should be
-        -- "completed" into results `items` field, but in other cases (Object,
-        -- Scalar) it should be completed into `type` field.
-        local items = complete_field_to_avro(innerType, {}, subSelections,
-            context).type
-        result.type = {
+        local innerTypeAvro = gql_type_to_avro(innerType, subSelections,
+            context)
+        result = {
             type = "array",
-            items = items
+            items = innerTypeAvro,
         }
-        return result
-    end
-
-    if fieldTypeName == 'Scalar' then
-        result.type = gql_scalar_to_avro(fieldType)
-        return result
-    end
-
-    if fieldTypeName == 'Object' then
-        result.type = object_to_avro(fieldType, subSelections, context)
-        return result
+    elseif fieldTypeName == 'Scalar' then
+        result = gql_scalar_to_avro(fieldType)
+    elseif fieldTypeName == 'Object' then
+        result = object_to_avro(fieldType, subSelections, context)
     elseif fieldTypeName == 'Interface' or fieldTypeName == 'Union' then
         error('Interfaces and Unions are not supported yet')
+    else
+        error(string.format('Unknown type "%s"', tostring(fieldTypeName)))
     end
-    error(string.format('Unknown type "%s"', fieldTypeName))
+
+    if not isNonNull then
+        result = make_avro_type_nullable(result)
+    end
+    return result
 end
 
---- The function converts a single Object field to avro format
+--- The function converts a single Object field to avro format.
 local function field_to_avro(object_type, fields, context)
     local firstField = fields[1]
     assert(#fields == 1, "The aliases are not considered yet")
@@ -109,11 +117,13 @@ local function field_to_avro(object_type, fields, context)
         object_type.fields[fieldName]
     assert(fieldType ~= nil)
     local subSelections = query_util.mergeSelectionSets(fields)
-    local result = {}
-    result.name = fieldName
-    result = complete_field_to_avro(fieldType.kind, result, subSelections,
+
+    local fieldTypeAvro = gql_type_to_avro(fieldType.kind, subSelections,
         context)
-    return result
+    return {
+        name = fieldName,
+        type = fieldTypeAvro,
+    }
 end
 
 --- Convert GraphQL object to avro record.
@@ -127,7 +137,7 @@ end
 --- of the fields is `namespace_parts` -- table of names of records from the
 --- root to the current object
 ---
---- @treturn table corresponding Avro schema
+--- @treturn table `result` is the corresponding Avro schema
 object_to_avro = function(object_type, selections, context)
     local groupedFieldSet = query_util.collectFields(object_type, selections,
         {}, {}, context)
@@ -152,11 +162,11 @@ end
 ---
 --- @tparam table query object which avro schema should be created for
 ---
---- @treturn table `avro_schema` avro schema for any `query:execute()` result.
+--- @treturn table `avro_schema` avro schema for any `query:execute()` result
 function query_to_avro.convert(query)
     assert(type(query) == "table",
-        'query should be a table, got: ' .. type(table)
-        .. '; hint: use ":" instead of "."')
+        ('query should be a table, got: %s; ' ..
+        'hint: use ":" instead of "."'):format(type(table)))
     local state = query.state
     local context = query_util.buildContext(state.schema, query.ast, {}, {},
         query.operation_name)
