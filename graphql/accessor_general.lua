@@ -8,6 +8,12 @@ local json = require('json')
 local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 local clock = require('clock')
+local rex = utils.optional_require('rex_pcre')
+
+-- XXX: consider using [1] when it will be mature enough;
+-- look into [2] for the status.
+-- [1]: https://github.com/igormunkin/lua-re
+-- [2]: https://github.com/tarantool/tarantool/issues/2764
 
 local accessor_general = {}
 local DEF_RESULTING_OBJECT_CNT_MAX = 10000
@@ -696,6 +702,36 @@ local function validate_collections(collections, schemas)
     end
 end
 
+--- Whether an object match set of PCRE.
+---
+--- @tparam table obj an object to check
+---
+--- @tparam table pcre map with PCRE as values; names are correspond to field
+--- names of the `obj` to match
+---
+--- @treturn boolean `res` whether the `obj` object match `pcre` set of
+--- regexps.
+local function match_using_re(obj, pcre)
+    if pcre == nil then return true end
+
+    for field_name, re in pairs(pcre) do
+        -- skip an object with null in a string* field
+        if obj[field_name] == nil then
+            return false
+        end
+        assert(rex ~= nil, 'we should not pass over :compile() ' ..
+            'with a query contains PCRE matching when there are '..
+            'no lrexlib-pcre (rex_pcre) module present')
+        -- XXX: compile re once
+        local re = rex.new(re)
+        if not re:match(obj[field_name]) then
+            return false
+        end
+    end
+
+    return true
+end
+
 --- Perform unflatten, skipping, filtering, limiting of objects. This is the
 --- core of the `select_internal` function.
 ---
@@ -741,9 +777,11 @@ local function process_tuple(state, tuple, opts)
                     qstats.fetched_object_cnt, fetched_object_cnt_max))
     assert(qcontext.deadline_clock > clock.monotonic64(),
            'query execution timeout exceeded, use `timeout_ms` to increase it')
+    local collection_name = opts.collection_name
+    local pcre = opts.pcre
 
     -- convert tuple -> object
-    local obj = opts.unflatten_tuple(opts.collection_name, tuple,
+    local obj = opts.unflatten_tuple(collection_name, tuple,
         opts.default_unflatten_tuple)
 
     -- skip all items before pivot (the item pointed by offset)
@@ -755,7 +793,8 @@ local function process_tuple(state, tuple, opts)
     end
 
     -- filter out non-matching objects
-    local match = utils.is_subtable(obj, filter)
+    local match = utils.is_subtable(obj, filter) and
+        match_using_re(obj, pcre)
     if do_filter then
         if not match then return true end
     else
@@ -828,6 +867,8 @@ local function select_internal(self, collection_name, from, filter, args, extra)
     -- XXX: save type at parsing and check here
     --assert(args.offset == nil or type(args.offset) == 'number',
     --    'args.offset must be a number of nil, got ' .. type(args.offset))
+    assert(args.pcre == nil or type(args.pcre) == 'table',
+        'args.pcre must be nil or a table, got ' .. type(args.pcre))
 
     local collection = self.collections[collection_name]
     assert(collection ~= nil,
@@ -876,6 +917,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         collection_name = collection_name,
         unflatten_tuple = self.funcs.unflatten_tuple,
         default_unflatten_tuple = default_unflatten_tuple,
+        pcre = args.pcre,
     }
 
     if index == nil then
@@ -974,6 +1016,107 @@ local function init_qcontext(accessor, qcontext)
     }
     qcontext.deadline_clock = clock.monotonic64() +
         settings.timeout_ms * 1000 * 1000
+end
+
+--- Get an avro-schema for a primary key by a collection name.
+---
+--- @tparam table self accessor_general instance
+---
+--- @tparam string collection_name name of a collection
+---
+--- @treturn string `offset_type` is a just string in case of scalar primary
+--- key (and, then, offset) type
+---
+--- @treturn table `offset_type` is a record in case of compound (multi-part)
+--- primary key
+local function get_primary_key_type(self, collection_name)
+    -- get name of field of primary key
+    local _, index_meta = get_primary_index_meta(
+        self, collection_name)
+
+    local collection = self.collections[collection_name]
+    local schema = self.schemas[collection.schema_name]
+
+    local offset_fields = {}
+
+    for _, field_name in ipairs(index_meta.fields) do
+        local field_type
+        for _, field in ipairs(schema.fields) do
+            if field.name == field_name then
+                field_type = field.type
+            end
+        end
+        assert(field_type ~= nil,
+            ('cannot find type for primary index field "%s" ' ..
+            'for collection "%s"'):format(field_name,
+            collection_name))
+        assert(type(field_type) == 'string',
+            'field type must be a string, got ' ..
+            type(field_type))
+        offset_fields[#offset_fields + 1] = {
+            name = field_name,
+            type = field_type,
+        }
+    end
+
+    local offset_type
+    assert(#offset_fields > 0,
+        'offset must contain at least one field')
+    if #offset_fields == 1 then
+        -- use a scalar type
+        offset_type = offset_fields[1].type
+    else
+        -- construct an input type
+        offset_type = {
+            name = collection_name .. '_offset',
+            type = 'record',
+            fields = offset_fields,
+        }
+    end
+
+    return offset_type
+end
+
+-- XXX: add string fields of a nested record / 1:1 connection to
+-- get_pcre_argument_type
+
+--- Get an avro-schema for a pcre argument by a collection name.
+---
+--- Note: it is called from `list_args`, so applicable only for lists:
+--- top-level objects and 1:N connections.
+---
+--- @tparam table self accessor_general instance
+---
+--- @tparam string collection_name name of a collection
+---
+--- @treturn table `pcre_type` is a record with fields per string/string* field
+--- of an object of the collection
+local function get_pcre_argument_type(self, collection_name)
+    local collection = self.collections[collection_name]
+    assert(collection ~= nil, 'cannot found collection ' ..
+        tostring(collection_name))
+    local schema = self.schemas[collection.schema_name]
+    assert(schema ~= nil, 'cannot found schema ' ..
+        tostring(collection.schema_name))
+
+    assert(schema.type == 'record',
+        'top-level object expected to be a record, got ' ..
+        tostring(schema.type))
+
+    local string_fields = {}
+
+    for _, field in ipairs(schema.fields) do
+        if field.type == 'string' or field.type == 'string*' then
+            string_fields[#string_fields + 1] = table.copy(field)
+        end
+    end
+
+    local pcre_type = {
+        name = collection_name .. '_pcre',
+        type = 'record',
+        fields = string_fields,
+    }
+    return pcre_type
 end
 
 --- Create a new data accessor.
@@ -1114,53 +1257,20 @@ function accessor_general.new(opts, funcs)
                     args, extra)
             end,
             list_args = function(self, collection_name)
-                -- get name of field of primary key
-                local _, index_meta = get_primary_index_meta(
-                    self, collection_name)
+                local offset_type = get_primary_key_type(self, collection_name)
 
-                local offset_fields = {}
-
-                for _, field_name in ipairs(index_meta.fields) do
-                    local field_type
-                    local collection = self.collections[collection_name]
-                    local schema = self.schemas[collection.schema_name]
-                    for _, field in ipairs(schema.fields) do
-                        if field.name == field_name then
-                            field_type = field.type
-                        end
-                    end
-                    assert(field_type ~= nil,
-                        ('cannot find type for primary index field "%s" ' ..
-                        'for collection "%s"'):format(field_name,
-                        collection_name))
-                    assert(type(field_type) == 'string',
-                        'field type must be a string, got ' ..
-                        type(field_type))
-                    offset_fields[#offset_fields + 1] = {
-                        name = field_name,
-                        type = field_type,
-                    }
-                end
-
-                local offset_type
-                assert(#offset_fields > 0,
-                    'offset must contain at least one field')
-                if #offset_fields == 1 then
-                    -- use a scalar type
-                    offset_type = offset_fields[1].type
-                else
-                    -- construct an input type
-                    offset_type = {
-                        name = collection_name .. '_offset',
-                        type = 'record',
-                        fields = offset_fields,
-                    }
+                -- add `pcre` argument only if lrexlib-pcre was found
+                local pcre_field
+                if rex ~= nil then
+                    local pcre_type = get_pcre_argument_type(self, collection_name)
+                    pcre_field = {name = 'pcre', type = pcre_type}
                 end
 
                 return {
                     {name = 'limit', type = 'int'},
                     {name = 'offset', type = offset_type},
                     -- {name = 'filter', type = ...},
+                    pcre_field,
                 }
             end,
         }
