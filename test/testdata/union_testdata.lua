@@ -227,35 +227,6 @@ end
 function union_testdata.run_queries(gql_wrapper)
     local results = ''
 
-
-
-    --local query = [[
-    --    query obtainHeroes($hero_id: String) {
-    --        hero_collection(hero_id: $hero_id) {
-    --            hero_id
-    --            hero_type
-    --
-    --
-    --            hero_connection(hero_id: $hero_id){
-    --                hero_id
-    --            }
-    --        }
-    --    }
-    --]]
-
-    --local query = [[
-    --    query obtainOrganizationUsers($hero_id: String) {
-    --        hero_collection(hero_id: $hero_id) {
-    --            ... on human {
-    --                name
-    --            }
-    --            ... on starship {
-    --                model
-    --            }
-    --        }
-    --    }
-    --]]
-
     local query = [[
         query obtainHeroes($hero_id: String) {
             hero_collection(hero_id: $hero_id) {

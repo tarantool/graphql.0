@@ -402,7 +402,6 @@ local function build_lookup_index_name(indexes)
     return lookup_index_name
 end
 
---@todo add commentary and fix style
 local function set_connection_index(c, c_name, c_type, collection_name,
                                     indexes, connection_indexes)
     assert(type(c.index_name) == 'string',
@@ -556,36 +555,41 @@ local function validate_collections(collections, schemas)
             assert(type(connection.name) == 'string',
                 'connection.name must be a string, got ' ..
                 type(connection.name))
-            -- mind two connections types: simple and union
+            assert(type(connection.type) == 'string', 'connection.type must' ..
+                'be a string, got ' .. type(connection.type))
+            assert(connection.type == '1:1' or connection.type == '1:N',
+                'connection.type must be \'1:1\' or \'1:N\', got ' ..
+                connection.type)
             if connection.destination_collection then
                 assert(type(connection.destination_collection) == 'string',
                 'connection.destination_collection must be a string, got ' ..
-                type(connection.destination_collection))
+                    type(connection.destination_collection))
                 assert(type(connection.parts) == 'table',
-                'connection.parts must be a table, got ' ..
-                type(connection.parts))
+                    'connection.parts must be a table, got ' ..
+                    type(connection.parts))
                 assert(type(connection.index_name) == 'string',
-                'connection.index_name must be a string, got ' ..
-                type(connection.index_name))
+                    'connection.index_name must be a string, got ' ..
+                    type(connection.index_name))
                 return
-            elseif connection.variants then
+            end
+            if connection.variants then
                 for _, v in pairs(connection.variants) do
-                    assert(v.determinant, 'each variant should have a determinant')
-                    assert(type(v.determinant) == 'table', 'variant\'s determinant' ..
-                    'end must be a table, got ' .. type(v.determinant))
+                    assert(type(v.determinant) == 'table', 'variant\'s ' ..
+                        'determinant must be a table, got ' ..
+                        type(v.determinant))
                     assert(type(v.destination_collection) == 'string',
-                    'variant.destination_collection must be a string, got ' ..
-                    type(v.destination_collection))
+                        'variant.destination_collection must be a string, ' ..
+                        'got ' .. type(v.destination_collection))
                     assert(type(v.parts) == 'table',
-                    'variant.parts must be a table, got ' .. type(v.parts))
+                        'variant.parts must be a table, got ' .. type(v.parts))
                     assert(type(v.index_name) == 'string',
-                    'variant.index_name must be a string, got ' ..
-                    type(v.index_name))
+                        'variant.index_name must be a string, got ' ..
+                        type(v.index_name))
                 end
                 return
             else
                 assert(false, ('collection doesn\'t have neither destination' ..
-                'collection nor variants fields'))
+                'collection nor variants field'))
             end
         end
     end

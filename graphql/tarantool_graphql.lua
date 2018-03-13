@@ -251,16 +251,11 @@ local function convert_record_fields(state, fields)
     return res
 end
 
---@todo where to put new format description?
-
---- The function converts passed simple connection to a field of GraphQL type
---- There are two types on connections: simple and union
-
+--- The function converts passed simple connection to a field of GraphQL type.
 ---
---- @tparam table state for read state.accessor and previously filled
---- state.types (state.types are gql types)
+--- @tparam table state for for collection types
 --- @tparam table c simple connection to create field on
---- @tparam table collection_name name of the collection which have given
+--- @tparam table collection_name name of the collection which has given
 --- connection
 local convert_simple_connection = function(state, c, collection_name)
     assert(type(c.destination_collection) == 'string',
@@ -292,9 +287,6 @@ local convert_simple_connection = function(state, c, collection_name)
         kind = destination_type,
         arguments = c_args,
         resolve = function(parent, args_instance, info)
-            --print('print from 295 - resolve of simple connection')
-            --print('parent - resolve result from parent type')
-            --require('pl.pretty').dump(parent)
             local destination_args_names = {}
             local destination_args_values = {}
 
@@ -354,14 +346,19 @@ local convert_simple_connection = function(state, c, collection_name)
     return field
 end
 
+--- The function converts passed union connection to a field of GraphQL type.
+--- It builds connections between union collection and destination collections
+--- (destination collections are 'types' of a 'Union' in GraphQL).
+---
+--- @tparam table state for collection types
+--- @tparam table c union connection to create field on
+--- @tparam table collection_name name of the collection which has given
+--- connection
 local convert_union_connection = function(state, c, collection_name)
     local union_types = {}
     local collection_to_arguments = {}
     local collection_to_list_arguments = {}
-    -- map from determinant objects to use in resolveType
-    -- not to use like determinant[determinant_value] = ...
-    -- use like for k, v in pairs() ...
-    -- {{hero_type = 'human', number_of_legs = '2'} = 'human_collection', {
+
     local determinant_keys = utils.get_keys(c.variants[1].determinant)
     local determinant_to_variant = {}
 
@@ -397,23 +394,21 @@ local convert_union_connection = function(state, c, collection_name)
         collection_to_list_arguments[v.destination_collection] = v_list_args
     end
 
-    -- should return graphQL type (collection in our terms)
-    local function resolveType(result)
-        --@todo fix this as it will work only for human-starship union
-        if utils.do_have_keys(result, {'name'}) then
-            return state.types['human_collection']
-        end
-
-        if utils.do_have_keys(result, {'model'}) then
-            return state.types['starship_collection']
+    local resolveType = function (result)
+        for _, v in pairs(c.variants) do
+            local dest_collection = state.types[v.destination_collection]
+            if utils.do_have_keys(result, utils.get_keys(dest_collection.fields)) then
+                return dest_collection
+            end
         end
     end
 
-    local function resolve_variant(parent)
+    local resolve_variant = function (parent)
         assert(utils.do_have_keys(parent, determinant_keys),
-            ('Parent object of union object doesn\'t have determinant fields' ..
-                'which are nessesary to determine which resolving variant should' ..
-                'be used. Union parent object:\n"%s"\n Determinant keys:\n"%s"'):
+            ('Parent object of union object doesn\'t have determinant ' ..
+                'fields which are nessesary to determine which resolving ' ..
+                'variant should be used. Union parent object:\n"%s"\n' ..
+                'Determinant keys:\n"%s"'):
             format(yaml.encode(parent), yaml.encode(determinant_keys)))
 
         local resulting_variant
@@ -439,10 +434,10 @@ local convert_union_connection = function(state, c, collection_name)
 
     local field = {
         name = c.name,
-        kind = types.union({name = c.name, types = union_types, resolveType = resolveType}),
+        kind = types.union({name = c.name, types = union_types,
+                            resolveType = resolveType}),
         arguments =  nil,
         resolve = function(parent, args_instance, info)
-            --variant for this destination
             local v = resolve_variant(parent)
             local destination_collection = state.types[v.destination_collection]
             local destination_args_names = {}
@@ -503,9 +498,9 @@ local convert_union_connection = function(state, c, collection_name)
                     return objs
                 end
         end
-        }
+    }
     return field
-    end
+end
 
 --- The function converts passed connection to a field of GraphQL type
 ---
@@ -516,11 +511,11 @@ local convert_union_connection = function(state, c, collection_name)
 --- connection
 local convert_connection_to_field = function(state, connection, collection_name)
     assert(type(connection.type) == 'string',
-    'connection.type must be a string, got ' .. type(connection.type))
+        'connection.type must be a string, got ' .. type(connection.type))
     assert(connection.type == '1:1' or connection.type == '1:N',
-    'connection.type must be 1:1 or 1:N, got ' .. connection.type)
+        'connection.type must be 1:1 or 1:N, got ' .. connection.type)
     assert(type(connection.name) == 'string',
-    'connection.name must be a string, got ' .. type(connection.name))
+        'connection.name must be a string, got ' .. type(connection.name))
     assert(connection.destination_collection or connection.variants,
         'connection must either destination_collection or variatns field')
 
@@ -682,7 +677,6 @@ local function parse_cfg(cfg)
             {skip_compound = true})
         local list_args = convert_record_fields_to_args(
             accessor:list_args(collection_name))
-
         local args = utils.merge_tables(object_args, list_args)
 
         state.object_arguments[collection_name] = object_args
@@ -712,10 +706,8 @@ local function parse_cfg(cfg)
                 local extra = {
                     qcontext = info.qcontext
                 }
-
-
                 return accessor:select(rootValue, collection_name, from,
-                        object_args_instance, list_args_instance, extra)
+                    object_args_instance, list_args_instance, extra)
             end,
         }
     end
@@ -779,16 +771,6 @@ local function gql_compile(state, query)
     local ast = parse(query)
     assert_gql_query_ast('gql_compile', ast)
     local operation_name = ast.definitions[1].name.value
-    --
-    --print('print from gql_compile - state.schema')
-    --require('pl.pretty').dump(state.schema)
-    --
-    --print('ast')
-    --require('pl.pretty').dump(ast)
-
-
-    --@todo add custom validation for schemas with unions
-    --or change insides of validate to process unions the custom way
     validate(state.schema, ast)
 
     local qstate = {
@@ -825,7 +807,8 @@ end
 ---             schema_name = 'schema_name_foo',
 ---             connections = { // the optional field
 ---                 {
----                     name = 'connection_name_bar',
+---                     type = '1:1' or '1:N',
+---                     name = 'simple_connection_name',
 ---                     destination_collection = 'collection_baz',
 ---                     parts = {
 ---                         {
@@ -838,7 +821,17 @@ end
 ---                                               -- ignored in the graphql
 ---                                               -- part
 ---                 },
----                 ...
+---                 {
+---                     name = 'union_connection_name',
+---                     type = '1:1' or '1:N',
+---                     variants = {
+---                         {
+---                           see variant format below
+---                         },
+---                         ...
+---                     }
+---                 },
+---               ...
 ---             },
 ---         },
 ---         ...
@@ -872,6 +865,22 @@ end
 ---         }
 ---     }),
 --- })
+---
+--- variant format
+--- {
+---     Source collection must have all fields that are keys in determinant
+---     table. Based on the values of these fields right destination collection
+---     is determined.
+---     determinant = {field_or_source: 'destination_1_value', ...},
+---     destination_collection = 'collection_name',
+---     parts = {
+---         {
+---             source_field = 'field_name_source',
+---             destination_field = 'field_name_destination'
+---         }
+---     },
+---     index_name = 'index_name'
+--- }
 function tarantool_graphql.new(cfg)
     local state = parse_cfg(cfg)
     return setmetatable(state, {
