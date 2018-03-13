@@ -99,7 +99,8 @@ make test
   * tarantool,
   * lulpeg,
   * >=tarantool/avro-schema-2.0-71-gfea0ead,
-  * >=tarantool/shard-1.1-91-gfa88bf8 (optional).
+  * >=tarantool/shard-1.1-91-gfa88bf8 (optional),
+  * lrexlib-pcre (optional).
 * For test (additionally to 'for use'):
   * python 2.7,
   * virtualenv,

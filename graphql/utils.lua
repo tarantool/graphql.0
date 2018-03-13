@@ -132,4 +132,19 @@ function utils.gen_booking_table(data)
     })
 end
 
+--- Catch error at module require and return nil in the case.
+---
+--- @tparam string module_name mane of a module to require
+---
+--- @return `module` or `nil`
+function utils.optional_require(module_name)
+    assert(type(module_name) == 'string',
+        'module_name must be a string, got ' .. type(module_name))
+    local ok, module = pcall(require, module_name)
+    if not ok then
+        log.warn('optional_require: no module ' .. module_name)
+    end
+    return ok and module or nil
+end
+
 return utils

@@ -17,6 +17,7 @@ function common_testdata.get_test_metadata()
             "fields": [
                 { "name": "user_id", "type": "string" },
                 { "name": "first_name", "type": "string" },
+                { "name": "middle_name", "type": "string*" },
                 { "name": "last_name", "type": "string" }
             ]
         },
@@ -137,10 +138,13 @@ end
 function common_testdata.fill_test_data(shard)
     local shard = shard or box.space
 
+    local NULL_T = 0
+    local STRING_T = 1
+
     shard.user_collection:replace(
-        {1827767717, 'user_id_1', 'Ivan', 'Ivanov'})
+        {1827767717, 'user_id_1', 'Ivan', STRING_T, 'Ivanovich', 'Ivanov'})
     shard.user_collection:replace(
-        {1827767717, 'user_id_2', 'Vasiliy', 'Pupkin'})
+        {1827767717, 'user_id_2', 'Vasiliy', NULL_T, box.NULL, 'Pupkin'})
     shard.order_collection:replace(
         {'order_id_1', 'user_id_1', 'first order of Ivan'})
     shard.order_collection:replace(
@@ -151,7 +155,8 @@ function common_testdata.fill_test_data(shard)
     for i = 3, 100 do
         local s = tostring(i)
         shard.user_collection:replace(
-            {1827767717, 'user_id_' .. s, 'first name ' .. s, 'last name ' .. s})
+            {1827767717, 'user_id_' .. s, 'first name ' .. s, NULL_T, box.NULL,
+            'last name ' .. s})
         for j = (4 + (i - 3) * 40), (4 + (i - 2) * 40) - 1 do
             local t = tostring(j)
             shard.order_collection:replace(

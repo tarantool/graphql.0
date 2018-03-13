@@ -459,6 +459,34 @@ function compound_index_testdata.run_queries(gql_wrapper)
     results = results .. print_and_return(format_result(
         '5_2', query_5, variables_5_2, result))
 
+    -- compound offset argument constructed from separate variables (top-level
+    -- collection, full primary key)
+    -- -----------------------------------------------------------------------
+
+    local query_6 = [[
+        query users($limit: Int, $user_str: String, $user_num: Long) {
+            user_collection(limit: $limit, offset: {user_str: $user_str,
+                    user_num: $user_num}) {
+                user_str
+                user_num
+                last_name
+                first_name
+            }
+        }
+    ]]
+
+    utils.show_trace(function()
+        local gql_query_6 = gql_wrapper:compile(query_6)
+        local variables_6 = {
+            limit = 10,
+            user_str = 'user_str_b',
+            user_num = 12,
+        }
+        local result = gql_query_6:execute(variables_6)
+        results = results .. print_and_return(format_result(
+            '6', query_6, variables_6, result))
+    end)
+
     return results
 end
 

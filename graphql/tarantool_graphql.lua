@@ -58,7 +58,6 @@ local function avro_type(avro_schema)
     error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
 end
 
--- XXX: recursive skip several NonNull's?
 local function nullable(gql_class)
     assert(type(gql_class) == 'table', 'gql_class must be a table, got ' ..
         type(gql_class))
@@ -66,7 +65,7 @@ local function nullable(gql_class)
     if gql_class.__type ~= 'NonNull' then return gql_class end
 
     assert(gql_class.ofType ~= nil, 'gql_class.ofType must not be nil')
-    return gql_class.ofType
+    return nullable(gql_class.ofType)
 end
 
 local types_long = types.scalar({
@@ -729,7 +728,8 @@ end
 ---             list_args = function(self, collection_name)
 ---                 return {
 ---                     {name = 'limit', type = 'int'},
----                     {name = 'offset', type = <...>}, -- type of primary key
+---                     {name = 'offset', type = <...>}, -- type of a primary key
+---                     {name = 'pcre', type = <...>},
 ---                 }
 ---             end,
 ---         }
