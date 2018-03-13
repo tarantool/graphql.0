@@ -95,11 +95,18 @@ make test
 
 ## Requirements
 
-* For use: tarantool, lulpeg, >=tarantool/shard-1.1-91-gfa88bf8 (optional),
-  tarantool/avro-schema.
-* For test (additionally to 'for use'): python 2.7, virtualenv, luacheck,
-  >=tarantool/shard-1.1-92-gec1a27e.
-* For building apidoc (additionally to 'for use'): ldoc.
+* For use:
+  * tarantool,
+  * lulpeg,
+  * >=tarantool/avro-schema-2.0-71-gfea0ead,
+  * >=tarantool/shard-1.1-91-gfa88bf8 (optional).
+* For test (additionally to 'for use'):
+  * python 2.7,
+  * virtualenv,
+  * luacheck,
+  * >=tarantool/shard-1.1-92-gec1a27e.
+* For building apidoc (additionally to 'for use'):
+  * ldoc.
 
 ## License
 
