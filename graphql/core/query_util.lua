@@ -74,7 +74,7 @@ function query_util.collectFields(objectType, selections, visitedFragments, resu
       end
     elseif selection.kind == 'inlineFragment' then
       if shouldIncludeNode(selection, context) and doesFragmentApply(selection, objectType, context) then
-        collectFields(objectType, selection.selectionSet.selections, visitedFragments, result, context)
+          query_util.collectFields(objectType, selection.selectionSet.selections, visitedFragments, result, context)
       end
     elseif selection.kind == 'fragmentSpread' then
       local fragmentName = selection.name.value
@@ -82,7 +82,7 @@ function query_util.collectFields(objectType, selections, visitedFragments, resu
         visitedFragments[fragmentName] = true
         local fragment = context.fragmentMap[fragmentName]
         if fragment and shouldIncludeNode(fragment, context) and doesFragmentApply(fragment, objectType, context) then
-          collectFields(objectType, fragment.selectionSet.selections, visitedFragments, result, context)
+            query_util.collectFields(objectType, fragment.selectionSet.selections, visitedFragments, result, context)
         end
       end
     end
