@@ -272,16 +272,22 @@ local convert_simple_connection = function(state, c, collection_name)
     'connection.parts must be a string, got ' .. type(c.parts))
 
     -- gql type of connection field
-    local destination_type = state.types[c.destination_collection]
+    local destination_type =
+        state.nullable_collection_types[c.destination_collection]
+
     assert(destination_type ~= nil,
     ('destination_type (named %s) must not be nil'):format(
     c.destination_collection))
 
     local c_args
     if c.type == '1:1' then
+        destination_type = types.nonNull(destination_type)
+        c_args = state.object_arguments[c.destination_collection]
+    elseif c.type == '1:1*' then
         c_args = state.object_arguments[c.destination_collection]
     elseif c.type == '1:N' then
-        destination_type = types.nonNull(types.list(destination_type))
+        destination_type = types.nonNull(types.list(types.nonNull(
+            destination_type)))
         c_args = state.all_arguments[c.destination_collection]
     else
         error('unknown connection type: ' .. tostring(c.type))
@@ -296,6 +302,8 @@ local convert_simple_connection = function(state, c, collection_name)
         resolve = function(parent, args_instance, info)
             local destination_args_names = {}
             local destination_args_values = {}
+            local are_all_parts_non_null = true
+            local are_all_parts_null = true
 
             for _, part in ipairs(c.parts) do
                 assert(type(part.source_field) == 'string',
@@ -307,8 +315,44 @@ local convert_simple_connection = function(state, c, collection_name)
 
                 destination_args_names[#destination_args_names + 1] =
                 part.destination_field
+                local value = parent[part.source_field]
                 destination_args_values[#destination_args_values + 1] =
-                parent[part.source_field]
+                value
+
+                if value ~= nil then -- nil of box.NonNull
+                    are_all_parts_null = false
+                else
+                    are_all_parts_non_null = false
+                end
+            end
+
+            -- Check FULL match constraint before request of
+            -- destination object(s). Note that connection key parts
+            -- can be prefix of index key parts. Zero parts count
+            -- considered as ok by this check.
+            local ok = are_all_parts_null or are_all_parts_non_null
+            if not ok then -- avoid extra json.encode()
+                    assert(ok,
+                        'FULL MATCH constraint was failed: connection ' ..
+                        'key parts must be all non-nulls or all nulls; ' ..
+                        'object: ' .. json.encode(parent))
+            end
+
+            -- Avoid non-needed index lookup on a destination
+            -- collection when all connection parts are null:
+            -- * return null for 1:1* connection;
+            -- * return {} for 1:N connection (except the case when
+            --   source collection is the Query pseudo-collection).
+            if collection_name ~= 'Query' and are_all_parts_null then
+                if c.type ~= '1:1*' and c.type ~= '1:N' then
+                    -- `if` is to avoid extra json.encode
+                    assert(c.type == '1:1*' or c.type == '1:N',
+                        ('only 1:1* or 1:N connections can have ' ..
+                        'all key parts null; parent is %s from ' ..
+                        'collection "%s"'):format(json.encode(parent),
+                        tostring(collection_name)))
+                end
+                return c.type == '1:N' and {} or nil
             end
 
             local from = {
@@ -337,9 +381,12 @@ local convert_simple_connection = function(state, c, collection_name)
             c.destination_collection, from,
             object_args_instance, list_args_instance, extra)
             assert(type(objs) == 'table',
-            'objs list received from an accessor ' ..
-            'must be a table, got ' .. type(objs))
-            if c.type == '1:1' then
+                'objs list received from an accessor ' ..
+                'must be a table, got ' .. type(objs))
+            if c.type == '1:1' or c.type == '1:1*' then
+                    -- we expect here exactly one object even for 1:1*
+                    -- connections because we processed all-parts-are-null
+                    -- situation above
                 assert(#objs == 1,
                 'expect one matching object, got ' ..
                 tostring(#objs))
@@ -372,25 +419,33 @@ local convert_union_connection = function(state, c, collection_name)
     for _, v in ipairs(c.variants) do
         assert(v.determinant, 'each variant should have a determinant')
         assert(type(v.determinant) == 'table', 'variant\'s determinant must ' ..
-        'end be a table, got ' .. type(v.determinant))
+            'end be a table, got ' .. type(v.determinant))
         assert(type(v.destination_collection) == 'string',
-        'variant.destination_collection must be a string, got ' ..
-        type(v.destination_collection))
+            'variant.destination_collection must be a string, got ' ..
+            type(v.destination_collection))
         assert(type(v.parts) == 'table',
-        'variant.parts must be a string, got ' .. type(v.parts))
-        local destination_type = state.types[v.destination_collection]
+            'variant.parts must be a string, got ' .. type(v.parts))
+
+        local destination_type =
+            state.nullable_collection_types[v.destination_collection]
         assert(destination_type ~= nil,
-        ('destination_type (named %s) must not be nil'):format(
-        v.destination_collection))
+            ('destination_type (named %s) must not be nil'):format(
+            v.destination_collection))
 
         determinant_to_variant[v.determinant] = v
 
         local v_args
         if c.type == '1:1' then
+            destination_type = types.nonNull(destination_type)
+            v_args = state.object_arguments[v.destination_collection]
+        elseif c.type == '1:1*' then
             v_args = state.object_arguments[v.destination_collection]
         elseif c.type == '1:N' then
-            destination_type = types.nonNull(types.list(destination_type))
+            destination_type = types.nonNull(types.list(types.nonNull(
+            destination_type)))
             v_args = state.all_arguments[v.destination_collection]
+        else
+            error('unknown connection type: ' .. tostring(c.type))
         end
 
         local v_list_args = state.list_arguments[v.destination_collection]
@@ -449,6 +504,9 @@ local convert_union_connection = function(state, c, collection_name)
             local destination_collection = state.types[v.destination_collection]
             local destination_args_names = {}
             local destination_args_values = {}
+            local are_all_parts_non_null = true
+            local are_all_parts_null = true
+
 
             for _, part in ipairs(v.parts) do
                 assert(type(part.source_field) == 'string',
@@ -460,8 +518,44 @@ local convert_union_connection = function(state, c, collection_name)
 
                 destination_args_names[#destination_args_names + 1] =
                 part.destination_field
+                local value = parent[part.source_field]
                 destination_args_values[#destination_args_values + 1] =
-                parent[part.source_field]
+                value
+
+                if value ~= nil then -- nil of box.NonNull
+                    are_all_parts_null = false
+                else
+                    are_all_parts_non_null = false
+                end
+            end
+
+            -- Check FULL match constraint before request of
+            -- destination object(s). Note that connection key parts
+            -- can be prefix of index key parts. Zero parts count
+            -- considered as ok by this check.
+            local ok = are_all_parts_null or are_all_parts_non_null
+            if not ok then -- avoid extra json.encode()
+                assert(ok,
+                'FULL MATCH constraint was failed: connection ' ..
+                'key parts must be all non-nulls or all nulls; ' ..
+                'object: ' .. json.encode(parent))
+            end
+
+            -- Avoid non-needed index lookup on a destination
+            -- collection when all connection parts are null:
+            -- * return null for 1:1* connection;
+            -- * return {} for 1:N connection (except the case when
+            --   source collection is the Query pseudo-collection).
+            if collection_name ~= 'Query' and are_all_parts_null then
+                if c.type ~= '1:1*' and c.type ~= '1:N' then
+                    -- `if` is to avoid extra json.encode
+                    assert(c.type == '1:1*' or c.type == '1:N',
+                    ('only 1:1* or 1:N connections can have ' ..
+                    'all key parts null; parent is %s from ' ..
+                    'collection "%s"'):format(json.encode(parent),
+                    tostring(collection_name)))
+                end
+                return c.type == '1:N' and {} or nil
             end
 
             local from = {
@@ -496,7 +590,10 @@ local convert_union_connection = function(state, c, collection_name)
             assert(type(objs) == 'table',
             'objs list received from an accessor ' ..
             'must be a table, got ' .. type(objs))
-            if c.type == '1:1' then
+            if c.type == '1:1' or c.type == '1:1*' then
+                -- we expect here exactly one object even for 1:1*
+                -- connections because we processed all-parts-are-null
+                -- situation above
                 assert(#objs == 1,
                 'expect one matching object, got ' ..
                 tostring(#objs))
@@ -519,8 +616,9 @@ end
 local convert_connection_to_field = function(state, connection, collection_name)
     assert(type(connection.type) == 'string',
     'connection.type must be a string, got ' .. type(connection.type))
-    assert(connection.type == '1:1' or connection.type == '1:N',
-    'connection.type must be 1:1 or 1:N, got ' .. connection.type)
+    assert(connection.type == '1:1' or connection.type == '1:1*' or
+        connection.type == '1:N', 'connection.type must be 1:1, 1:1* or 1:N, '..
+        'got ' .. connection.type)
     assert(type(connection.name) == 'string',
     'connection.name must be a string, got ' .. type(connection.name))
     assert(connection.destination_collection or connection.variants,
