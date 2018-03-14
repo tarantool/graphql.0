@@ -132,6 +132,29 @@ function utils.gen_booking_table(data)
     })
 end
 
+--- @return `table` with all keys of the given table
+function utils.get_keys(table)
+    local keys = {}
+    for k, _ in pairs(table) do
+        keys[#keys + 1] = k
+    end
+    return keys
+end
+
+--- Check if passed table has passed keys with non-nil values.
+--- @tparam table table to check
+--- @tparam table keys array of keys to check
+--- @return[1] `true` if passed table has passed keys
+--- @return[2] `false` otherwise
+function utils.do_have_keys(table, keys)
+    for _, k in pairs(keys) do
+        if table[k] == nil then
+            return false
+        end
+    end
+    return true
+end
+
 --- Catch error at module require and return nil in the case.
 ---
 --- @tparam string module_name mane of a module to require
