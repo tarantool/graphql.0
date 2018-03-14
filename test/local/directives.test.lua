@@ -48,11 +48,11 @@ local gql_wrapper = graphql.new({
 -- -----------
 
 local query_1 = [[
-        query user_by_order($first_name: String, $description: String, $is: Boolean) {
+        query user_by_order($first_name: String, $description: String, $include: Boolean) {
             order_collection(description: $description) {
                 order_id
                 description
-                user_connection @include(if: $is, first_name: $first_name) {
+                user_connection @include(if: $include, first_name: $first_name) {
                     user_id
                     last_name
                     first_name
@@ -68,7 +68,7 @@ utils.show_trace(function()
     local variables_1_1 = {
         first_name = 'Ivan',
         description = 'first order of Ivan',
-        is = true
+        include = true
     }
     local result = gql_query_1:execute(variables_1_1)
     print(('RESULT\n%s'):format(yaml.encode(result)))
@@ -78,18 +78,18 @@ utils.show_trace(function()
     local variables_1_2 = {
         first_name = 'Ivan',
         description = 'first order of Ivan',
-        is = false
+        include = false
     }
     local result = gql_query_1:execute(variables_1_2)
     print(('RESULT\n%s'):format(yaml.encode(result)))
 end)
 
 local query_2 = [[
-        query user_by_order($first_name: String, $description: String, $is: Boolean) {
+        query user_by_order($first_name: String, $description: String, $skip: Boolean) {
             order_collection(description: $description) {
                 order_id
                 description
-                user_connection @skip(if: $is, first_name: $first_name) {
+                user_connection @skip(if: $skip, first_name: $first_name) {
                     user_id
                     last_name
                     first_name
@@ -104,7 +104,7 @@ utils.show_trace(function()
     local variables_2_1 = {
         first_name = 'Ivan',
         description = 'first order of Ivan',
-        is = true
+        skip = true
     }
     local result = gql_query_2:execute(variables_2_1)
     print(('RESULT\n%s'):format(yaml.encode(result)))
@@ -114,7 +114,7 @@ utils.show_trace(function()
     local variables_2_2 = {
         first_name = 'Ivan',
         description = 'first order of Ivan',
-        is = false
+        skip = false
     }
     local result = gql_query_2:execute(variables_2_2)
     print(('RESULT\n%s'):format(yaml.encode(result)))
