@@ -252,7 +252,6 @@ local function convert_record_fields(state, fields)
 end
 
 --- The function converts passed simple connection to a field of GraphQL type.
---- The function converts passed avro-schema to a GraphQL type.
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.nullable_collection_types (those are gql types)
@@ -261,10 +260,11 @@ end
 --- described a collection (e.g. tarantool's spaces)
 ---
 --- @tparam table state for for collection types
---- @tparam table c simple connection to create field on
+--- @tparam table connection simple connection to create field on
 --- @tparam table collection_name name of the collection which has given
 --- connection
-local convert_simple_connection = function(state, c, collection_name)
+local convert_simple_connection = function(state, connection, collection_name)
+    local c = connection
     assert(type(c.destination_collection) == 'string',
         'connection.destination_collection must be a string, got ' ..
         type(c.destination_collection))
@@ -314,12 +314,12 @@ local convert_simple_connection = function(state, c, collection_name)
                     type(part.destination_field))
 
                 destination_args_names[#destination_args_names + 1] =
-                part.destination_field
+                    part.destination_field
                 local value = parent[part.source_field]
                 destination_args_values[#destination_args_values + 1] =
-                value
+                    value
 
-                if value ~= nil then -- nil of box.NonNull
+                if value ~= nil then -- nil of s/box.NonNull/box.NULL/
                     are_all_parts_null = false
                 else
                     are_all_parts_non_null = false
@@ -378,8 +378,8 @@ local convert_simple_connection = function(state, c, collection_name)
                 end
             end
             local objs = state.accessor:select(parent,
-            c.destination_collection, from,
-            object_args_instance, list_args_instance, extra)
+                c.destination_collection, from,
+                object_args_instance, list_args_instance, extra)
             assert(type(objs) == 'table',
                 'objs list received from an accessor ' ..
                 'must be a table, got ' .. type(objs))
@@ -404,10 +404,11 @@ end
 --- (destination collections are 'types' of a 'Union' in GraphQL).
 ---
 --- @tparam table state for collection types
---- @tparam table c union connection to create field on
+--- @tparam table connection union connection to create field on
 --- @tparam table collection_name name of the collection which has given
 --- connection
-local convert_union_connection = function(state, c, collection_name)
+local convert_union_connection = function(state, connection, collection_name)
+    local c = connection
     local union_types = {}
     local collection_to_arguments = {}
     local collection_to_list_arguments = {}
@@ -441,7 +442,7 @@ local convert_union_connection = function(state, c, collection_name)
             v_args = state.object_arguments[v.destination_collection]
         elseif c.type == '1:N' then
             destination_type = types.nonNull(types.list(types.nonNull(
-            destination_type)))
+                destination_type)))
             v_args = state.all_arguments[v.destination_collection]
         else
             error('unknown connection type: ' .. tostring(c.type))
@@ -455,7 +456,7 @@ local convert_union_connection = function(state, c, collection_name)
         collection_to_list_arguments[v.destination_collection] = v_list_args
     end
 
-    local resolveType = function (result)
+    local resolveType = function(result)
         for _, v in pairs(c.variants) do
             local dest_collection =
                 state.nullable_collection_types[v.destination_collection]
@@ -465,13 +466,13 @@ local convert_union_connection = function(state, c, collection_name)
         end
     end
 
-    local resolve_variant = function (parent)
+    local resolve_variant = function(parent)
         assert(utils.do_have_keys(parent, determinant_keys),
             ('Parent object of union object doesn\'t have determinant ' ..
             'fields which are necessary to determine which resolving ' ..
             'variant should be used. Union parent object:\n"%s"\n' ..
             'Determinant keys:\n"%s"'):
-        format(yaml.encode(parent), yaml.encode(determinant_keys)))
+            format(yaml.encode(parent), yaml.encode(determinant_keys)))
 
         local resulting_variant
         for determinant, variant in pairs(determinant_to_variant) do
@@ -501,7 +502,8 @@ local convert_union_connection = function(state, c, collection_name)
         arguments =  nil,
         resolve = function(parent, args_instance, info)
             local v = resolve_variant(parent)
-            local destination_collection = state.nullable_collection_types[v.destination_collection]
+            local destination_collection =
+                state.nullable_collection_types[v.destination_collection]
             local destination_args_names = {}
             local destination_args_values = {}
             local are_all_parts_non_null = true
@@ -517,12 +519,12 @@ local convert_union_connection = function(state, c, collection_name)
                     type(part.destination_field))
 
                 destination_args_names[#destination_args_names + 1] =
-                part.destination_field
+                    part.destination_field
                 local value = parent[part.source_field]
                 destination_args_values[#destination_args_values + 1] =
-                value
+                    value
 
-                if value ~= nil then -- nil of box.NonNull
+                if value ~= nil then -- nil of s/box.NonNull/box.NULL/
                     are_all_parts_null = false
                 else
                     are_all_parts_non_null = false
@@ -585,8 +587,8 @@ local convert_union_connection = function(state, c, collection_name)
                 end
             end
             local objs = state.accessor:select(parent,
-            v.destination_collection, from,
-            object_args_instance, list_args_instance, extra)
+                v.destination_collection, from,
+                object_args_instance, list_args_instance, extra)
             assert(type(objs) == 'table',
                 'objs list received from an accessor ' ..
                 'must be a table, got ' .. type(objs))

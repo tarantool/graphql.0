@@ -725,9 +725,9 @@ local function validate_collections(collections, schemas)
                     type(connection.index_name))
             elseif connection.variants then
                 for _, v in pairs(connection.variants) do
-                        assert(type(v.determinant) == 'table', 'variant\'s ' ..
-                    'determinant must be a table, got ' ..
-                    type(v.determinant))
+                        assert(type(v.determinant) == 'table', "variant's " ..
+                            "determinant must be a table, got " ..
+                            type(v.determinant))
                         assert(type(v.destination_collection) == 'string',
                     'variant.destination_collection must be a string, ' ..
                     'got ' .. type(v.destination_collection))
@@ -738,8 +738,9 @@ local function validate_collections(collections, schemas)
                         type(v.index_name))
                 end
             else
-                assert(false, ('collection doesn\'t have neither destination' ..
-                    'collection nor variants field'))
+                assert(false, ('connection "%s" of collection "%s" doesn\'t ' ..
+                    'have neither destination collection nor variants field'):
+                    format(connection.name, collection_name))
             end
         end
     end

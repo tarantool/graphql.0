@@ -36,13 +36,6 @@ function union_testdata.get_test_metadata()
                 { "name": "model", "type": "string" },
                 { "name": "episode", "type": "string"}
             ]
-        },
-        "hero_info": {
-            "name": "hero_info",
-            "type": "record",
-            "fields": [
-                { "name": "hero_id", "type": "string" }
-            ]
         }
     }]])
 
@@ -77,15 +70,6 @@ function union_testdata.get_test_metadata()
                             "index_name": "starship_id_index"
                         }
                     ]
-                },
-                {
-                    "type": "1:1",
-                    "name": "hero_info_connection",
-                    "destination_collection":  "hero_info_collection",
-                    "parts": [
-                        { "source_field": "hero_id", "destination_field": "hero_id" }
-                    ],
-                    "index_name": "hero_info_id_index"
                 }
             ]
         },
@@ -95,10 +79,6 @@ function union_testdata.get_test_metadata()
         },
         "starship_collection": {
             "schema_name": "starship",
-            "connections": []
-        },
-        "hero_info_collection": {
-            "schema_name": "hero_info",
             "connections": []
         }
     }]])
@@ -111,9 +91,6 @@ function union_testdata.get_test_metadata()
             { name = 'expires_on', type = 'long', default = 0 },
         },
         starship = {
-            { name = 'expires_on', type = 'long', default = 0 },
-        },
-        hero_info = {
             { name = 'expires_on', type = 'long', default = 0 },
         }
     }
@@ -147,16 +124,6 @@ function union_testdata.get_test_metadata()
                 unique = true,
                 primary = true,
             },
-        },
-
-        hero_info_collection = {
-            hero_info_id_index = {
-                service_fields = {},
-                fields = { 'hero_id' },
-                index_type = 'tree',
-                unique = true,
-                primary = true,
-            },
         }
     }
 
@@ -169,28 +136,22 @@ function union_testdata.get_test_metadata()
 end
 
 function union_testdata.init_spaces()
-    -- user_collection fields
-    local U_USER_ID_FN = 2
+    local ID_FIELD_NUM = 2
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('hero_collection')
         box.space.hero_collection:create_index('hero_id_index',
-        { type = 'tree', unique = true, parts = { U_USER_ID_FN, 'string' }}
+            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
         )
 
         box.schema.create_space('human_collection')
         box.space.human_collection:create_index('human_id_index',
-        { type = 'tree', unique = true, parts = { U_USER_ID_FN, 'string' }}
+            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
         )
 
         box.schema.create_space('starship_collection')
         box.space.starship_collection:create_index('starship_id_index',
-        { type = 'tree', unique = true, parts = { U_USER_ID_FN, 'string' }}
-        )
-
-        box.schema.create_space('hero_info_collection')
-        box.space.hero_info_collection:create_index('hero_info_id_index',
-        { type = 'tree', unique = true, parts = { U_USER_ID_FN, 'string' }}
+            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
         )
     end)
 end
@@ -199,21 +160,15 @@ function union_testdata.fill_test_data(shard)
     local shard = shard or box.space
 
     shard.hero_collection:replace(
-    { 1827767717, 'hero_id_1', 'human'})
+        { 1827767717, 'hero_id_1', 'human'})
     shard.hero_collection:replace(
-    { 1827767717, 'hero_id_2', 'starship'})
+        { 1827767717, 'hero_id_2', 'starship'})
 
     shard.human_collection:replace(
-    { 1827767717, 'hero_id_1', 'Luke', "EMPR"})
+        { 1827767717, 'hero_id_1', 'Luke', "EMPR"})
 
     shard.starship_collection:replace(
-    { 1827767717, 'hero_id_2', 'Falcon-42', "NEW"})
-
-    shard.hero_info_collection:replace(
-    { 1827767717, 'hero_id_1'})
-
-    shard.hero_info_collection:replace(
-    { 1827767717, 'hero_id_2'})
+        { 1827767717, 'hero_id_2', 'Falcon-42', "NEW"})
 end
 
 function union_testdata.drop_spaces()
@@ -243,20 +198,20 @@ function union_testdata.run_queries(gql_wrapper)
         }
     ]]
 
+    local gql_query = gql_wrapper:compile(query)
+
     utils.show_trace(function()
         local variables_1 = {hero_id = 'hero_id_1'}
-        local gql_query_1 = gql_wrapper:compile(query)
-        local result = gql_query_1:execute(variables_1)
+        local result = gql_query:execute(variables_1)
         results = results .. print_and_return(
-        ('RESULT\n%s'):format(yaml.encode(result)))
+            ('RESULT\n%s'):format(yaml.encode(result)))
     end)
 
     utils.show_trace(function()
         local variables_2 = {hero_id = 'hero_id_2'}
-        local gql_query_2 = gql_wrapper:compile(query)
-        local result = gql_query_2:execute(variables_2)
+        local result = gql_query:execute(variables_2)
         results = results .. print_and_return(
-        ('RESULT\n%s'):format(yaml.encode(result)))
+            ('RESULT\n%s'):format(yaml.encode(result)))
     end)
 
     return results

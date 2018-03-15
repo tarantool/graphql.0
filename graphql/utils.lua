@@ -12,6 +12,7 @@ function utils.show_trace(func, ...)
         function() return func(unpack(args)) end,
         function(err)
             log.info('ERROR: ' .. tostring(err))
+            log.info(debug.traceback())
         end
     ))
 end
