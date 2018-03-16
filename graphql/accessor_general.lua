@@ -798,7 +798,8 @@ end
 --- * `pivot_filter` (table, set of fields to match the objected pointed by
 ---   `offset` arqument of the GraphQL query),
 --- * `resulting_object_cnt_max` (number),
---- * `fetched_object_cnt_max` (number).
+--- * `fetched_object_cnt_max` (number),
+--- * `resolveField` (function) for subrequests, see @{tarantool_graphql.new}.
 ---
 --- @return nil
 ---
@@ -822,6 +823,7 @@ local function process_tuple(state, tuple, opts)
            'query execution timeout exceeded, use `timeout_ms` to increase it')
     local collection_name = opts.collection_name
     local pcre = opts.pcre
+    local resolveField = opts.resolveField
 
     -- convert tuple -> object
     local obj = opts.unflatten_tuple(collection_name, tuple,
@@ -833,6 +835,20 @@ local function process_tuple(state, tuple, opts)
         if not match then return true end
         state.pivot_found = true
         return true -- skip pivot item too
+    end
+
+    -- make subrequests if needed
+    for k, v in pairs(filter) do
+        if obj[k] == nil then
+            local field_name = k
+            local sub_filter = v
+            local sub_opts = {dont_force_nullability = true}
+            local field = resolveField(field_name, obj, sub_filter, sub_opts)
+            if field == nil then return true end
+            obj[k] = field
+            -- XXX: Remove the value from a filter? But then we need to copy
+            -- the filter each time in the case.
+        end
     end
 
     -- filter out non-matching objects
@@ -961,6 +977,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         unflatten_tuple = self.funcs.unflatten_tuple,
         default_unflatten_tuple = default_unflatten_tuple,
         pcre = args.pcre,
+        resolveField = extra.resolveField,
     }
 
     if index == nil then

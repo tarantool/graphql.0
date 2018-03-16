@@ -1,0 +1,66 @@
+
+
+        +---------------------+
+        |  a-+      h     x y |
+        |  |\ \     |\        |
+        |  b c d    k l       |
+        |  |   |\      \      |
+        |  e   f g      m     |
+        +---------------------+
+RESULT
+---
+order_collection:
+- order_id: order_id_1
+  description: first order of Ivan
+  user_connection:
+    user_id: user_id_1
+    last_name: Ivanov
+    first_name: Ivan
+- order_id: order_id_2
+  description: second order of Ivan
+  user_connection:
+    user_id: user_id_1
+    last_name: Ivanov
+    first_name: Ivan
+...
+
+RUN upside {{{
+QUERY
+        query emails_trace_upside($upside_body: String) {
+            email(in_reply_to: {in_reply_to: {body: $upside_body}}) {
+                body
+                in_reply_to {
+                    body
+                    in_reply_to {
+                        body
+                    }
+                }
+            }
+        }
+VARIABLES
+---
+upside_body: a
+...
+
+RESULT
+---
+email:
+- body: g
+  in_reply_to:
+    body: d
+    in_reply_to:
+      body: a
+- body: f
+  in_reply_to:
+    body: d
+    in_reply_to:
+      body: a
+- body: e
+  in_reply_to:
+    body: b
+    in_reply_to:
+      body: a
+...
+
+}}}
+
