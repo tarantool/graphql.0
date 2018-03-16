@@ -70,7 +70,12 @@ end
 
 local evaluateSelections
 
---@todo resolveType optional comments
+-- @param[opt] resolvedType a type to be used instead of one returned by
+-- `fieldType.resolveType(result)` in case when the `fieldType` is Interface or
+-- Union; that is needed to increase flexibility of an union type resolving
+-- (e.g. resolving by a parent object instead of a current object) via
+-- returning it from the `fieldType.resolve` function, which called before
+-- `resolvedType` and may need to determine the type itself for its needs
 local function completeValue(fieldType, result, subSelections, context, resolvedType)
   local fieldTypeName = fieldType.__type
 
@@ -112,7 +117,6 @@ local function completeValue(fieldType, result, subSelections, context, resolved
     local fields = evaluateSelections(fieldType, result, subSelections, context)
     return next(fields) and fields or context.schema.__emptyObject
   elseif fieldTypeName == 'Interface' or fieldTypeName == 'Union' then
-
     local objectType = resolvedType or fieldType.resolveType(result)
     while objectType.__type == 'NonNull' do
       objectType = objectType.ofType
@@ -156,11 +160,11 @@ local function getFieldEntry(objectType, object, fields, context)
     variableValues = context.variables,
     qcontext = context.qcontext
   }
-  --@todo add comment
+
+  -- resolvedType is optional return value
   local resolvedObject, resolvedType = (fieldType.resolve or defaultResolver)(object, arguments, info)
   local subSelections = query_util.mergeSelectionSets(fields)
 
-  --@todo add comment
   return completeValue(fieldType.kind, resolvedObject, subSelections, context, resolvedType)
 end
 

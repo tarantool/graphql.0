@@ -614,7 +614,6 @@ local function set_connection_index(c, c_name, c_type, collection_name,
     }
 end
 
-
 --- Build `connection_indexes` table (part of `index_cache`) to use in the
 --- @{get_index_name} function.
 ---
@@ -734,11 +733,11 @@ local function validate_collections(collections, schemas)
                     assert(type(v.parts) == 'table',
                         'variant.parts must be a table, got ' .. type(v.parts))
                     assert(type(v.index_name) == 'string',
-                            'variant.index_name must be a string, got ' ..
-                            type(v.index_name))
+                        'variant.index_name must be a string, got ' ..
+                        type(v.index_name))
                 end
             else
-                assert(false, ('connection "%s" of collection "%s" doesn\'t ' ..
+                assert(false, ('connection "%s" of collection "%s" does not ' ..
                     'have neither destination collection nor variants field'):
                     format(connection.name, collection_name))
             end

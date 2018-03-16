@@ -11,21 +11,24 @@
 ---
 --- * Unions: as GraphQL specification says "...no fields may be queried on
 ---   Union type without the use of typed fragments." Tarantool_graphql
----   behaves this way. So 'common fields' are not supported. This does NOT work:
+---   behaves this way. So 'common fields' are not supported. This does NOT
+---   work:
 ---
----  hero {
----       hero_id -- common field
----       ... on human {
----           name
----       }
----       ... on droid {
----           model
----       }
----  }
----  (GraphQL spec: http://facebook.github.io/graphql/October2016/#sec-Unions)
----  Also, no arguments are currently allowed for fragments.
----  See issue about this (https://github.com/facebook/graphql/issues/204)
+--- ```
+--- hero {
+---     hero_id -- common field; does NOT work
+---     ... on human {
+---         name
+---     }
+---     ... on droid {
+---         model
+---     }
+--- }
+--- ```
 ---
+--- (GraphQL spec: http://facebook.github.io/graphql/October2016/#sec-Unions)
+--- Also, no arguments are currently allowed for fragments.
+--- See issue about this (https://github.com/facebook/graphql/issues/204)
 
 local json = require('json')
 local yaml = require('yaml')
@@ -536,7 +539,7 @@ local function convert_union_connection(state, connection, collection_name)
             name = c.name,
             types = union_types,
         }),
-        arguments = nil,
+        arguments = nil, -- see Border cases/Unions at the top of the file
         resolve = function(parent, args_instance, info)
             local v, variant_num = resolve_variant(parent)
             local destination_type = union_types[variant_num]
