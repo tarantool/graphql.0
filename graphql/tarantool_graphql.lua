@@ -6,6 +6,26 @@
 --- * GraphQL top level statement must be a collection name. Arguments for this
 ---   statement match non-deducible field names of corresponding object and
 ---   passed to an accessor function in the filter argument.
+---
+--- Border cases:
+---
+--- * Unions: as GraphQL specification says "...no fields may be queried on
+---  Union type without the use of typed fragments." Tarantool_graphql
+---  behaves this way. So 'common fields' are not supported. This does NOT work:
+---
+---  hero {
+--       hero_id -- common field
+--       ... on human {
+--           name
+--       }
+--       ... on droid {
+--           model
+--       }
+--  }
+---  (GraphQL spec: http://facebook.github.io/graphql/October2016/#sec-Unions)
+---  Also, no arguments are currently allowed for fragments.
+---  See issue about this (https://github.com/facebook/graphql/issues/204)
+---
 
 local json = require('json')
 local yaml = require('yaml')
@@ -359,7 +379,7 @@ local convert_simple_connection = function(state, connection, collection_name)
         'connection.destination_collection must be a string, got ' ..
         type(c.destination_collection))
     assert(type(c.parts) == 'table',
-        'connection.parts must be a string, got ' .. type(c.parts))
+        'connection.parts must be a table, got ' .. type(c.parts))
 
     -- gql type of connection field
     local destination_type =
@@ -549,7 +569,7 @@ local convert_union_connection = function(state, connection, collection_name)
                             ('only 1:1* or 1:N connections can have ' ..
                             'all key parts null; parent is %s from ' ..
                             'collection "%s"'):format(json.encode(parent),
-                            tostring(collection_name)))
+                                tostring(collection_name)))
                     end
                     return c.type == '1:N' and {} or nil
             end
