@@ -324,9 +324,11 @@ function rules.fragmentSpreadIsPossible(node, context)
 
   local valid = util.find(parentTypes, function(kind)
     local kind = kind
-    -- Graphql-lua does not this check correctly in the case of NonNull
-    -- wrapped fragment types. Next line fixes that
-    if kind.__type == 'NonNull' then
+    -- Here is the check that type, mentioned in '... on some_type'
+    -- conditional fragment expression is type of some field of parent object.
+    -- In case of Union parent object and NonNull wrapped inner types
+    -- graphql-lua missed unwrapping so we add it here
+    while kind.__type == 'NonNull' do
       kind = kind.ofType
     end
     return fragmentTypes[kind]

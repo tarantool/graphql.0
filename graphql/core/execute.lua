@@ -70,6 +70,7 @@ end
 
 local evaluateSelections
 
+--@todo resolveType optional comments
 local function completeValue(fieldType, result, subSelections, context, resolvedType)
   local fieldTypeName = fieldType.__type
 
@@ -113,7 +114,7 @@ local function completeValue(fieldType, result, subSelections, context, resolved
   elseif fieldTypeName == 'Interface' or fieldTypeName == 'Union' then
 
     local objectType = resolvedType or fieldType.resolveType(result)
-    if objectType.__type == 'NonNull' then
+    while objectType.__type == 'NonNull' do
       objectType = objectType.ofType
     end
 
@@ -155,10 +156,11 @@ local function getFieldEntry(objectType, object, fields, context)
     variableValues = context.variables,
     qcontext = context.qcontext
   }
-
+  --@todo add comment
   local resolvedObject, resolvedType = (fieldType.resolve or defaultResolver)(object, arguments, info)
   local subSelections = query_util.mergeSelectionSets(fields)
 
+  --@todo add comment
   return completeValue(fieldType.kind, resolvedObject, subSelections, context, resolvedType)
 end
 

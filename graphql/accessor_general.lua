@@ -699,14 +699,14 @@ local function validate_collections(collections, schemas)
         local schema_name = collection.schema_name
         assert(type(schema_name) == 'string',
             'collection.schema_name must be a string, got ' ..
-                type(schema_name))
+            type(schema_name))
         assert(schemas[schema_name] ~= nil,
             ('cannot find schema "%s" for collection "%s"'):format(
-            schema_name, collection_name))
+                schema_name, collection_name))
         local connections = collection.connections
         assert(connections == nil or type(connections) == 'table',
-                'collection.connections must be nil or table, got ' ..
-                type(connections))
+            'collection.connections must be nil or table, got ' ..
+            type(connections))
         for _, connection in ipairs(connections) do
             assert(type(connection) == 'table',
                 'connection must be a table, got ' .. type(connection))
@@ -715,27 +715,27 @@ local function validate_collections(collections, schemas)
                     type(connection.name))
             if connection.destination_collection then
                 assert(type(connection.destination_collection) == 'string',
-                'connection.destination_collection must be a string, got ' ..
+                    'connection.destination_collection must be a string, got ' ..
                     type(connection.destination_collection))
                 assert(type(connection.parts) == 'table',
-                'connection.parts must be a string, got ' ..
+                    'connection.parts must be a string, got ' ..
                     type(connection.parts))
                 assert(type(connection.index_name) == 'string',
-                'connection.index_name must be a string, got ' ..
+                    'connection.index_name must be a string, got ' ..
                     type(connection.index_name))
             elseif connection.variants then
                 for _, v in pairs(connection.variants) do
-                        assert(type(v.determinant) == 'table', "variant's " ..
-                            "determinant must be a table, got " ..
-                            type(v.determinant))
-                        assert(type(v.destination_collection) == 'string',
-                    'variant.destination_collection must be a string, ' ..
-                    'got ' .. type(v.destination_collection))
-                        assert(type(v.parts) == 'table',
-                    'variant.parts must be a table, got ' .. type(v.parts))
-                        assert(type(v.index_name) == 'string',
-                    'variant.index_name must be a string, got ' ..
-                        type(v.index_name))
+                    assert(type(v.determinant) == 'table', "variant's " ..
+                        "determinant must be a table, got " ..
+                        type(v.determinant))
+                    assert(type(v.destination_collection) == 'string',
+                        'variant.destination_collection must be a string, ' ..
+                        'got ' .. type(v.destination_collection))
+                    assert(type(v.parts) == 'table',
+                        'variant.parts must be a table, got ' .. type(v.parts))
+                    assert(type(v.index_name) == 'string',
+                            'variant.index_name must be a string, got ' ..
+                            type(v.index_name))
                 end
             else
                 assert(false, ('connection "%s" of collection "%s" doesn\'t ' ..

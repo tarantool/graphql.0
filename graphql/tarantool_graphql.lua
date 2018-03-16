@@ -10,18 +10,18 @@
 --- Border cases:
 ---
 --- * Unions: as GraphQL specification says "...no fields may be queried on
----  Union type without the use of typed fragments." Tarantool_graphql
----  behaves this way. So 'common fields' are not supported. This does NOT work:
+---   Union type without the use of typed fragments." Tarantool_graphql
+---   behaves this way. So 'common fields' are not supported. This does NOT work:
 ---
 ---  hero {
---       hero_id -- common field
---       ... on human {
---           name
---       }
---       ... on droid {
---           model
---       }
---  }
+---       hero_id -- common field
+---       ... on human {
+---           name
+---       }
+---       ... on droid {
+---           model
+---       }
+---  }
 ---  (GraphQL spec: http://facebook.github.io/graphql/October2016/#sec-Unions)
 ---  Also, no arguments are currently allowed for fragments.
 ---  See issue about this (https://github.com/facebook/graphql/issues/204)
@@ -271,7 +271,8 @@ local function convert_record_fields(state, fields)
     return res
 end
 
-local args_from_destination_collection = function(state, collection, connection_type)
+local function args_from_destination_collection(state, collection,
+                                                connection_type)
     if connection_type == '1:1' then
         return state.object_arguments[collection]
     elseif connection_type == '1:1*' then
@@ -283,7 +284,7 @@ local args_from_destination_collection = function(state, collection, connection_
     end
 end
 
-local specify_destination_type = function (destination_type, connection_type)
+local function specify_destination_type(destination_type, connection_type)
     if connection_type == '1:1' then
         return types.nonNull(destination_type)
     elseif connection_type == '1:1*' then
@@ -295,7 +296,7 @@ local specify_destination_type = function (destination_type, connection_type)
     end
 end
 
-local parent_args_values = function(parent, connection_parts)
+local function parent_args_values(parent, connection_parts)
     local destination_args_names = {}
     local destination_args_values = {}
     for _, part in ipairs(connection_parts) do
@@ -309,8 +310,7 @@ local parent_args_values = function(parent, connection_parts)
         destination_args_names[#destination_args_names + 1] =
             part.destination_field
         local value = parent[part.source_field]
-        destination_args_values[#destination_args_values + 1] =
-            value
+        destination_args_values[#destination_args_values + 1] = value
     end
 
     return destination_args_names, destination_args_values
@@ -320,13 +320,13 @@ end
 -- destination object(s). Note that connection key parts
 -- can be prefix of index key parts. Zero parts count
 -- considered as ok by this check.
-local are_all_parts_null = function(parent, connection_parts)
+local function are_all_parts_null(parent, connection_parts)
     local are_all_parts_null = true
     local are_all_parts_non_null = true
     for _, part in ipairs(connection_parts) do
         local value = parent[part.source_field]
 
-        if value ~= nil then -- nil of s/box.NonNull/box.NULL/
+        if value ~= nil then -- nil or box.NULL
             are_all_parts_null = false
         else
             are_all_parts_non_null = false
@@ -336,16 +336,16 @@ local are_all_parts_null = function(parent, connection_parts)
     local ok = are_all_parts_null or are_all_parts_non_null
     if not ok then -- avoid extra json.encode()
         assert(ok,
-        'FULL MATCH constraint was failed: connection ' ..
-        'key parts must be all non-nulls or all nulls; ' ..
-        'object: ' .. json.encode(parent))
+            'FULL MATCH constraint was failed: connection ' ..
+            'key parts must be all non-nulls or all nulls; ' ..
+            'object: ' .. json.encode(parent))
     end
 
     return are_all_parts_null
 end
 
-local check_args_instance = function(args_instance, connection_args,
-                                     connection_list_args)
+local function separate_args_instance(args_instance, connection_args,
+                                      connection_list_args)
     local object_args_instance = {}
     local list_args_instance = {}
     for k, v in pairs(args_instance) do
@@ -355,12 +355,13 @@ local check_args_instance = function(args_instance, connection_args,
             object_args_instance[k] = v
         else
             error(('cannot found "%s" field ("%s" value) ' ..
-            'within allowed fields'):format(tostring(k),
-            tostring(v)))
+                'within allowed fields'):format(tostring(k),
+                    tostring(v)))
         end
     end
     return object_args_instance, list_args_instance
 end
+
 --- The function converts passed simple connection to a field of GraphQL type.
 ---
 --- @tparam table state for read state.accessor and previously filled
@@ -373,7 +374,7 @@ end
 --- @tparam table connection simple connection to create field on
 --- @tparam table collection_name name of the collection which has given
 --- connection
-local convert_simple_connection = function(state, connection, collection_name)
+local function convert_simple_connection(state, connection, collection_name)
     local c = connection
     assert(type(c.destination_collection) == 'string',
         'connection.destination_collection must be a string, got ' ..
@@ -417,7 +418,7 @@ local convert_simple_connection = function(state, connection, collection_name)
                             ('only 1:1* or 1:N connections can have ' ..
                             'all key parts null; parent is %s from ' ..
                             'collection "%s"'):format(json.encode(parent),
-                            tostring(collection_name)))
+                                tostring(collection_name)))
                     end
                     return c.type == '1:N' and {} or nil
             end
@@ -432,11 +433,10 @@ local convert_simple_connection = function(state, connection, collection_name)
                 qcontext = info.qcontext
             }
 
-            --object_args_instance -- passed to 'filter'
-            --list_args_instance -- passed to 'args'
-
+            -- object_args_instance will be passed to 'filter'
+            -- list_args_instance will be passed to 'args'
             local object_args_instance, list_args_instance =
-            check_args_instance(args_instance, c_args, c_list_args)
+                separate_args_instance(args_instance, c_args, c_list_args)
 
             local objs = state.accessor:select(parent,
                 c.destination_collection, from,
@@ -469,7 +469,7 @@ end
 --- @tparam table connection union connection to create field on
 --- @tparam table collection_name name of the collection which has given
 --- connection
-local convert_union_connection = function(state, connection, collection_name)
+local function convert_union_connection(state, connection, collection_name)
     local c = connection
     local union_types = {}
     local collection_to_arguments = {}
@@ -494,8 +494,6 @@ local convert_union_connection = function(state, connection, collection_name)
         local v_args = args_from_destination_collection(state,
             v.destination_collection, c.type)
         destination_type = specify_destination_type(destination_type, c.type)
-
-
 
         local v_list_args = state.list_arguments[v.destination_collection]
 
@@ -538,7 +536,7 @@ local convert_union_connection = function(state, connection, collection_name)
             name = c.name,
             types = union_types,
         }),
-        arguments =  nil,
+        arguments = nil,
         resolve = function(parent, args_instance, info)
             local v, variant_num = resolve_variant(parent)
             local destination_type = union_types[variant_num]
@@ -582,7 +580,7 @@ local convert_union_connection = function(state, connection, collection_name)
             --list_args_instance -- passed to 'args'
 
             local object_args_instance, list_args_instance =
-                check_args_instance(args_instance, c_args, c_list_args)
+                separate_args_instance(args_instance, c_args, c_list_args)
 
             local objs = state.accessor:select(parent,
                 v.destination_collection, from,
