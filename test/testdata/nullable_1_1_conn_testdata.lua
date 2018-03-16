@@ -125,7 +125,7 @@ function nullable_1_1_conn_testdata.init_spaces()
     local IN_REPLY_TO_DOMAIN_FN = 6
     local BODY_FN = 7 -- luacheck: ignore
 
-    box.once('test_space_init_spaces', function()
+    box.once('init_spaces_nullable_1_1_conn', function()
         box.schema.create_space('email')
         box.space.email:create_index('message_id',
             {type = 'tree', unique = true, parts = {
@@ -302,7 +302,7 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox)
 end
 
 function nullable_1_1_conn_testdata.drop_spaces()
-    box.space._schema:delete('oncetest_space_init_spaces')
+    box.space._schema:delete('onceinit_spaces_nullable_1_1_conn')
     box.space.email:drop()
 end
 

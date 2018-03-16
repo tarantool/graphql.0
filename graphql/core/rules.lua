@@ -357,7 +357,11 @@ function rules.uniqueInputObjectFields(node, context)
     end
   end
 
-  validateValue(node.value)
+  if node.kind == 'inputObject' then
+    validateValue(node)
+  else
+    validateValue(node.value)
+  end
 end
 
 function rules.directivesAreDefined(node, context)

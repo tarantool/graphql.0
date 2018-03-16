@@ -359,7 +359,7 @@ local function separate_args_instance(args_instance, connection_args,
         else
             error(('cannot found "%s" field ("%s" value) ' ..
                 'within allowed fields'):format(tostring(k),
-                    tostring(v)))
+                    json.encode(v)))
         end
     end
     return object_args_instance, list_args_instance
@@ -388,23 +388,44 @@ local function convert_simple_connection(state, connection, collection_name)
     -- gql type of connection field
     local destination_type =
         state.nullable_collection_types[c.destination_collection]
-
     assert(destination_type ~= nil,
         ('destination_type (named %s) must not be nil'):format(
         c.destination_collection))
-
+    local raw_destination_type = destination_type
 
     local c_args = args_from_destination_collection(state,
-    c.destination_collection, c.type)
+        c.destination_collection, c.type)
     destination_type = specify_destination_type(destination_type, c.type)
 
     local c_list_args = state.list_arguments[c.destination_collection]
+
+    -- capture `raw_destination_type`
+    local function genResolveField(info)
+        return function(field_name, object, filter, opts)
+            assert(raw_destination_type.fields[field_name],
+                ('performing a subrequest by the non-existent ' ..
+                'field "%s" of the collection "%s"'):format(field_name,
+                c.destination_collection))
+            return raw_destination_type.fields[field_name].resolve(
+                object, filter, info, opts)
+        end
+    end
 
     local field = {
         name = c.name,
         kind = destination_type,
         arguments = c_args,
-        resolve = function(parent, args_instance, info)
+        resolve = function(parent, args_instance, info, opts)
+            local opts = opts or {}
+            assert(type(opts) == 'table',
+                'opts must be nil or a table, got ' .. type(opts))
+            local dont_force_nullability =
+                opts.dont_force_nullability or false
+            assert(type(dont_force_nullability) == 'boolean',
+                'opts.dont_force_nullability ' ..
+                'must be nil or a boolean, got ' ..
+                type(dont_force_nullability))
+
             local destination_args_names, destination_args_values =
                 parent_args_values(parent, c.parts)
 
@@ -432,8 +453,10 @@ local function convert_simple_connection(state, connection, collection_name)
                 destination_args_names = destination_args_names,
                 destination_args_values = destination_args_values,
             }
+            local resolveField = genResolveField(info)
             local extra = {
-                qcontext = info.qcontext
+                qcontext = info.qcontext,
+                resolveField = resolveField, -- for subrequests
             }
 
             -- object_args_instance will be passed to 'filter'
@@ -451,7 +474,8 @@ local function convert_simple_connection(state, connection, collection_name)
                 -- we expect here exactly one object even for 1:1*
                 -- connections because we processed all-parts-are-null
                 -- situation above
-                assert(#objs == 1, 'expect one matching object, got ' ..
+                assert(#objs == 1 or dont_force_nullability,
+                    'expect one matching object, got ' ..
                     tostring(#objs))
                 return objs[1]
             else -- c.type == '1:N'
@@ -778,6 +802,84 @@ local function create_root_collection(state)
     })
 end
 
+--- Execute a function for each 1:1 or 1:1* connection of each collection.
+---
+--- @tparam table state tarantool_graphql instance
+---
+--- @tparam function func a function with the following parameters:
+---
+--- * source collection name (string);
+--- * connection (table).
+local function for_each_1_1_connection(state, func)
+    for collection_name, collection in pairs(state.collections) do
+        for _, c in ipairs(collection.connections or {}) do
+            if c.type == '1:1' or c.type == '1:1*' then
+                func(collection_name, c)
+            end
+        end
+    end
+end
+
+--- Add arguments corresponding to 1:1 and 1:1* connections (nested filters).
+---
+--- @tparam table state graphql_tarantool instance
+local function add_connection_arguments(state)
+    -- map destination collection to list of input objects
+    local input_objects = {}
+    -- map source collection and connection name to an input object
+    local lookup_input_objects = {}
+
+    -- create InputObjects for each 1:1 or 1:1* connection of each collection
+    for_each_1_1_connection(state, function(collection_name, c)
+        -- XXX: support union collections
+        if c.variants ~= nil then return end
+
+        local object = types.inputObject({
+            name = c.name,
+            description = ('generated from the connection "%s" ' ..
+                'of collection "%s" using collection "%s"'):format(
+                c.name, collection_name, c.destination_collection),
+            fields = state.object_arguments[c.destination_collection],
+        })
+
+        if input_objects[c.destination_collection] == nil then
+            input_objects[c.destination_collection] = {}
+        end
+        table.insert(input_objects[c.destination_collection], object)
+
+        if lookup_input_objects[collection_name] == nil then
+            lookup_input_objects[collection_name] = {}
+        end
+        lookup_input_objects[collection_name][c.name] = object
+    end)
+
+    -- update fields of collection arguments and input objects with other input
+    -- objects
+    for_each_1_1_connection(state, function(collection_name, c)
+        -- XXX: support union collections
+        if c.variants ~= nil then return end
+
+        local new_object = lookup_input_objects[collection_name][c.name]
+        -- collection arguments
+        local fields = state.object_arguments[collection_name]
+        assert(fields[c.name] == nil,
+            'we must not add an input object twice to the same collection ' ..
+            'arguments list')
+        fields[c.name] = new_object
+        -- input objects
+        for _, input_object in ipairs(input_objects[collection_name] or {}) do
+            local fields = input_object.fields
+            assert(fields[c.name] == nil,
+                'we must not add an input object twice to the same input ' ..
+                'object')
+            fields[c.name] = {
+                name = c.name,
+                kind = new_object,
+            }
+        end
+    end)
+end
+
 local function parse_cfg(cfg)
     local state = {}
 
@@ -839,14 +941,25 @@ local function parse_cfg(cfg)
             {skip_compound = true})
         local list_args = convert_record_fields_to_args(
             accessor:list_args(collection_name))
-        local args = utils.merge_tables(object_args, list_args)
 
         state.object_arguments[collection_name] = object_args
         state.list_arguments[collection_name] = list_args
+    end
+
+    add_connection_arguments(state)
+
+    -- fill all_arguments with object_arguments + list_arguments
+    for collection_name, collection in pairs(state.collections) do
+        local object_args = state.object_arguments[collection_name]
+        local list_args = state.list_arguments[collection_name]
+
+        local args = utils.merge_tables(object_args, list_args)
         state.all_arguments[collection_name] = args
     end
+
     -- create fake root `Query` collection
     create_root_collection(state)
+
     return state
 end
 
@@ -967,10 +1080,14 @@ end
 ---                 --     destination_args_values = <...>,
 ---                 -- }
 ---                 --
----                 -- extra is a table which contains additional data for the
----                 -- query; by now it consists of a single qcontext table,
----                 -- which can be used by accessor to store any query-related
----                 -- data
+---                 -- `extra` is a table which contains additional data for
+---                 -- the query:
+---                 --
+---                 -- * `qcontext` (table) can be used by an accessor to store
+---                 --   any query-related data;
+---                 -- * `resolveField(field_name, object, filter, opts)`
+---                 -- (function) for performing a subrequest on a fields
+---                 -- connected using a 1:1 or 1:1* connection.
 ---                 --
 ---                 return ...
 ---             end,
