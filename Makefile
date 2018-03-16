@@ -8,6 +8,7 @@ lint:
 		test/testdata/*.lua \
 		test/common/*.test.lua test/common/lua/*.lua \
 		test/extra/*.test.lua \
+		test/*.lua \
 		--no-redefined --no-unused-args
 
 .PHONY: test

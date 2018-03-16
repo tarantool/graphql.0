@@ -1,8 +1,10 @@
 local json = require('json')
-local yaml = require('yaml')
 local utils = require('graphql.utils')
+local test_utils =  require('test.utils')
 
 local compound_index_testdata = {}
+
+local format_result = test_utils.format_result
 
 -- return an error w/o file name and line number
 local function strip_error(err)
@@ -12,11 +14,6 @@ end
 local function print_and_return(...)
     print(...)
     return table.concat({...}, ' ') .. '\n'
-end
-
-local function format_result(name, query, variables, result)
-    return ('RUN %s {{{\nQUERY\n%s\nVARIABLES\n%s\nRESULT\n%s\n}}}\n'):format(
-        name, query:rstrip(), yaml.encode(variables), yaml.encode(result))
 end
 
 -- schemas and meta-information

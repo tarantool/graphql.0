@@ -559,6 +559,61 @@ local function build_index_parts_tree(indexes)
     return roots
 end
 
+local function set_connection_index(c, c_name, c_type, collection_name,
+                                    indexes, connection_indexes)
+    assert(type(c.index_name) == 'string',
+        'index_name must be a string, got ' .. type(c.index_name))
+
+    -- validate index_name against 'indexes'
+    local index_meta = indexes[c.destination_collection]
+    assert(type(index_meta) == 'table',
+        'index_meta must be a table, got ' .. type(index_meta))
+
+    assert(type(collection_name) == 'string', 'collection_name expected to ' ..
+        'be string, got ' .. type(collection_name))
+
+    -- validate connection parts are match or being prefix of index
+    -- fields
+    local i = 1
+    local index_fields = index_meta[c.index_name].fields
+    for _, part in ipairs(c.parts) do
+        assert(type(part.source_field) == 'string',
+            'part.source_field must be a string, got ' ..
+            type(part.source_field))
+        assert(type(part.destination_field) == 'string',
+            'part.destination_field must be a string, got ' ..
+            type(part.destination_field))
+        assert(part.destination_field == index_fields[i],
+            ('connection "%s" of collection "%s" has destination parts that ' ..
+            'is not prefix of the index "%s" parts ' ..
+            '(destination collection - "%s")'):format(c_name, collection_name,
+            c.index_name, c.destination_collection))
+        i = i + 1
+    end
+    local parts_cnt = i - 1
+
+    -- partial index of an unique index is not guaranteed to being
+    -- unique
+    assert(c_type == '1:N' or parts_cnt == #index_fields,
+        ('1:1 connection "%s" of collection "%s" ' ..
+        'has less fields than the index of "%s" collection ' ..
+        '(cannot prove uniqueness of the partial index)'):format(c_name,
+        collection_name, c.index_name, c.destination_collection))
+
+    -- validate connection type against index uniqueness (if provided)
+    if index_meta.unique ~= nil then
+        assert(c_type == '1:N' or index_meta.unique == true,
+            ('1:1 connection ("%s") cannot be implemented ' ..
+            'on top of non-unique index ("%s")'):format(
+            c_name, c.index_name))
+    end
+
+    return {
+        index_name = c.index_name,
+        connection_type = c_type,
+    }
+end
+
 --- Build `connection_indexes` table (part of `index_cache`) to use in the
 --- @{get_index_name} function.
 ---
@@ -581,60 +636,28 @@ local function build_connection_indexes(indexes, collections)
     assert(type(collections) == 'table', 'collections must be a table, got ' ..
         type(collections))
     local connection_indexes = {}
-    for _, collection in pairs(collections) do
+    for collection_name, collection in pairs(collections) do
         for _, c in ipairs(collection.connections) do
-            if connection_indexes[c.destination_collection] == nil then
-                connection_indexes[c.destination_collection] = {}
-            end
-            local index_name = c.index_name
-            assert(type(index_name) == 'string',
-                'index_name must be a string, got ' .. type(index_name))
+            if c.destination_collection ~= nil then
+                if connection_indexes[c.destination_collection] == nil then
+                    connection_indexes[c.destination_collection] = {}
+                end
 
-            -- validate index_name against 'indexes'
-            local index_meta = indexes[c.destination_collection]
-            assert(type(index_meta) == 'table',
-                'index_meta must be a table, got ' .. type(index_meta))
-
-            -- validate connection parts are match or being prefix of index
-            -- fields
-            local i = 1
-            local index_fields = index_meta[c.index_name].fields
-            for _, part in ipairs(c.parts) do
-                assert(type(part.source_field) == 'string',
-                    'part.source_field must be a string, got ' ..
-                    type(part.source_field))
-                assert(type(part.destination_field) == 'string',
-                    'part.destination_field must be a string, got ' ..
-                    type(part.destination_field))
-                assert(part.destination_field == index_fields[i],
-                    ('connection "%s" of collection "%s" ' ..
-                    'has destination parts that is not prefix of the index ' ..
-                    '"%s" parts'):format(c.name, c.destination_collection,
-                    c.index_name))
-                i = i + 1
-            end
-            local parts_cnt = i - 1
-
-            -- partial index of an unique index is not guaranteed to being
-            -- unique
-            assert(c.type == '1:N' or parts_cnt == #index_fields,
-                ('1:1 connection "%s" of collection "%s" ' ..
-                'has less fields than the index "%s" has (cannot prove ' ..
-                'uniqueness of the partial index)'):format(c.name,
-                c.destination_collection, c.index_name))
-
-            -- validate connection type against index uniqueness (if provided)
-            if index_meta.unique ~= nil then
-                assert(c.type == '1:N' or index_meta.unique == true,
-                    ('1:1 connection ("%s") cannot be implemented ' ..
-                    'on top of non-unique index ("%s")'):format(
-                    c.name, index_name))
+                connection_indexes[c.destination_collection][c.name] =
+                set_connection_index(c, c.name, c.type, collection_name,
+                    indexes, connection_indexes)
             end
 
-            connection_indexes[c.destination_collection][c.name] = {
-                index_name = index_name,
-                connection_type = c.type,
-            }
+            if c.variants ~= nil then
+                for _, v in ipairs(c.variants) do
+                    if connection_indexes[v.destination_collection] == nil then
+                        connection_indexes[v.destination_collection] = {}
+                    end
+                    connection_indexes[v.destination_collection][c.name] =
+                        set_connection_index(v, c.name, c.type, collection_name,
+                            indexes, connection_indexes)
+                end
+            end
         end
     end
     return connection_indexes
@@ -678,7 +701,7 @@ local function validate_collections(collections, schemas)
             type(schema_name))
         assert(schemas[schema_name] ~= nil,
             ('cannot find schema "%s" for collection "%s"'):format(
-            schema_name, collection_name))
+                schema_name, collection_name))
         local connections = collection.connections
         assert(connections == nil or type(connections) == 'table',
             'collection.connections must be nil or table, got ' ..
@@ -688,16 +711,36 @@ local function validate_collections(collections, schemas)
                 'connection must be a table, got ' .. type(connection))
             assert(type(connection.name) == 'string',
                 'connection.name must be a string, got ' ..
-                type(connection.name))
-            assert(type(connection.destination_collection) == 'string',
-                'connection.destination_collection must be a string, got ' ..
-                type(connection.destination_collection))
-            assert(type(connection.parts) == 'table',
-                'connection.parts must be a string, got ' ..
-                type(connection.parts))
-            assert(type(connection.index_name) == 'string',
-                'connection.index_name must be a string, got ' ..
-                type(connection.index_name))
+                    type(connection.name))
+            if connection.destination_collection then
+                assert(type(connection.destination_collection) == 'string',
+                    'connection.destination_collection must be a string, got ' ..
+                    type(connection.destination_collection))
+                assert(type(connection.parts) == 'table',
+                    'connection.parts must be a string, got ' ..
+                    type(connection.parts))
+                assert(type(connection.index_name) == 'string',
+                    'connection.index_name must be a string, got ' ..
+                    type(connection.index_name))
+            elseif connection.variants then
+                for _, v in pairs(connection.variants) do
+                    assert(type(v.determinant) == 'table', "variant's " ..
+                        "determinant must be a table, got " ..
+                        type(v.determinant))
+                    assert(type(v.destination_collection) == 'string',
+                        'variant.destination_collection must be a string, ' ..
+                        'got ' .. type(v.destination_collection))
+                    assert(type(v.parts) == 'table',
+                        'variant.parts must be a table, got ' .. type(v.parts))
+                    assert(type(v.index_name) == 'string',
+                        'variant.index_name must be a string, got ' ..
+                        type(v.index_name))
+                end
+            else
+                assert(false, ('connection "%s" of collection "%s" does not ' ..
+                    'have neither destination collection nor variants field'):
+                    format(connection.name, collection_name))
+            end
         end
     end
 end
