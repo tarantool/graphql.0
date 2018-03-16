@@ -300,17 +300,17 @@ local parent_args_values = function(parent, connection_parts)
     local destination_args_values = {}
     for _, part in ipairs(connection_parts) do
         assert(type(part.source_field) == 'string',
-        'part.source_field must be a string, got ' ..
-        type(part.destination_field))
+            'part.source_field must be a string, got ' ..
+            type(part.destination_field))
         assert(type(part.destination_field) == 'string',
-        'part.destination_field must be a string, got ' ..
-        type(part.destination_field))
+            'part.destination_field must be a string, got ' ..
+            type(part.destination_field))
 
         destination_args_names[#destination_args_names + 1] =
-        part.destination_field
+            part.destination_field
         local value = parent[part.source_field]
         destination_args_values[#destination_args_values + 1] =
-        value
+            value
     end
 
     return destination_args_names, destination_args_values
@@ -475,8 +475,6 @@ local convert_union_connection = function(state, connection, collection_name)
     local collection_to_arguments = {}
     local collection_to_list_arguments = {}
 
-    local determinant_to_variant = {}
-
     for _, v in ipairs(c.variants) do
         assert(v.determinant, 'each variant should have a determinant')
             assert(type(v.determinant) == 'table', 'variant\'s determinant ' ..
@@ -493,12 +491,11 @@ local convert_union_connection = function(state, connection, collection_name)
             ('destination_type (named %s) must not be nil'):format(
                 v.destination_collection))
 
-        determinant_to_variant[v.determinant] = v
-
-
         local v_args = args_from_destination_collection(state,
             v.destination_collection, c.type)
         destination_type = specify_destination_type(destination_type, c.type)
+
+
 
         local v_list_args = state.list_arguments[v.destination_collection]
 
@@ -508,20 +505,9 @@ local convert_union_connection = function(state, connection, collection_name)
         collection_to_list_arguments[v.destination_collection] = v_list_args
     end
 
-
-    local resolveType = function(result)
-        for _, v in pairs(c.variants) do
-            local dest_collection =
-                state.nullable_collection_types[v.destination_collection]
-            if utils.do_have_keys(result, utils.get_keys(dest_collection.fields)) then
-                return dest_collection
-            end
-        end
-    end
-
     local determinant_keys = utils.get_keys(c.variants[1].determinant)
 
-    local resolve_variant = function(parent)
+    local resolve_variant = function (parent)
         assert(utils.do_have_keys(parent, determinant_keys),
             ('Parent object of union object doesn\'t have determinant ' ..
             'fields which are necessary to determine which resolving ' ..
@@ -529,9 +515,11 @@ local convert_union_connection = function(state, connection, collection_name)
             'Determinant keys:\n"%s"'):
             format(yaml.encode(parent), yaml.encode(determinant_keys)))
 
+        local variant_num
         local resulting_variant
-        for determinant, variant in pairs(determinant_to_variant) do
-            local is_match = utils.is_subtable(parent, determinant)
+        for i, variant in ipairs(c.variants) do
+            variant_num = i
+            local is_match = utils.is_subtable(parent, variant.determinant)
 
             if is_match then
                 resulting_variant = variant
@@ -541,16 +529,19 @@ local convert_union_connection = function(state, connection, collection_name)
 
         assert(resulting_variant, ('Variant resolving failed.'..
             'Parent object: "%s"\n'):format(yaml.encode(parent)))
-        return resulting_variant
+        return resulting_variant, variant_num
     end
 
     local field = {
         name = c.name,
-        kind = types.union({name = c.name, types = union_types,
-                            resolveType = resolveType}),
+        kind = types.union({
+            name = c.name,
+            types = union_types,
+        }),
         arguments =  nil,
         resolve = function(parent, args_instance, info)
-            local v = resolve_variant(parent)
+            local v, variant_num = resolve_variant(parent)
+            local destination_type = union_types[variant_num]
             local destination_collection =
                 state.nullable_collection_types[v.destination_collection]
             local destination_args_names, destination_args_values =
@@ -571,7 +562,7 @@ local convert_union_connection = function(state, connection, collection_name)
                             'collection "%s"'):format(json.encode(parent),
                                 tostring(collection_name)))
                     end
-                    return c.type == '1:N' and {} or nil
+                    return c.type == '1:N' and {} or nil, destination_type
             end
 
             local from = {
@@ -605,9 +596,9 @@ local convert_union_connection = function(state, connection, collection_name)
                 -- situation above
                 assert(#objs == 1, 'expect one matching object, got ' ..
                     tostring(#objs))
-                return objs[1]
+                return objs[1], destination_type
             else -- c.type == '1:N'
-                return objs
+                return objs, destination_type
             end
         end
     }

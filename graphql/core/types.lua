@@ -155,7 +155,9 @@ end
 function types.union(config)
   assert(type(config.name) == 'string', 'type name must be provided as a string')
   assert(type(config.types) == 'table', 'types table must be provided')
-  assert(type(config.resolveType) == 'function', 'must provide resolveType as a function')
+  if config.resolveType then
+    assert(type(config.resolveType) == 'function', 'must provide resolveType as a function')
+  end
 
   local instance = {
     __type = 'Union',

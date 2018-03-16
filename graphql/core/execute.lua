@@ -70,7 +70,7 @@ end
 
 local evaluateSelections
 
-local function completeValue(fieldType, result, subSelections, context)
+local function completeValue(fieldType, result, subSelections, context, resolvedType)
   local fieldTypeName = fieldType.__type
 
   if fieldTypeName == 'NonNull' then
@@ -111,7 +111,12 @@ local function completeValue(fieldType, result, subSelections, context)
     local fields = evaluateSelections(fieldType, result, subSelections, context)
     return next(fields) and fields or context.schema.__emptyObject
   elseif fieldTypeName == 'Interface' or fieldTypeName == 'Union' then
-    local objectType = fieldType.resolveType(result)
+
+    local objectType = resolvedType or fieldType.resolveType(result)
+    if objectType.__type == 'NonNull' then
+      objectType = objectType.ofType
+    end
+
     return evaluateSelections(objectType, result, subSelections, context)
   end
 
@@ -151,10 +156,10 @@ local function getFieldEntry(objectType, object, fields, context)
     qcontext = context.qcontext
   }
 
-  local resolvedObject = (fieldType.resolve or defaultResolver)(object, arguments, info)
+  local resolvedObject, resolvedType = (fieldType.resolve or defaultResolver)(object, arguments, info)
   local subSelections = query_util.mergeSelectionSets(fields)
 
-  return completeValue(fieldType.kind, resolvedObject, subSelections, context)
+  return completeValue(fieldType.kind, resolvedObject, subSelections, context, resolvedType)
 end
 
 evaluateSelections = function(objectType, object, selections, context)

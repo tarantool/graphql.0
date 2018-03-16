@@ -326,7 +326,9 @@ function rules.fragmentSpreadIsPossible(node, context)
     local kind = kind
     -- Graphql-lua does not this check correctly in the case of NonNull
     -- wrapped fragment types. Next line fixes that
-    if kind.__type == 'NonNull' then kind = kind.ofType end
+    if kind.__type == 'NonNull' then
+      kind = kind.ofType
+    end
     return fragmentTypes[kind]
   end)
 
