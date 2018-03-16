@@ -1,13 +1,8 @@
 local json = require('json')
-local yaml = require('yaml')
 local utils = require('graphql.utils')
+local test_utils = require('test.utils')
 
 local union_testdata = {}
-
-local function print_and_return(...)
-    print(...)
-    return table.concat({ ... }, ' ') .. '\n'
-end
 
 function union_testdata.get_test_metadata()
     local schemas = json.decode([[{
@@ -203,15 +198,16 @@ function union_testdata.run_queries(gql_wrapper)
     utils.show_trace(function()
         local variables_1 = {hero_id = 'hero_id_1'}
         local result = gql_query:execute(variables_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. test_utils.print_and_return(test_utils.format_result(
+        '1', query, variables_1, result))
+
     end)
 
     utils.show_trace(function()
         local variables_2 = {hero_id = 'hero_id_2'}
         local result = gql_query:execute(variables_2)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        results = results .. test_utils.print_and_return(test_utils.format_result(
+        '2', query, variables_2, result))
     end)
 
     return results

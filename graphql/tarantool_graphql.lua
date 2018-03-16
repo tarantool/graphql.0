@@ -251,6 +251,96 @@ local function convert_record_fields(state, fields)
     return res
 end
 
+local args_from_destination_collection = function(state, collection, connection_type)
+    if connection_type == '1:1' then
+        return state.object_arguments[collection]
+    elseif connection_type == '1:1*' then
+        return state.object_arguments[collection]
+    elseif connection_type == '1:N' then
+        return state.all_arguments[collection]
+    else
+        error('unknown connection type: ' .. tostring(connection_type))
+    end
+end
+
+local specify_destination_type = function (destination_type, connection_type)
+    if connection_type == '1:1' then
+        return types.nonNull(destination_type)
+    elseif connection_type == '1:1*' then
+        return destination_type
+    elseif connection_type == '1:N' then
+        return types.nonNull(types.list(types.nonNull(destination_type)))
+    else
+        error('unknown connection type: ' .. tostring(connection_type))
+    end
+end
+
+local parent_args_values = function(parent, connection_parts)
+    local destination_args_names = {}
+    local destination_args_values = {}
+    for _, part in ipairs(connection_parts) do
+        assert(type(part.source_field) == 'string',
+        'part.source_field must be a string, got ' ..
+        type(part.destination_field))
+        assert(type(part.destination_field) == 'string',
+        'part.destination_field must be a string, got ' ..
+        type(part.destination_field))
+
+        destination_args_names[#destination_args_names + 1] =
+        part.destination_field
+        local value = parent[part.source_field]
+        destination_args_values[#destination_args_values + 1] =
+        value
+    end
+
+    return destination_args_names, destination_args_values
+end
+
+-- Check FULL match constraint before request of
+-- destination object(s). Note that connection key parts
+-- can be prefix of index key parts. Zero parts count
+-- considered as ok by this check.
+local are_all_parts_null = function(parent, connection_parts)
+    local are_all_parts_null = true
+    local are_all_parts_non_null = true
+    for _, part in ipairs(connection_parts) do
+        local value = parent[part.source_field]
+
+        if value ~= nil then -- nil of s/box.NonNull/box.NULL/
+            are_all_parts_null = false
+        else
+            are_all_parts_non_null = false
+        end
+    end
+
+    local ok = are_all_parts_null or are_all_parts_non_null
+    if not ok then -- avoid extra json.encode()
+        assert(ok,
+        'FULL MATCH constraint was failed: connection ' ..
+        'key parts must be all non-nulls or all nulls; ' ..
+        'object: ' .. json.encode(parent))
+    end
+
+    return are_all_parts_null
+end
+
+local check_args_instance = function(args_instance, connection_args,
+                                     connection_list_args)
+    local object_args_instance = {}
+    local list_args_instance = {}
+    for k, v in pairs(args_instance) do
+        if connection_list_args[k] ~= nil then
+            list_args_instance[k] = v
+        elseif connection_args[k] ~= nil then
+            object_args_instance[k] = v
+        else
+            error(('cannot found "%s" field ("%s" value) ' ..
+            'within allowed fields'):format(tostring(k),
+            tostring(v)))
+        end
+    end
+    return object_args_instance, list_args_instance
+end
 --- The function converts passed simple connection to a field of GraphQL type.
 ---
 --- @tparam table state for read state.accessor and previously filled
@@ -273,25 +363,16 @@ local convert_simple_connection = function(state, connection, collection_name)
 
     -- gql type of connection field
     local destination_type =
-    state.nullable_collection_types[c.destination_collection]
+        state.nullable_collection_types[c.destination_collection]
 
     assert(destination_type ~= nil,
         ('destination_type (named %s) must not be nil'):format(
         c.destination_collection))
 
-    local c_args
-    if c.type == '1:1' then
-        destination_type = types.nonNull(destination_type)
-        c_args = state.object_arguments[c.destination_collection]
-    elseif c.type == '1:1*' then
-        c_args = state.object_arguments[c.destination_collection]
-    elseif c.type == '1:N' then
-        destination_type = types.nonNull(types.list(types.nonNull(
-        destination_type)))
-        c_args = state.all_arguments[c.destination_collection]
-    else
-        error('unknown connection type: ' .. tostring(c.type))
-    end
+
+    local c_args = args_from_destination_collection(state,
+    c.destination_collection, c.type)
+    destination_type = specify_destination_type(destination_type, c.type)
 
     local c_list_args = state.list_arguments[c.destination_collection]
 
@@ -300,59 +381,25 @@ local convert_simple_connection = function(state, connection, collection_name)
         kind = destination_type,
         arguments = c_args,
         resolve = function(parent, args_instance, info)
-            local destination_args_names = {}
-            local destination_args_values = {}
-            local are_all_parts_non_null = true
-            local are_all_parts_null = true
-
-            for _, part in ipairs(c.parts) do
-                assert(type(part.source_field) == 'string',
-                    'part.source_field must be a string, got ' ..
-                    type(part.destination_field))
-                assert(type(part.destination_field) == 'string',
-                    'part.destination_field must be a string, got ' ..
-                    type(part.destination_field))
-
-                destination_args_names[#destination_args_names + 1] =
-                    part.destination_field
-                local value = parent[part.source_field]
-                destination_args_values[#destination_args_values + 1] =
-                    value
-
-                if value ~= nil then -- nil of s/box.NonNull/box.NULL/
-                    are_all_parts_null = false
-                else
-                    are_all_parts_non_null = false
-                end
-            end
-
-            -- Check FULL match constraint before request of
-            -- destination object(s). Note that connection key parts
-            -- can be prefix of index key parts. Zero parts count
-            -- considered as ok by this check.
-            local ok = are_all_parts_null or are_all_parts_non_null
-            if not ok then -- avoid extra json.encode()
-                assert(ok,
-                    'FULL MATCH constraint was failed: connection ' ..
-                    'key parts must be all non-nulls or all nulls; ' ..
-                    'object: ' .. json.encode(parent))
-            end
+            local destination_args_names, destination_args_values =
+                parent_args_values(parent, c.parts)
 
             -- Avoid non-needed index lookup on a destination
             -- collection when all connection parts are null:
             -- * return null for 1:1* connection;
             -- * return {} for 1:N connection (except the case when
             --   source collection is the Query pseudo-collection).
-            if collection_name ~= 'Query' and are_all_parts_null then
-                if c.type ~= '1:1*' and c.type ~= '1:N' then
-                    -- `if` is to avoid extra json.encode
-                    assert(c.type == '1:1*' or c.type == '1:N',
-                        ('only 1:1* or 1:N connections can have ' ..
-                        'all key parts null; parent is %s from ' ..
-                        'collection "%s"'):format(json.encode(parent),
-                        tostring(collection_name)))
-                end
-                return c.type == '1:N' and {} or nil
+            if collection_name ~= 'Query' and are_all_parts_null(parent, c.parts)
+                then
+                    if c.type ~= '1:1*' and c.type ~= '1:N' then
+                        -- `if` is to avoid extra json.encode
+                        assert(c.type == '1:1*' or c.type == '1:N',
+                            ('only 1:1* or 1:N connections can have ' ..
+                            'all key parts null; parent is %s from ' ..
+                            'collection "%s"'):format(json.encode(parent),
+                            tostring(collection_name)))
+                    end
+                    return c.type == '1:N' and {} or nil
             end
 
             local from = {
@@ -364,19 +411,13 @@ local convert_simple_connection = function(state, connection, collection_name)
             local extra = {
                 qcontext = info.qcontext
             }
-            local object_args_instance = {} -- passed to 'filter'
-            local list_args_instance = {} -- passed to 'args'
-            for k, v in pairs(args_instance) do
-                if c_list_args[k] ~= nil then
-                    list_args_instance[k] = v
-                elseif c_args[k] ~= nil then
-                    object_args_instance[k] = v
-                else
-                    error(('cannot found "%s" field ("%s" value) ' ..
-                        'within allowed fields'):format(tostring(k),
-                        tostring(v)))
-                end
-            end
+
+            --object_args_instance -- passed to 'filter'
+            --list_args_instance -- passed to 'args'
+
+            local object_args_instance, list_args_instance =
+            check_args_instance(args_instance, c_args, c_list_args)
+
             local objs = state.accessor:select(parent,
                 c.destination_collection, from,
                 object_args_instance, list_args_instance, extra)
@@ -400,7 +441,8 @@ local convert_simple_connection = function(state, connection, collection_name)
 end
 
 --- The function converts passed union connection to a field of GraphQL type.
---- It builds connections between union collection and destination collections
+--- It combines destination collections of passed union connection into
+--- the Union GraphQL type.
 --- (destination collections are 'types' of a 'Union' in GraphQL).
 ---
 --- @tparam table state for collection types
@@ -413,7 +455,6 @@ local convert_union_connection = function(state, connection, collection_name)
     local collection_to_arguments = {}
     local collection_to_list_arguments = {}
 
-    local determinant_keys = utils.get_keys(c.variants[1].determinant)
     local determinant_to_variant = {}
 
     for _, v in ipairs(c.variants) do
@@ -424,29 +465,20 @@ local convert_union_connection = function(state, connection, collection_name)
             'variant.destination_collection must be a string, got ' ..
             type(v.destination_collection))
         assert(type(v.parts) == 'table',
-            'variant.parts must be a string, got ' .. type(v.parts))
+            'variant.parts must be a table, got ' .. type(v.parts))
 
         local destination_type =
-        state.nullable_collection_types[v.destination_collection]
+            state.nullable_collection_types[v.destination_collection]
         assert(destination_type ~= nil,
             ('destination_type (named %s) must not be nil'):format(
-            v.destination_collection))
+                v.destination_collection))
 
         determinant_to_variant[v.determinant] = v
 
-        local v_args
-        if c.type == '1:1' then
-            --destination_type = types.nonNull(destination_type)
-            v_args = state.object_arguments[v.destination_collection]
-        elseif c.type == '1:1*' then
-            v_args = state.object_arguments[v.destination_collection]
-        elseif c.type == '1:N' then
-            destination_type = types.nonNull(types.list(types.nonNull(
-                destination_type)))
-            v_args = state.all_arguments[v.destination_collection]
-        else
-            error('unknown connection type: ' .. tostring(c.type))
-        end
+
+        local v_args = args_from_destination_collection(state,
+            v.destination_collection, c.type)
+        destination_type = specify_destination_type(destination_type, c.type)
 
         local v_list_args = state.list_arguments[v.destination_collection]
 
@@ -455,6 +487,7 @@ local convert_union_connection = function(state, connection, collection_name)
         collection_to_arguments[v.destination_collection] = v_args
         collection_to_list_arguments[v.destination_collection] = v_list_args
     end
+
 
     local resolveType = function(result)
         for _, v in pairs(c.variants) do
@@ -466,6 +499,8 @@ local convert_union_connection = function(state, connection, collection_name)
         end
     end
 
+    local determinant_keys = utils.get_keys(c.variants[1].determinant)
+
     local resolve_variant = function(parent)
         assert(utils.do_have_keys(parent, determinant_keys),
             ('Parent object of union object doesn\'t have determinant ' ..
@@ -476,13 +511,7 @@ local convert_union_connection = function(state, connection, collection_name)
 
         local resulting_variant
         for determinant, variant in pairs(determinant_to_variant) do
-            local is_match = true
-            for determinant_key, determinant_value in pairs(determinant) do
-                if parent[determinant_key] ~= determinant_value then
-                    is_match = false
-                    break
-                end
-            end
+            local is_match = utils.is_subtable(parent, determinant)
 
             if is_match then
                 resulting_variant = variant
@@ -504,60 +533,25 @@ local convert_union_connection = function(state, connection, collection_name)
             local v = resolve_variant(parent)
             local destination_collection =
                 state.nullable_collection_types[v.destination_collection]
-            local destination_args_names = {}
-            local destination_args_values = {}
-            local are_all_parts_non_null = true
-            local are_all_parts_null = true
-
-
-            for _, part in ipairs(v.parts) do
-                assert(type(part.source_field) == 'string',
-                    'part.source_field must be a string, got ' ..
-                    type(part.destination_field))
-                assert(type(part.destination_field) == 'string',
-                    'part.destination_field must be a string, got ' ..
-                    type(part.destination_field))
-
-                destination_args_names[#destination_args_names + 1] =
-                    part.destination_field
-                local value = parent[part.source_field]
-                destination_args_values[#destination_args_values + 1] =
-                    value
-
-                if value ~= nil then -- nil of s/box.NonNull/box.NULL/
-                    are_all_parts_null = false
-                else
-                    are_all_parts_non_null = false
-                end
-            end
-
-            -- Check FULL match constraint before request of
-            -- destination object(s). Note that connection key parts
-            -- can be prefix of index key parts. Zero parts count
-            -- considered as ok by this check.
-            local ok = are_all_parts_null or are_all_parts_non_null
-            if not ok then -- avoid extra json.encode()
-                assert(ok,
-                'FULL MATCH constraint was failed: connection ' ..
-                'key parts must be all non-nulls or all nulls; ' ..
-                'object: ' .. json.encode(parent))
-            end
+            local destination_args_names, destination_args_values =
+                parent_args_values(parent, v.parts)
 
             -- Avoid non-needed index lookup on a destination
             -- collection when all connection parts are null:
             -- * return null for 1:1* connection;
             -- * return {} for 1:N connection (except the case when
             --   source collection is the Query pseudo-collection).
-            if collection_name ~= 'Query' and are_all_parts_null then
-                if c.type ~= '1:1*' and c.type ~= '1:N' then
-                    -- `if` is to avoid extra json.encode
-                    assert(c.type == '1:1*' or c.type == '1:N',
-                        ('only 1:1* or 1:N connections can have ' ..
-                        'all key parts null; parent is %s from ' ..
-                        'collection "%s"'):format(json.encode(parent),
-                        tostring(collection_name)))
-                end
-                return c.type == '1:N' and {} or nil
+            if collection_name ~= 'Query' and are_all_parts_null(parent, v.parts)
+                then
+                    if c.type ~= '1:1*' and c.type ~= '1:N' then
+                        -- `if` is to avoid extra json.encode
+                        assert(c.type == '1:1*' or c.type == '1:N',
+                            ('only 1:1* or 1:N connections can have ' ..
+                            'all key parts null; parent is %s from ' ..
+                            'collection "%s"'):format(json.encode(parent),
+                            tostring(collection_name)))
+                    end
+                    return c.type == '1:N' and {} or nil
             end
 
             local from = {
@@ -569,23 +563,16 @@ local convert_union_connection = function(state, connection, collection_name)
             local extra = {
                 qcontext = info.qcontext
             }
-            local object_args_instance = {} -- passed to 'filter'
-            local list_args_instance = {} -- passed to 'args'
 
             local c_args = collection_to_arguments[destination_collection]
             local c_list_args = collection_to_list_arguments[destination_collection]
 
-            for k, v in pairs(args_instance) do
-                if c_list_args[k] ~= nil then
-                    list_args_instance[k] = v
-                elseif c_args[k] ~= nil then
-                    object_args_instance[k] = v
-                else
-                    error(('cannot found "%s" field ("%s" value) ' ..
-                        'within allowed fields'):format(tostring(k),
-                        tostring(v)))
-                end
-            end
+            --object_args_instance -- passed to 'filter'
+            --list_args_instance -- passed to 'args'
+
+            local object_args_instance, list_args_instance =
+                check_args_instance(args_instance, c_args, c_list_args)
+
             local objs = state.accessor:select(parent,
                 v.destination_collection, from,
                 object_args_instance, list_args_instance, extra)
@@ -607,13 +594,15 @@ local convert_union_connection = function(state, connection, collection_name)
     return field
 end
 
---- The function converts passed connection to a field of GraphQL type
+--- The function converts passed connection to a field of GraphQL type.
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.types (state.types are gql types)
 --- @tparam table connection connection to create field on
 --- @tparam table collection_name name of the collection which have given
 --- connection
+--- @treturn table simple and union connection depending on the type of
+--- input connection
 local convert_connection_to_field = function(state, connection, collection_name)
     assert(type(connection.type) == 'string',
         'connection.type must be a string, got ' .. type(connection.type))
@@ -666,7 +655,7 @@ gql_type = function(state, avro_schema, collection, collection_name)
         (collection ~= nil and collection_name ~= nil),
         ('collection and collection_name must be nils or ' ..
         'non-nils simultaneously, got: %s and %s'):format(type(collection),
-        type(collection_name)))
+            type(collection_name)))
 
     local accessor = state.accessor
     assert(accessor ~= nil, 'state.accessor must not be nil')

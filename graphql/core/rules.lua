@@ -323,6 +323,8 @@ function rules.fragmentSpreadIsPossible(node, context)
   local fragmentTypes = getTypes(fragmentType)
 
   local valid = util.find(parentTypes, function(kind)
+    local kind = kind
+    if kind.__type == 'NonNull' then kind = kind.ofType end
     return fragmentTypes[kind]
   end)
 

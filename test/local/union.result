@@ -1,3 +1,24 @@
+RUN 1 {{{
+QUERY
+        query obtainHeroes($hero_id: String) {
+            hero_collection(hero_id: $hero_id) {
+                hero_id
+                hero_type
+                hero_connection {
+                    ... on human_collection {
+                        name
+                    }
+                    ... on starship_collection {
+                        model
+                    }
+                }
+            }
+        }
+VARIABLES
+---
+hero_id: hero_id_1
+...
+
 RESULT
 ---
 hero_collection:
@@ -5,6 +26,29 @@ hero_collection:
   hero_connection:
     name: Luke
   hero_id: hero_id_1
+...
+
+}}}
+
+RUN 2 {{{
+QUERY
+        query obtainHeroes($hero_id: String) {
+            hero_collection(hero_id: $hero_id) {
+                hero_id
+                hero_type
+                hero_connection {
+                    ... on human_collection {
+                        name
+                    }
+                    ... on starship_collection {
+                        model
+                    }
+                }
+            }
+        }
+VARIABLES
+---
+hero_id: hero_id_2
 ...
 
 RESULT
@@ -15,4 +59,6 @@ hero_collection:
     model: Falcon-42
   hero_id: hero_id_2
 ...
+
+}}}
 

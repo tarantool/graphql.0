@@ -646,7 +646,7 @@ local function build_connection_indexes(indexes, collections)
 
                 connection_indexes[c.destination_collection][c.name] =
                 set_connection_index(c, c.name, c.type, collection_name,
-                indexes, connection_indexes)
+                    indexes, connection_indexes)
             end
 
             if c.variants ~= nil then
@@ -655,8 +655,8 @@ local function build_connection_indexes(indexes, collections)
                         connection_indexes[v.destination_collection] = {}
                     end
                     connection_indexes[v.destination_collection][c.name] =
-                    set_connection_index(v, c.name, c.type, collection_name,
-                    indexes, connection_indexes)
+                        set_connection_index(v, c.name, c.type, collection_name,
+                            indexes, connection_indexes)
                 end
             end
         end
