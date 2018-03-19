@@ -1,14 +1,60 @@
 #!/usr/bin/env tarantool
 
-local net_box = require('net.box')
+local fio = require('fio')
 
-local initialized = false
+-- require in-repo version of graphql/ sources despite current working directory
+package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
+    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../../?.lua' .. ';' ..
+    package.path
+
+local net_box = require('net.box')
+local utils = require('graphql.utils')
 
 local function instance_uri(instance_id)
     local socket_dir = require('fio').cwd()
     local uri = ('%s/shard%s.sock'):format(socket_dir, instance_id)
     return uri
 end
+
+local SERVERS_DEFAULT = {'shard1', 'shard2', 'shard3', 'shard4'}
+
+local SHARD_CONF_DEFAULT = {
+    servers = {
+        { uri = instance_uri('1'), zone = '0' },
+        { uri = instance_uri('2'), zone = '1' },
+        { uri = instance_uri('3'), zone = '2' },
+        { uri = instance_uri('4'), zone = '3' },
+    },
+    login = 'guest',
+    password = '',
+    redundancy = 1,
+    monitor = false,
+}
+
+local CONFS = {
+    shard_2x2 = {
+        name = 'Shard 2x2',
+        type = 'shard',
+        servers = SERVERS_DEFAULT,
+        shard_conf = utils.merge_tables(SHARD_CONF_DEFAULT, {
+            redundancy = 2,
+        }),
+    },
+    shard_4x1 = {
+        name = 'Shard 4x1',
+        type = 'shard',
+        servers = SERVERS_DEFAULT,
+        shard_conf = utils.merge_tables(SHARD_CONF_DEFAULT, {
+            redundancy = 1,
+        }),
+    },
+    space = {
+        name = 'Local (box)',
+        type = 'space',
+    },
+}
+
+local initialized = false
 
 local function init_shard(test_run, servers, config)
     local suite = 'common'
@@ -40,75 +86,83 @@ local function for_each_server(shard, func)
     end
 end
 
+local function run_conf(conf_id, opts)
+    local conf = CONFS[conf_id]
+
+    assert(conf ~= nil)
+
+    local conf_name = conf.name
+    local conf_type = conf.type
+    local servers = conf.servers
+    local shard_conf = conf.shard_conf
+
+    assert(conf_name ~= nil)
+    assert(conf_type ~= nil)
+    if conf_type == 'shard' then
+        assert(servers ~= nil)
+        assert(shard_conf ~= nil)
+    end
+
+    local test_run = opts.test_run
+    local init_function = opts.init_function
+    local cleanup_function = opts.cleanup_function
+    local callback = opts.callback
+
+    assert(test_run ~= nil)
+    assert(init_function ~= nil)
+    assert(cleanup_function ~= nil)
+    assert(callback ~= nil)
+
+    if conf_type == 'space' then
+        init_function()
+        callback("Local (box)", nil)
+        cleanup_function()
+    elseif conf_type == 'shard' then
+        -- convert functions to string, so, that it can be executed on shards
+        local init_script = string.dump(init_function)
+        local cleanup_script = string.dump(cleanup_function)
+
+        local shard = init_shard(test_run, servers, shard_conf)
+
+        for_each_server(shard, function(uri)
+            local c = net_box.connect(uri)
+            c:eval(init_script)
+        end)
+
+        callback(conf_name, shard)
+
+        for_each_server(shard, function(uri)
+            local c = net_box.connect(uri)
+            c:eval(cleanup_script)
+        end)
+
+        shard_cleanup(test_run, servers)
+    else
+        assert(false, 'unknown conf_type: ' .. tostring(conf_type))
+    end
+end
+
 -- Run tests on multiple accessors and configurations.
 -- Feel free to add more configurations.
 local function run(test_run, init_function, cleanup_function, callback)
-    -- convert functions to string, so, that it can be executed on shards
-    local init_script = string.dump(init_function)
-    local cleanup_script = string.dump(cleanup_function)
+    -- ensure stable order
+    local ids = {}
+    for conf_id, _ in pairs(CONFS) do
+        ids[#ids + 1] = conf_id
+    end
+    table.sort(ids)
 
-    local servers = {'shard1', 'shard2', 'shard3', 'shard4'};
-
-    -- Test sharding with redundancy = 2.
-    local shard = init_shard(test_run, servers, {
-        servers = {
-            { uri = instance_uri('1'), zone = '0' },
-            { uri = instance_uri('2'), zone = '1' },
-            { uri = instance_uri('3'), zone = '2' },
-            { uri = instance_uri('4'), zone = '3' },
-        },
-        login = 'guest',
-        password = '',
-        redundancy = 2,
-        monitor = false
-    })
-
-    for_each_server(shard, function(uri)
-        local c = net_box.connect(uri)
-        c:eval(init_script)
-    end)
-
-    callback("Shard 2x2", shard)
-
-    for_each_server(shard, function(uri)
-        local c = net_box.connect(uri)
-        c:eval(cleanup_script)
-    end)
-    shard_cleanup(test_run, servers)
-
-    -- Test sharding without redundancy.
-    local shard = init_shard(test_run, servers, {
-        servers = {
-            { uri = instance_uri('1'), zone = '0' },
-            { uri = instance_uri('2'), zone = '1' },
-            { uri = instance_uri('3'), zone = '2' },
-            { uri = instance_uri('4'), zone = '3' },
-        },
-        login = 'guest',
-        password = '',
-        redundancy = 1,
-        monitor = false
-    })
-
-    for_each_server(shard, function(uri)
-        local c = net_box.connect(uri)
-        c:eval(init_script)
-    end)
-
-    callback("Shard 4x1", shard)
-
-    for_each_server(shard, function(uri)
-        local c = net_box.connect(uri)
-        c:eval(cleanup_script)
-    end)
-    shard_cleanup(test_run, servers)
-
-    -- Test local setup (box).
-    loadstring(init_script)()
-    callback("Local (box)", nil)
-    loadstring(cleanup_script)()
+    for _, conf_id in ipairs(ids) do
+        run_conf(conf_id, {
+            test_run = test_run,
+            init_function = init_function,
+            cleanup_function = cleanup_function,
+            callback = callback,
+        })
+    end
 end
 
 return {
+    run_conf = run_conf,
     run = run
 }
