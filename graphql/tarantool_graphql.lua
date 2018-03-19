@@ -1075,6 +1075,151 @@ local function createAccessor(cfg, accessorType, accessorFuncs)
     end
 end
 
+
+local function is_system_space(space)
+    local BOX_SYSTEM_ID_MIN = 256
+    local BOX_SYSTEM_ID_MAX = 511
+    local space_id = space[1]
+    return (BOX_SYSTEM_ID_MIN < space_id and space_id < BOX_SYSTEM_ID_MAX)
+end
+
+--- XXX should add types compatibility check (to avoid overflow and errors)
+local function convert_index_type_to_avro(index_type)
+    -- unsigned | string | integer | number | boolean | array | scalar
+    assert(type(index_type) == 'string', 'index_type must be a string, got ' ..
+        type(index_type))
+
+    local t = index_type
+
+    if t == 'unsigned' then
+        return 'long'
+    end
+
+    if t == 'string' then
+        return 'string'
+    end
+
+    if t == 'integer' then
+        return 'long'
+    end
+
+    if t == 'number' then
+        return 'double'
+    end
+
+    if t == 'boolean' then
+        return 'boolean'
+    end
+
+    if t == 'array' then
+        return {['type'] = 'array', items = {['type'] = 'int', name = 'point'}}
+    end
+
+    if t == 'scalar' then
+        error('scalar type conversion (tarantool types -> avro) is not ' ..
+            'implemented yet')
+    end
+
+    error('unrecognized index_type: ' .. json.encode(index_type))
+end
+
+--todo explain
+--- XXX no nested fields (no nested records) because of ...
+local function generate_avro_scheme(space_format, schema_name)
+    assert(type(space_format) == 'table', 'space_format must be a table, ' ..
+        'got ' .. type(space_format))
+    assert(type(schema_name) == 'string', 'schema_name must be a table, ' ..
+        'got ' .. type(schema_name))
+
+    local avro_schema = {['type'] = 'record', name = schema_name, fields = {}}
+    for i, f in ipairs(space_format) do
+        assert(type(f.name) == 'string', 'field format name must be a ' ..
+            'string, got ' .. type(f.name))
+        assert(type(f.type) == 'string', 'field format type must be a ' ..
+            'string, got ' .. type(f.type))
+
+        avro_schema.fields[i] = {f.name, convert_index_type_to_avro(f.type)}
+    end
+    return avro_schema
+end
+
+
+local function convert_index_type(index_type)
+
+    if index_type == 'TREE' then
+        return 'tree'
+    end
+
+
+end
+
+--- The function creates a graphql config
+---
+--- @treturn table cfg with `schemas`, `service_fields`,
+--- `indexes`
+---
+--- XXX service_fields collection is not implemented yet
+local function graphql_cfg_from_tarantool()
+    local cfg = {}
+    cfg.schemas = {}
+    for _, s in box.space._space:pairs() do
+        if not is_system_space(s) then
+            local format = s[7]
+            local space_title = s[3]
+            cfg.schemas[space_title] = generate_avro_scheme(format, space_title)
+
+            --require('pl.pretty').dump(box.space[s[3]].index[0].type)
+
+            local collection_indexes = {}
+            local i = 0
+            local index = box.space[space_title].index[i]
+            while index ~= nil do
+                local collection_index = {}
+                collection_index.index_type = convert_index_type(index.type)
+                collection_index.unique = index.unique
+                --todo primary
+
+                if index.name == box.space[space_title].primary then
+                    collection_index.primary = true
+                else
+                    collection_index.primary = false
+                end
+                collection_index.primary = index.primary
+                collection_index.fields = {}
+                --todo service_fields
+                --collection_index.service_fields =
+                --todo convert from TREE to tree
+                --todo titles
+
+                -- get names
+
+                for _, part in pairs(index.parts) do
+                    collection_index.fields[#collection_index.fields + 1] = format[part.fieldno].name
+                end
+
+                --require('pl.pretty').dump(index.parts)
+                --print(index.type)
+                ----?
+                --print(index.primary)
+                --print(index.unique)
+
+                collection_indexes[index.name] = collection_index
+                require('pl.pretty').dump(collection_index)
+
+                i = i + 1
+                index = box.space[space_title].index[i]
+            end
+            cfg.indexes[space_title] = collection_indexes
+        end
+    end
+
+     --service_fields
+    -- indexes
+    -- transform it into graphql terms
+    -- build objects
+    return cfg
+end
+
 --- Create a tarantool_graphql library instance.
 ---
 --- Usage:
@@ -1148,6 +1293,11 @@ end
 ---     }),
 --- })
 function tarantool_graphql.new(cfg, accessorType, accessorFuncs)
+
+    local cfg = cfg
+    if cfg == nil then
+        cfg = graphql_cfg_from_tarantool()
+    end
     if accessorType ~= nil then
         assert(cfg.accessor == nil, 'cfg.accessor (custom accessor) and ' ..
             'accessorType (type of desired default accessor) both are not ' ..
