@@ -1,0 +1,10 @@
+RESULT
+--- {'order_collection': [{'description': 'first order of Ivan', 'order_id': 'order_id_1'}]}
+...
+
+The GraphQL server stopped at http://127.0.0.1:8080
+RESULT
+--- {'order_collection': [{'description': 'first order of Ivan', 'order_id': 'order_id_1'}]}
+...
+
+The GraphQL server stopped at http://127.0.0.1:8080

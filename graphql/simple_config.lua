@@ -169,6 +169,17 @@ function simple_config.get_spaces_formats()
     return spaces_formats
 end
 
+local function remove_empty_formats(spaces_formats)
+    local resulting_formats = table.deepcopy(spaces_formats)
+    for space_name, space_format in pairs(resulting_formats) do
+        if next(space_format) == nil then
+           resulting_formats[space_name] = nil
+        end
+    end
+
+    return resulting_formats
+end
+
 --- The function creates a tarantool graphql config using tarantool metainfo
 --- from space:format() and space.index:format(). Notice that this function
 --- does not set accessor.
@@ -182,7 +193,12 @@ function simple_config.graphql_cfg_from_tarantool()
     cfg.collections = {}
     cfg.collection_use_tomap = {}
 
-    for space_name, space_format in pairs(simple_config.get_spaces_formats()) do
+    local spaces_formats = simple_config.get_spaces_formats()
+    spaces_formats = remove_empty_formats(spaces_formats)
+    assert(next(spaces_formats) ~= nil,
+        'there are no any spaces with format - can not auto-generate config')
+
+    for space_name, space_format in pairs(spaces_formats) do
         cfg.schemas[space_name] = generate_avro_schema(space_format, space_name)
         cfg.indexes[space_name] =
             extract_collection_indexes(space_name, space_format)
