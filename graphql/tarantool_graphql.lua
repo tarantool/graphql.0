@@ -39,6 +39,8 @@ local types = require('graphql.core.types')
 local validate = require('graphql.core.validate')
 local execute = require('graphql.core.execute')
 local query_to_avro = require('graphql.query_to_avro')
+local accessor_space = require('graphql.accessor_space')
+local accessor_shard = require('graphql.accessor_shard')
 
 local utils = require('graphql.utils')
 
@@ -1029,6 +1031,50 @@ local function gql_compile(state, query)
     return gql_query
 end
 
+--- The function creates an accessor of desired type with default configuration
+---
+--- @tparam table cfg general tarantool_graphql config (contains schemas,
+--- collections, service_fields and indexes
+--- @tparam string accessorType type of desired accessor (space or shard)
+--- @tparam table accessorFuncs set of functions to overwrite accessor
+--- inner functions (`is_collection_exists`, `get_index`, `get_primary_index`,
+--- `unflatten_tuple`, For more devitalised description see @{accessor_general.new})
+--- These function allow this abstract data accessor behaves in the certain way.
+--- Note that accessor_space and accessor_shard have their own set of these functions
+--- and accessorFuncs argument (if passed) will be used to overwrite them
+local function createAccessor(cfg, accessorType, accessorFuncs)
+    assert(type(accessorType) == 'string', 'accessorType must be a ' ..
+        'string, got ' .. type(accessorType))
+    assert(accessorType == 'space' or accessorType == 'shard',
+        'accessorType must be shard or space, got ' .. accessorType)
+
+    assert(accessorFuncs == nil or type(accessorFuncs) == 'table',
+        'accessorFuncs must be nil or a table, got ' .. type(accessorFuncs))
+
+    assert(type(cfg.service_fields) == 'table', 'cfg.service_fields must be ' ..
+        'a table, got ' .. type(cfg.service_fields))
+    assert(type(cfg.indexes) == 'table', 'cfg.indexes must be ' ..
+        'a table, got ' .. type(cfg.indexes))
+
+    if accessorType == 'space' then
+        return accessor_space.new({
+            schemas = cfg.schemas,
+            collections = cfg.collections,
+            service_fields = cfg.service_fields,
+            indexes = cfg.indexes
+        })
+    end
+
+    if accessorType == 'shard' then
+        return accessor_shard.new({
+            schemas = cfg.schemas,
+            collections = cfg.collections,
+            service_fields = cfg.service_fields,
+            indexes = cfg.indexes
+        });
+    end
+end
+
 --- Create a tarantool_graphql library instance.
 ---
 --- Usage:
@@ -1101,7 +1147,14 @@ end
 ---         }
 ---     }),
 --- })
-function tarantool_graphql.new(cfg)
+function tarantool_graphql.new(cfg, accessorType, accessorFuncs)
+    if accessorType ~= nil then
+        assert(cfg.accessor == nil, 'cfg.accessor (custom accessor) and ' ..
+            'accessorType (type of desired default accessor) both are not ' ..
+            'nil. It is an ambiguous call')
+        cfg.accessor = createAccessor(cfg, accessorType, accessorFuncs)
+    end
+
     local state = parse_cfg(cfg)
     return setmetatable(state, {
         __index = {
