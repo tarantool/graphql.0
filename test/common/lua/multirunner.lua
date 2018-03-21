@@ -128,9 +128,11 @@ local function run_conf(conf_id, opts)
         assert(servers ~= nil)
     end
 
+    local result
+
     if conf_type == 'space' then
         init_function()
-        callback("Local (box)", nil)
+        result = callback("Local (box)", nil)
         cleanup_function()
     elseif conf_type == 'shard' then
         -- convert functions to string, so, that it can be executed on shards
@@ -144,7 +146,7 @@ local function run_conf(conf_id, opts)
             c:eval(init_script)
         end)
 
-        callback(conf_name, shard)
+        result = callback(conf_name, shard)
 
         for_each_server(shard, function(uri)
             local c = net_box.connect(uri)
@@ -155,6 +157,8 @@ local function run_conf(conf_id, opts)
     else
         assert(false, 'unknown conf_type: ' .. tostring(conf_type))
     end
+
+    return result
 end
 
 -- Run tests on multiple accessors and configurations.
