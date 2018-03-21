@@ -4,6 +4,7 @@
 --- It provides basic logic for such space-like data storages and abstracted
 --- away from details from where tuples are arrived into the application.
 
+local ffi = require('ffi')
 local json = require('json')
 local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
@@ -19,6 +20,17 @@ local accessor_general = {}
 local DEF_RESULTING_OBJECT_CNT_MAX = 10000
 local DEF_FETCHED_OBJECT_CNT_MAX = 10000
 local DEF_TIMEOUT_MS = 1000
+
+-- We shold be able to multiply `timeout_ms` to 10^6 (convert to nanoseconds)
+-- and add it to a `clock.monotonic64()` value; the result of that arithmetic
+-- must not overflows. We can consider another approach to handle time limits:
+-- save start time at start, calculate current time on each iteration and
+-- substract the start time from it, compare with the timeout. With such
+-- approch we don't add the timeout in nanoseconds to a start time and can
+-- remove the divide by two below.
+local TIMEOUT_INFINITY = 18446744073709551615ULL / (2 * 10^6) -- microseconds
+
+accessor_general.TIMEOUT_INFINITY = TIMEOUT_INFINITY
 
 --- Validate and compile set of avro schemas (with respect to service fields).
 --- @tparam table schemas map where keys are string names and values are
@@ -1256,8 +1268,12 @@ function accessor_general.new(opts, funcs)
     assert(type(fetched_object_cnt_max) == 'number' and
                 fetched_object_cnt_max > 0,
         'fetched_object_cnt_max must be natural number')
-    assert(type(timeout_ms) == 'number',
-        'timeout ms must a number, got ' .. type(timeout_ms))
+    assert(type(timeout_ms) == 'number' or (type(timeout_ms) == 'cdata' and
+        tostring(ffi.typeof(timeout_ms)) == 'ctype<uint64_t>'),
+        'timeout_ms must a number, got ' .. type(timeout_ms))
+    assert(timeout_ms <= TIMEOUT_INFINITY,
+        ('timeouts more then graphql.TIMEOUT_INFINITY (%s) ' ..
+        'do not supported'):format(tostring(TIMEOUT_INFINITY)))
 
     local models = compile_schemas(schemas, service_fields)
     validate_collections(collections, schemas, indexes)

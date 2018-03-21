@@ -4,6 +4,7 @@ default:
 .PHONY: lint
 lint:
 	luacheck graphql/*.lua \
+		test/bench/*.lua \
 		test/local/*.lua \
 		test/testdata/*.lua \
 		test/common/*.test.lua test/common/lua/*.lua \
@@ -19,9 +20,21 @@ test: lint
 		pip install tarantool && \
 		cd test && ./test-run.py
 
+.PHONY: bench
+bench: lint
+	virtualenv -p python2.7 ./.env-2.7
+	. ./.env-2.7/bin/activate && \
+		pip install -r ./test-run/requirements.txt && \
+		pip install tarantool && \
+		cd test && ./test-run.py --long bench/
+
 .PHONY: pure-test
 pure-test:
 	cd test && ./test-run.py
+
+.PHONY: pure-bench
+pure-bench:
+	cd test && ./test-run.py --long bench/
 
 .PHONY: clean
 clean:

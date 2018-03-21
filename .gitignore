@@ -16,3 +16,6 @@ test/var
 
 # generated API documentation
 doc/apidoc
+
+# benchmarks results
+bench.*.result.txt

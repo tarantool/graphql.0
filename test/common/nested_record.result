@@ -1,4 +1,4 @@
-Shard 2x2
+shard_2x2
 RUN 1 {{{
 QUERY
         query getUserByUid($uid: Long) {
@@ -29,7 +29,7 @@ user:
 ...
 
 }}}
-Shard 4x1
+shard_4x1
 RUN 1 {{{
 QUERY
         query getUserByUid($uid: Long) {
@@ -60,7 +60,7 @@ user:
 ...
 
 }}}
-Local (box)
+space
 RUN 1 {{{
 QUERY
         query getUserByUid($uid: Long) {

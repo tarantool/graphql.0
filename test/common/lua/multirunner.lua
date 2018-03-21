@@ -16,8 +16,12 @@ local function instance_uri(instance_id)
     return uri
 end
 
+-- list on server names (server name + '.lua' is a server script) to pass to
+-- test_run:create_cluster()
 local SERVERS_DEFAULT = {'shard1', 'shard2', 'shard3', 'shard4'}
 
+-- configuration to pass to shard.init(); `servers` variable contains a listen
+-- URI of each storage and zone names
 local SHARD_CONF_DEFAULT = {
     servers = {
         { uri = instance_uri('1'), zone = '0' },
@@ -33,7 +37,6 @@ local SHARD_CONF_DEFAULT = {
 
 local CONFS = {
     shard_2x2 = {
-        name = 'Shard 2x2',
         type = 'shard',
         servers = SERVERS_DEFAULT,
         shard_conf = utils.merge_tables(SHARD_CONF_DEFAULT, {
@@ -41,7 +44,6 @@ local CONFS = {
         }),
     },
     shard_4x1 = {
-        name = 'Shard 4x1',
         type = 'shard',
         servers = SERVERS_DEFAULT,
         shard_conf = utils.merge_tables(SHARD_CONF_DEFAULT, {
@@ -49,7 +51,6 @@ local CONFS = {
         }),
     },
     space = {
-        name = 'Local (box)',
         type = 'space',
     },
 }
@@ -95,17 +96,15 @@ local function for_each_server(shard, func)
     end
 end
 
-local function run_conf(conf_id, opts)
-    local conf = CONFS[conf_id]
+local function run_conf(conf_name, opts)
+    local conf = CONFS[conf_name]
 
     assert(conf ~= nil)
 
-    local conf_name = conf.name
     local conf_type = conf.type
     local servers = conf.servers
     local shard_conf = conf.shard_conf
 
-    assert(conf_name ~= nil)
     assert(conf_type ~= nil)
     if conf_type == 'shard' then
         assert(servers ~= nil)
@@ -115,13 +114,13 @@ local function run_conf(conf_id, opts)
     local test_run = opts.test_run
     local init_function = opts.init_function
     local cleanup_function = opts.cleanup_function
-    local callback = opts.callback
+    local workload = opts.workload
     local servers = opts.servers or servers -- prefer opts.servers
     local use_tcp = opts.use_tcp or false
 
     assert(init_function ~= nil)
     assert(cleanup_function ~= nil)
-    assert(callback ~= nil)
+    assert(workload ~= nil)
     assert(use_tcp ~= nil)
     if conf_type == 'shard' then
         assert(test_run ~= nil)
@@ -132,7 +131,7 @@ local function run_conf(conf_id, opts)
 
     if conf_type == 'space' then
         init_function()
-        result = callback("Local (box)", nil)
+        result = workload(conf_name, nil)
         cleanup_function()
     elseif conf_type == 'shard' then
         -- convert functions to string, so, that it can be executed on shards
@@ -146,7 +145,7 @@ local function run_conf(conf_id, opts)
             c:eval(init_script)
         end)
 
-        result = callback(conf_name, shard)
+        result = workload(conf_name, shard)
 
         for_each_server(shard, function(uri)
             local c = net_box.connect(uri)
@@ -163,27 +162,34 @@ end
 
 -- Run tests on multiple accessors and configurations.
 -- Feel free to add more configurations.
-local function run(test_run, init_function, cleanup_function, callback)
+local function run(test_run, init_function, cleanup_function, workload)
     -- ensure stable order
-    local ids = {}
-    for conf_id, _ in pairs(CONFS) do
-        ids[#ids + 1] = conf_id
+    local names = {}
+    for conf_name, _ in pairs(CONFS) do
+        names[#names + 1] = conf_name
     end
-    table.sort(ids)
+    table.sort(names)
 
-    for _, conf_id in ipairs(ids) do
-        run_conf(conf_id, {
+    for _, conf_name in ipairs(names) do
+        run_conf(conf_name, {
             test_run = test_run,
             init_function = init_function,
             cleanup_function = cleanup_function,
-            callback = callback,
+            workload = workload,
             servers = nil,
             use_tcp = false,
         })
     end
 end
 
+local function get_conf(conf_name)
+    local conf = CONFS[conf_name]
+    assert(conf ~= nil)
+    return conf
+end
+
 return {
     run_conf = run_conf,
-    run = run
+    run = run,
+    get_conf = get_conf,
 }
