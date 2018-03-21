@@ -56,9 +56,18 @@ local CONFS = {
 
 local initialized = false
 
-local function init_shard(test_run, servers, config)
+local function init_shard(test_run, servers, config, use_tcp)
     local suite = 'common'
-    test_run:create_cluster(servers, suite)
+    local uris = test_run:create_cluster(servers, suite)
+
+    -- we don't know ports before create cluster
+    if use_tcp then
+        config = table.copy(config)
+        config.servers = {}
+        for i = 1, 4 do
+            config.servers[i] = {uri = uris[i], zone = tostring(i)}
+        end
+    end
 
     -- XXX: for now we always use one shard configuration (a first one),
     -- because it is unclear how to reload shard module with an another
@@ -107,11 +116,17 @@ local function run_conf(conf_id, opts)
     local init_function = opts.init_function
     local cleanup_function = opts.cleanup_function
     local callback = opts.callback
+    local servers = opts.servers or servers -- prefer opts.servers
+    local use_tcp = opts.use_tcp or false
 
     assert(test_run ~= nil)
     assert(init_function ~= nil)
     assert(cleanup_function ~= nil)
     assert(callback ~= nil)
+    assert(use_tcp ~= nil)
+    if conf_type == 'shard' then
+        assert(servers ~= nil)
+    end
 
     if conf_type == 'space' then
         init_function()
@@ -122,7 +137,7 @@ local function run_conf(conf_id, opts)
         local init_script = string.dump(init_function)
         local cleanup_script = string.dump(cleanup_function)
 
-        local shard = init_shard(test_run, servers, shard_conf)
+        local shard = init_shard(test_run, servers, shard_conf, use_tcp)
 
         for_each_server(shard, function(uri)
             local c = net_box.connect(uri)
@@ -158,6 +173,8 @@ local function run(test_run, init_function, cleanup_function, callback)
             init_function = init_function,
             cleanup_function = cleanup_function,
             callback = callback,
+            servers = nil,
+            use_tcp = false,
         })
     end
 end
