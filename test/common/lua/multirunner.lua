@@ -119,12 +119,12 @@ local function run_conf(conf_id, opts)
     local servers = opts.servers or servers -- prefer opts.servers
     local use_tcp = opts.use_tcp or false
 
-    assert(test_run ~= nil)
     assert(init_function ~= nil)
     assert(cleanup_function ~= nil)
     assert(callback ~= nil)
     assert(use_tcp ~= nil)
     if conf_type == 'shard' then
+        assert(test_run ~= nil)
         assert(servers ~= nil)
     end
 
