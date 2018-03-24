@@ -10,4 +10,6 @@ graphql.accessor_space = accessor_space
 graphql.accessor_shard = accessor_shard
 graphql.new = tarantool_graphql.new
 
+graphql.TIMEOUT_INFINITY = accessor_general.TIMEOUT_INFINITY
+
 return graphql
