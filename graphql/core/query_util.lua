@@ -4,13 +4,13 @@ local util = require(path .. '.util')
 
 local query_util = {}
 
-local function typeFromAST(node, schema)
+function query_util.typeFromAST(node, schema)
   local innerType
   if node.kind == 'listType' then
-    innerType = typeFromAST(node.type)
+    innerType = query_util.typeFromAST(node.type)
     return innerType and types.list(innerType)
   elseif node.kind == 'nonNullType' then
-    innerType = typeFromAST(node.type)
+    innerType = query_util.typeFromAST(node.type)
     return innerType and types.nonNull(innerType)
   else
     assert(node.kind == 'namedType', 'Variable must be a named type')
@@ -18,7 +18,7 @@ local function typeFromAST(node, schema)
   end
 end
 
-local function getFieldResponseKey(field)
+function query_util.getFieldResponseKey(field)
   return field.alias and field.alias.name.value or field.name.value
 end
 
@@ -50,7 +50,7 @@ end
 local function doesFragmentApply(fragment, type, context)
   if not fragment.typeCondition then return true end
 
-  local innerType = typeFromAST(fragment.typeCondition, context.schema)
+  local innerType = query_util.typeFromAST(fragment.typeCondition, context.schema)
 
   if innerType == type then
     return true
@@ -68,7 +68,7 @@ function query_util.collectFields(objectType, selections, visitedFragments, resu
   for _, selection in ipairs(selections) do
     if selection.kind == 'field' then
       if shouldIncludeNode(selection, context) then
-        local name = getFieldResponseKey(selection)
+        local name = query_util.getFieldResponseKey(selection)
         result[name] = result[name] or {}
         table.insert(result[name], selection)
       end
