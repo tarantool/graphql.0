@@ -4,66 +4,6 @@ local util = require(path .. '.util')
 local introspection = require(path .. '.introspection')
 local query_util = require(path .. '.query_util')
 
-local function typeFromAST(node, schema)
-  local innerType
-  if node.kind == 'listType' then
-    innerType = typeFromAST(node.type)
-    return innerType and types.list(innerType)
-  elseif node.kind == 'nonNullType' then
-    innerType = typeFromAST(node.type)
-    return innerType and types.nonNull(innerType)
-  else
-    assert(node.kind == 'namedType', 'Variable must be a named type')
-    return schema:getType(node.name.value)
-  end
-end
-
-local function getFieldResponseKey(field)
-  return field.alias and field.alias.name.value or field.name.value
-end
-
-local function shouldIncludeNode(selection, context)
-  if selection.directives then
-    local function isDirectiveActive(key, _type)
-      local directive = util.find(selection.directives, function(directive)
-        return directive.name.value == key
-      end)
-
-      if not directive then return end
-
-      local ifArgument = util.find(directive.arguments, function(argument)
-        return argument.name.value == 'if'
-      end)
-
-      if not ifArgument then return end
-
-      return util.coerceValue(ifArgument.value, _type.arguments['if'], context.variables)
-    end
-
-    if isDirectiveActive('skip', types.skip) then return false end
-    if isDirectiveActive('include', types.include) == false then return false end
-  end
-
-  return true
-end
-
-local function doesFragmentApply(fragment, type, context)
-  if not fragment.typeCondition then return true end
-
-  local innerType = typeFromAST(fragment.typeCondition, context.schema)
-
-  if innerType == type then
-    return true
-  elseif innerType.__type == 'Interface' then
-    local implementors = context.schema:getImplementors(innerType.name)
-    return implementors and implementors[type]
-  elseif innerType.__type == 'Union' then
-    return util.find(innerType.types, function(member)
-      return member == type
-    end)
-  end
-end
-
 local function defaultResolver(object, arguments, info)
   return object[info.fieldASTs[1].name.value]
 end
@@ -131,7 +71,7 @@ end
 local function getFieldEntry(objectType, object, fields, context)
   local firstField = fields[1]
   local fieldName = firstField.name.value
-  local responseKey = getFieldResponseKey(firstField)
+  local responseKey = query_util.getFieldResponseKey(firstField)
   local fieldType = introspection.fieldMap[fieldName] or objectType.fields[fieldName]
 
   if fieldType == nil then
