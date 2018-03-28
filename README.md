@@ -1,5 +1,7 @@
 ## Overview
 
+[![Build Status](https://travis-ci.org/tarantool/graphql.svg?branch=master)](https://travis-ci.org/tarantool/graphql)
+
 Set of adapters for GraphQL query language to the Tarantool data model. Based
 on [graphql-lua](https://github.com/bjornbytes/graphql-lua).
 
