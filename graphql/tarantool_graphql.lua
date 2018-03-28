@@ -415,6 +415,8 @@ local function convert_simple_connection(state, connection, collection_name)
         name = c.name,
         kind = destination_type,
         arguments = c_args,
+        -- captures c.{parts, name, destination_collection}, collection_name,
+        -- genResolveField, c_args, c_list_args.
         resolve = function(parent, args_instance, info, opts)
             local opts = opts or {}
             assert(type(opts) == 'table',
