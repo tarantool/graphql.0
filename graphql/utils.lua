@@ -170,4 +170,24 @@ function utils.do_have_keys(table, keys)
     return true
 end
 
+
+--- Check if passed obj has one of passed types.
+--- @tparam table obj to check
+--- @tparam {type_1, type_2} ... possible types
+function utils.check(obj, obj_name, type_1, type_2, type_3)
+    if type(obj) == type_1 or type(obj) == type_2 or type(obj) == type_3 then
+        return
+    end
+
+    if type_3 ~= nil then
+        error(('%s must be a %s or a % or a %, got %s'):format(obj_name, type_1,
+            type_2, type_3, type(obj)))
+    elseif type_2 ~= nil then
+        error(('%s must be a %s or a %, got %s'):format(obj_name, type_1,
+            type_2, type(obj)))
+    else
+        error(('%s must be a %s, got %s'):format(obj_name, type_1, type(obj)))
+    end
+end
+
 return utils
