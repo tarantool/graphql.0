@@ -32,7 +32,7 @@ install:
   - cmake .
   - sudo make install
   - cd ..
-  - tarantoolctl rocks install shard
+  - tarantoolctl rocks install shard 1.2
   - tarantoolctl rocks install avro-schema
   - cd graphql
   - git submodule update --recursive --init
