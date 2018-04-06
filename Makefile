@@ -1,3 +1,8 @@
+WWW_BROWSER=$(shell \
+	{ type xdg-open >/dev/null 2>&1 && echo "xdg-open"; } || \
+	{ type open >/dev/null 2>&1 && echo "open"; } \
+)
+
 default:
 	false
 
@@ -45,3 +50,7 @@ apidoc:
 	ldoc -d doc/apidoc graphql --all -f markdown
 	# fix navigation panel width
 	sed -i -e 's/: 14em;/: 24em;/' doc/apidoc/ldoc.css
+
+.PHONY: serve-apidoc
+serve-apidoc: apidoc
+	$(WWW_BROWSER) ./doc/apidoc/index.html
