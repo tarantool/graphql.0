@@ -170,7 +170,6 @@ function utils.do_have_keys(table, keys)
     return true
 end
 
-
 --- Check if passed obj has one of passed types.
 --- @tparam table obj to check
 --- @tparam {type_1, type_2} ... possible types
@@ -184,10 +183,25 @@ function utils.check(obj, obj_name, type_1, type_2, type_3)
             type_2, type_3, type(obj)))
     elseif type_2 ~= nil then
         error(('%s must be a %s or a %, got %s'):format(obj_name, type_1,
-            type_2, type(obj)))
+        type_2, type(obj)))
     else
         error(('%s must be a %s, got %s'):format(obj_name, type_1, type(obj)))
     end
+end
+
+--- Check if given table has only one specific key.
+function utils.has_only(t, key)
+    local fst_key = next(t)
+    local snd_key = next(t, fst_key)
+    return fst_key == key and snd_key == nil
+end
+
+function utils.table_size(t)
+    local count = 0
+    for _, _ in pairs(t) do
+        count = count + 1
+    end
+    return count
 end
 
 return utils

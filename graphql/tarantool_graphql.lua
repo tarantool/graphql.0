@@ -14,17 +14,17 @@
 ---   behaves this way. So 'common fields' are not supported. This does NOT
 ---   work:
 ---
---- ```
---- hero {
----     hero_id -- common field; does NOT work
----     ... on human {
----         name
+---     hero {
+---         hero_id -- common field; does NOT work
+---         ... on human {
+---             name
+---         }
+---         ... on droid {
+---             model
+---         }
 ---     }
----     ... on droid {
----         model
----     }
---- }
---- ```
+---
+---
 ---
 --- (GraphQL spec: http://facebook.github.io/graphql/October2016/#sec-Unions)
 --- Also, no arguments are currently allowed for fragments.
@@ -33,16 +33,25 @@
 local json = require('json')
 local yaml = require('yaml')
 
+local accessor_space = require('graphql.accessor_space')
+local accessor_shard = require('graphql.accessor_shard')
 local parse = require('graphql.core.parse')
 local schema = require('graphql.core.schema')
 local types = require('graphql.core.types')
 local validate = require('graphql.core.validate')
 local execute = require('graphql.core.execute')
 local query_to_avro = require('graphql.query_to_avro')
+local simple_config = require('graphql.simple_config')
+local config_complement = require('graphql.config_complement')
 
 local utils = require('graphql.utils')
+local check = utils.check
 
 local tarantool_graphql = {}
+-- instance of tarantool graphql to provide graphql:compile() and
+-- graphql:execute() method (with creating zero configuration graphql instance
+-- under hood when calling compile() for the first time)
+local default_instance
 
 -- forward declarations
 local gql_type
@@ -1031,6 +1040,59 @@ local function gql_compile(state, query)
     return gql_query
 end
 
+function tarantool_graphql.compile(query)
+    if default_instance == nil then
+        default_instance = tarantool_graphql.new()
+    end
+    return default_instance.compile(query)
+end
+
+function tarantool_graphql.execute(query, variables)
+    local compiled_query = tarantool_graphql.compile(query)
+    return compiled_query.execute(variables)
+end
+
+--- The function creates an accessor of desired type with default configuration.
+---
+--- @tparam table cfg general tarantool_graphql config (contains schemas,
+--- collections, service_fields and indexes)
+--- @tparam string accessor type of desired accessor (space or shard)
+--- @tparam table accessor_funcs set of functions to overwrite accessor
+--- inner functions (`is_collection_exists`, `get_index`, `get_primary_index`,
+--- `unflatten_tuple`, For more detailed description see @{accessor_general.new})
+--- These function allow this abstract data accessor behaves in the certain way.
+--- Note that accessor_space and accessor_shard have their own set of these functions
+--- and accessorFuncs argument (if passed) will be used to overwrite them
+local function create_default_accessor(cfg)
+    check(cfg.accessor, 'cfg.accessor', 'string')
+    assert(cfg.accessor == 'space' or cfg.accessor == 'shard',
+        'accessor_type must be shard or space, got ' .. cfg.accessor)
+    check(cfg.service_fields, 'cfg.service_fields', 'table')
+    check(cfg.indexes, 'cfg.indexes', 'table')
+    check(cfg.collection_use_tomap, 'cfg.collection_use_tomap', 'table', 'nil')
+    check(cfg.accessor_funcs, 'cfg.accessor_funcs', 'table', 'nil')
+
+    if cfg.accessor == 'space' then
+        return accessor_space.new({
+            schemas = cfg.schemas,
+            collections = cfg.collections,
+            service_fields = cfg.service_fields,
+            indexes = cfg.indexes,
+            collection_use_tomap = cfg.collection_use_tomap
+        }, cfg.accessor_funcs)
+    end
+
+    if cfg.accessor == 'shard' then
+        return accessor_shard.new({
+            schemas = cfg.schemas,
+            collections = cfg.collections,
+            service_fields = cfg.service_fields,
+            indexes = cfg.indexes,
+            collection_use_tomap = cfg.collection_use_tomap
+        }, cfg.accessor_funcs);
+    end
+end
+
 --- Create a tarantool_graphql library instance.
 ---
 --- Usage:
@@ -1104,10 +1166,29 @@ end
 ---     }),
 --- })
 function tarantool_graphql.new(cfg)
+    local cfg = cfg or {}
+
+    -- auto config case
+    if not next(cfg) or utils.has_only(cfg, 'connections') then
+        local generated_cfg = simple_config.graphql_cfg_from_tarantool()
+        generated_cfg.accessor = 'space'
+        generated_cfg.connections = cfg.connections or {}
+        cfg = generated_cfg
+        cfg = config_complement.complement_cfg(cfg)
+    end
+
+    check(cfg.accessor, 'cfg.accessor', 'string', 'table')
+    if type(cfg.accessor) == 'string' then
+        cfg.accessor = create_default_accessor(cfg)
+    end
+
     local state = parse_cfg(cfg)
     return setmetatable(state, {
         __index = {
             compile = gql_compile,
+            internal = { -- for unit testing
+                cfg = cfg,
+            }
         }
     })
 end

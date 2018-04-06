@@ -839,7 +839,7 @@ local function process_tuple(state, tuple, opts)
 
     -- convert tuple -> object
     local obj = opts.unflatten_tuple(collection_name, tuple,
-        opts.default_unflatten_tuple)
+        { use_tomap = opts.use_tomap }, opts.default_unflatten_tuple)
 
     -- skip all items before pivot (the item pointed by offset)
     if not state.pivot_found and pivot_filter then
@@ -987,6 +987,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         fetched_object_cnt_max = self.settings.fetched_object_cnt_max,
         collection_name = collection_name,
         unflatten_tuple = self.funcs.unflatten_tuple,
+        use_tomap = self.collection_use_tomap[collection_name] or false,
         default_unflatten_tuple = default_unflatten_tuple,
         pcre = args.pcre,
         resolveField = extra.resolveField,
@@ -1196,7 +1197,10 @@ end
 --- Provided `funcs` argument determines certain functions for retrieving
 --- tuples.
 ---
---- @tparam table opts `schemas`, `collections`, `service_fields` and `indexes`
+--- @tparam table opts `schemas`, `collections`, `service_fields`, `indexes` and
+--- `collection_use_tomap` ({[collection_name] = whether objects in collection
+--- collection_name intended to be unflattened using tuple:tomap({names_only = true})
+--- method instead of compiled_avro_schema.unflatten(tuple), ...})
 --- to give the data accessor all needed meta-information re data; the format is
 --- shown below; additional attributes `resulting_object_cnt_max` and
 --- `fetched_object_cnt_max` are optional positive numbers which help to control
@@ -1301,6 +1305,7 @@ function accessor_general.new(opts, funcs)
         indexes = indexes,
         models = models,
         default_unflatten_tuple = default_unflatten_tuple,
+        collection_use_tomap = opts.collection_use_tomap or {},
         index_cache = index_cache,
         funcs = funcs,
         settings = {

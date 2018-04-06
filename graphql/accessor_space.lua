@@ -26,12 +26,20 @@ end
 ---
 --- @tparam string collection_name
 --- @tparam cdata/table tuple
+--- @tparam table opts
+--- @tparam table opts
+--- * `use_tomap` (boolean, default: false; whether objects in collection
+--- collection_name intended to be unflattened using tuple:tomap({names_only = true})
+--- method instead of compiled_avro_schema.unflatten(tuple)
 --- @tparam function default unflatten action, call it in the following way:
 ---
---- ```
---- return default(collection_name, tuple)
---- ```
-local function unflatten_tuple(collection_name, tuple, default)
+---
+---     return default(collection_name, tuple)
+---
+local function unflatten_tuple(collection_name, tuple, opts, default)
+    if opts.use_tomap then
+        return tuple:tomap({ names_only = true })
+    end
     return default(collection_name, tuple)
 end
 
