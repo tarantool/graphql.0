@@ -107,7 +107,8 @@ make test
   * python 2.7,
   * virtualenv,
   * luacheck,
-  * >=tarantool/shard-1.1-92-gec1a27e (but < 2.0).
+  * >=tarantool/shard-1.1-92-gec1a27e (but < 2.0),
+  * >=tarantool/avro-schema-2.2.2-4-g1145e3e.
 * For building apidoc (additionally to 'for use'):
   * ldoc.
 

@@ -204,4 +204,13 @@ function utils.table_size(t)
     return count
 end
 
+function utils.value_in(value, array)
+    for _, v in ipairs(array) do
+        if value == v then
+            return true
+        end
+    end
+    return false
+end
+
 return utils
