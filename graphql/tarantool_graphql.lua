@@ -56,38 +56,62 @@ local default_instance
 -- forward declarations
 local gql_type
 
-local function avro_type(avro_schema)
+local function is_scalar_type(avro_schema_type)
+    check(avro_schema_type, 'avro_schema_type', 'string')
+
+    local scalar_types = {
+        ['int'] = true,
+        ['int*'] = true,
+        ['long'] = true,
+        ['long*'] = true,
+--[[
+        ['float'] = true,
+        ['float*'] = true,
+        ['double'] = true,
+        ['double*'] = true,
+        ['boolean'] = true,
+        ['boolean*'] = true,
+]]--
+        ['string'] = true,
+        ['string*'] = true,
+        ['null'] = true,
+    }
+
+    return scalar_types[avro_schema_type] or false
+end
+
+local function is_compound_type(avro_schema_type)
+    check(avro_schema_type, 'avro_schema_type', 'string')
+
+    local compound_types = {
+        ['record'] = true,
+        ['record*'] = true,
+        ['array'] = true,
+        ['array*'] = true,
+        ['map'] = true,
+        ['map*'] = true,
+    }
+
+    return compound_types[avro_schema_type] or false
+end
+
+local function avro_type(avro_schema, opts)
+    local opts = opts or {}
+    local allow_references = opts.allow_references or false
+
     if type(avro_schema) == 'table' then
-        if avro_schema.type == 'record' then
-            return 'record'
-        elseif avro_schema.type == 'record*' then
-            return 'record*'
-        elseif utils.is_array(avro_schema) then
+        if utils.is_array(avro_schema) then
             return 'union'
-        elseif avro_schema.type == 'array' then
-            return 'array'
-        elseif avro_schema.type == 'array*' then
-            return 'array*'
-        elseif avro_schema.type == 'map' then
-            return 'map'
-        elseif avro_schema.type == 'map*' then
-            return 'map*'
+        elseif is_compound_type(avro_schema.type) then
+            return avro_schema.type
+        elseif allow_references then
+            return avro_schema
         end
     elseif type(avro_schema) == 'string' then
-        if avro_schema == 'int' then
-            return 'int'
-        elseif avro_schema == 'int*' then
-            return 'int*'
-        elseif avro_schema == 'long' then
-            return 'long'
-        elseif avro_schema == 'long*' then
-            return 'long*'
-        elseif avro_schema == 'string' then
-            return 'string'
-        elseif avro_schema == 'string*' then
-            return 'string*'
-        elseif avro_schema == 'null' then
-            return 'null'
+        if is_scalar_type(avro_schema) then
+            return avro_schema
+        elseif allow_references then
+            return avro_schema
         end
     end
     error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
@@ -247,17 +271,14 @@ local function convert_record_fields_to_args(fields, opts)
         assert(type(field.name) == 'string',
             ('field.name must be a string, got %s (schema %s)')
             :format(type(field.name), json.encode(field)))
-
-        -- records, arrays (gql lists) and maps can't be arguments, so these
-        -- graphql types are to be skipped
-        local avro_t = avro_type(field.type)
-        if not skip_compound or (
-                avro_t ~= 'record' and avro_t ~= 'record*' and
-                avro_t ~= 'array' and avro_t ~= 'array*' and
-                avro_t ~= 'map' and avro_t ~= 'map*' and
-                avro_t ~= 'union') then
-
-            local gql_class = gql_argument_type(field.type, field.name)
+        -- records, arrays (gql lists), maps and unions can't be arguments, so
+        -- these graphql types are to be skipped;
+        -- skip_compound == false is the trick for accessor_general-provided
+        -- record; we don't expect map, array or union here as well as we don't
+        -- expect avro-schema reference.
+        local avro_t = avro_type(field.type, {allow_references = true})
+        if not skip_compound or is_scalar_type(avro_t) then
+            local gql_class = gql_argument_type(field.type)
             args[field.name] = nullable(gql_class)
         end
     end
@@ -925,7 +946,7 @@ gql_type = function(state, avro_schema, collection, collection_name, field_name)
         'state.accessor.list_args must not be nil')
 
     -- type of the top element in the avro-schema
-    local avro_t = avro_type(avro_schema)
+    local avro_t = avro_type(avro_schema, {allow_references = true})
 
     if avro_t == 'record' or avro_t == 'record*' then
         assert(type(avro_schema.name) == 'string',
@@ -949,6 +970,11 @@ gql_type = function(state, avro_schema, collection, collection_name, field_name)
                 avro_schema.name,
             fields = fields,
         })
+        assert(state.definitions[avro_schema.name] == nil and
+            state.definitions[avro_schema.name .. '*'] == nil,
+            'multiple definitions of ' .. avro_schema.name)
+        state.definitions[avro_schema.name] = types.nonNull(res)
+        state.definitions[avro_schema.name .. '*'] = res
         return avro_t == 'record' and types.nonNull(res) or res
     elseif avro_t == 'enum' then
         error('enums not implemented yet') -- XXX
@@ -980,6 +1006,12 @@ gql_type = function(state, avro_schema, collection, collection_name, field_name)
     elseif avro_t == 'union' then
         return create_gql_union(state, avro_schema, field_name)
     else
+        if type(avro_schema) == 'string' then
+            if state.definitions[avro_schema] ~= nil then
+                return state.definitions[avro_schema]
+            end
+        end
+
         local res = convert_scalar_type(avro_schema, {raise = false})
         if res == nil then
             error('unrecognized avro-schema type: ' ..
@@ -1118,6 +1150,9 @@ local function parse_cfg(cfg)
     state.object_arguments = utils.gen_booking_table({})
     state.list_arguments = utils.gen_booking_table({})
     state.all_arguments = utils.gen_booking_table({})
+
+    -- map from avro-schema names to graphql types
+    state.definitions = {}
 
     local accessor = cfg.accessor
     assert(accessor ~= nil, 'cfg.accessor must not be nil')

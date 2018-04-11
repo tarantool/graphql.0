@@ -165,8 +165,11 @@ end
 local function run(test_run, init_function, cleanup_function, workload)
     -- ensure stable order
     local names = {}
-    for conf_name, _ in pairs(CONFS) do
-        names[#names + 1] = conf_name
+    for conf_name, conf in pairs(CONFS) do
+        -- allow to run w/o test-run
+        if test_run ~= nil or conf.type == 'space' then
+            names[#names + 1] = conf_name
+        end
     end
     table.sort(names)
 

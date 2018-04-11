@@ -27,7 +27,7 @@ testdata.meta = {
                             {"name": "y", "type": "long"}
                         ]
                     }
-                  }
+                }
             ]
         }
     }]]),
