@@ -83,7 +83,7 @@ local function run_queries(gql_wrapper)
 
     utils.show_trace(function()
         local variables_1_1 = {
-            first_name_re = '^I',
+            first_name_re = '(?i)^i',
             middle_name_re = 'ich$',
         }
         local result = gql_query_1:execute(variables_1_1)

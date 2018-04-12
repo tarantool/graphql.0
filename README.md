@@ -101,13 +101,13 @@ make test
   * tarantool,
   * lulpeg,
   * >=tarantool/avro-schema-2.0-71-gfea0ead,
-  * >=tarantool/shard-1.1-91-gfa88bf8 (optional),
-  * lrexlib-pcre (optional).
+  * >=tarantool/shard-1.1-91-gfa88bf8 (but < 2.0) (optional),
+  * lrexlib-pcre2 or lrexlib-pcre (optional).
 * For test (additionally to 'for use'):
   * python 2.7,
   * virtualenv,
   * luacheck,
-  * >=tarantool/shard-1.1-92-gec1a27e.
+  * >=tarantool/shard-1.1-92-gec1a27e (but < 2.0).
 * For building apidoc (additionally to 'for use'):
   * ldoc.
 
