@@ -12,7 +12,7 @@ QUERY
 VARIABLES
 ---
 middle_name_re: ich$
-first_name_re: ^I
+first_name_re: (?i)^i
 ...
 
 RESULT
