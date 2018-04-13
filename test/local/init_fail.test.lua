@@ -54,7 +54,6 @@ local function create_gql_wrapper(metadata)
         collections = metadata.collections,
         accessor = accessor,
     })
-
 end
 
 local ok, err = pcall(create_gql_wrapper, metadata)
@@ -65,6 +64,24 @@ metadata.collections.order_collection.connections[1].parts[2] = saved_part
 
 local ok, res = pcall(create_gql_wrapper, metadata)
 print(('INIT: ok: %s; type(res): %s'):format(tostring(ok), type(res)))
+
+-- multiple primary indexes
+-- ------------------------
+
+-- inject an error into the metadata
+metadata.indexes.user_collection.user_str_index = {
+    service_fields = {},
+    fields = {'user_str'},
+    index_type = 'tree',
+    unique = true,
+    primary = true,
+}
+
+local ok, err = pcall(create_gql_wrapper, metadata)
+print(('INIT: ok: %s; err: %s'):format(tostring(ok), strip_error(err)))
+
+-- restore metadata back
+metadata.indexes.user_collection.user_str_index = nil
 
 -- clean up
 -- --------

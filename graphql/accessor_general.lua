@@ -112,14 +112,26 @@ local function get_primary_index_meta(self, collection_name)
         type(collection_name))
 
     local indexes = self.indexes[collection_name]
+
+    local res_index_name
+
     for index_name, index in pairs(indexes) do
-        if index.primary then
-            return index_name, index
+        if res_index_name == nil and index.primary then
+            res_index_name = index_name
+        elseif res_index_name ~= nil and index.primary then
+            error(('several indexes were marked as primary in ' ..
+                'the "%s" collection, at least "%s" and "%s"'):format(
+                collection_name, res_index_name, index_name))
         end
     end
 
-    error(('cannot find primary index for collection "%s"'):format(
-        collection_name))
+    if res_index_name == nil then
+        error(('cannot find primary index for collection "%s"'):format(
+            collection_name))
+    end
+
+    local res_index = indexes[res_index_name]
+    return res_index_name, res_index
 end
 
 --- Get a key to lookup index by `lookup_index_name` (part of `index_cache`).

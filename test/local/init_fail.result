@@ -1,2 +1,3 @@
 INIT: ok: false; err: 1:1 connection "user_connection" of collection "order_collection" has less fields than the index of "user_str_num_index" collection (cannot prove uniqueness of the partial index)
 INIT: ok: true; type(res): table
+INIT: ok: false; err: several indexes were marked as primary in the "user_collection" collection, at least "user_str_index" and "user_str_num_index"
