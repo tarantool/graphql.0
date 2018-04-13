@@ -1,0 +1,82 @@
+RESULT
+---
+user_collection:
+- user_id: user_id_0
+  name: Nobody
+- user_id: user_id_1
+  name: Zlata
+  stuff:
+    string: Some string
+- user_id: user_id_2
+  name: Ivan
+  stuff:
+    int: 123
+- user_id: user_id_3
+  name: Jane
+  stuff:
+    map: {'salary': 333, 'deposit': 444}
+- user_id: user_id_4
+  name: Dan
+  stuff:
+    Foo:
+      foo1: foo1 string
+      foo2: foo2 string
+- user_id: user_id_5
+  name: Max
+  stuff:
+    array:
+    - {'salary': 'salary string', 'deposit': 'deposit string'}
+    - {'salary': 'string salary', 'deposit': 'string deposit'}
+...
+
+Validating results with initial avro-schema
+true
+---
+user_id: user_id_0
+name: Nobody
+...
+
+true
+---
+user_id: user_id_1
+name: Zlata
+stuff:
+  string: Some string
+...
+
+true
+---
+user_id: user_id_2
+name: Ivan
+stuff:
+  int: 123
+...
+
+true
+---
+user_id: user_id_3
+name: Jane
+stuff:
+  map: {'salary': 333, 'deposit': 444}
+...
+
+true
+---
+user_id: user_id_4
+name: Dan
+stuff:
+  Foo:
+    foo1: foo1 string
+    foo2: foo2 string
+...
+
+true
+---
+user_id: user_id_5
+name: Max
+stuff:
+  array:
+  - {'salary': 'salary string', 'deposit': 'deposit string'}
+  - {'salary': 'string salary', 'deposit': 'string deposit'}
+...
+
