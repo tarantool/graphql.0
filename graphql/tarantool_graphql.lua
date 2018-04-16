@@ -82,6 +82,18 @@ local function avro_type(avro_schema)
             return 'long'
         elseif avro_schema == 'long*' then
             return 'long*'
+        elseif avro_schema == 'double' then
+            return 'double'
+        elseif avro_schema == 'double*' then
+            return 'double*'
+        elseif avro_schema == 'float' then
+            return 'float'
+        elseif avro_schema == 'float*' then
+            return 'float*'
+        elseif avro_schema == 'boolean' then
+            return 'boolean'
+        elseif avro_schema == 'boolean*' then
+            return 'boolean*'
         elseif avro_schema == 'string' then
             return 'string'
         elseif avro_schema == 'string*' then
@@ -147,6 +159,18 @@ local function convert_scalar_type(avro_schema, opts)
         return types_long.nonNull
     elseif avro_t == 'long*' then
         return types_long
+    elseif avro_t == 'float' then
+        return types.float.nonNull
+    elseif avro_t == 'float*' then
+        return types.float
+    elseif avro_t == 'double' then
+        return types.double.nonNull
+    elseif avro_t == 'double*' then
+        return types.double
+    elseif avro_t == 'boolean' then
+        return types.boolean.nonNull
+    elseif avro_t == 'boolean*' then
+        return types.boolean
     elseif avro_t == 'string' then
         return types.string.nonNull
     elseif avro_t == 'string*' then
