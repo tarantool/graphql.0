@@ -4,6 +4,10 @@ sudo: true
 
 dist: trusty
 
+env:
+    - SHARD_VERSION=1.2
+    - SHARD_VERSION=2.1
+
 branches:
   only:
     - master
@@ -32,7 +36,7 @@ install:
   - cmake .
   - sudo make install
   - cd ..
-  - tarantoolctl rocks install shard 1.2
+  - tarantoolctl rocks install shard "${SHARD_VERSION}"
   - tarantoolctl rocks install avro-schema
   - cd graphql
   - git submodule update --recursive --init
