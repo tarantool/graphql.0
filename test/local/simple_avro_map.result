@@ -1,9 +1,0 @@
-RESULT
----
-user_collection:
-- user_id: def
-  favorite_holidays:
-    december: new year
-    march: vacation
-...
-
