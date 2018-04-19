@@ -15,6 +15,7 @@ local digest = require('digest')
 local multirunner = require('test.common.lua.multirunner')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
+local test_utils = require('test.utils')
 local test_run = utils.optional_require('test_run')
 test_run = test_run and test_run.new()
 
@@ -28,29 +29,6 @@ local SCRIPT_DIR = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 -- ------
 
 local bench = {}
-
-function bench.graphql_from_testdata(testdata, shard)
-    local accessor_class = shard and graphql.accessor_shard or
-        graphql.accessor_space
-
-    local meta = testdata.get_test_metadata()
-
-    local accessor = accessor_class.new({
-        schemas = meta.schemas,
-        collections = meta.collections,
-        service_fields = meta.service_fields,
-        indexes = meta.indexes,
-        timeout_ms = graphql.TIMEOUT_INFINITY,
-    })
-
-    local gql_wrapper = graphql.new({
-        schemas = meta.schemas,
-        collections = meta.collections,
-        accessor = accessor,
-    })
-
-    return gql_wrapper
-end
 
 local function workload(shard, bench_prepare, bench_iter, opts)
     local iterations = opts.iterations
@@ -176,6 +154,16 @@ function bench.run(test_name, opts)
     if result.ok then
         write_result(test_name, conf_name, result, not not test_run)
     end
+end
+
+-- helper for preparing benchmarking environment
+function bench.bench_prepare_helper(testdata, shard)
+    testdata.fill_test_data(shard or box.space)
+    return test_utils.graphql_from_testdata(testdata, shard, {
+        graphql_opts = {
+            timeout_ms = graphql.TIMEOUT_INFINITY,
+        }
+    })
 end
 
 return bench
