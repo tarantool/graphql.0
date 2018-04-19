@@ -2,6 +2,7 @@
 -- https://github.com/tarantool/graphql/issues/46
 -- https://github.com/tarantool/graphql/issues/49
 
+local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
@@ -79,7 +80,8 @@ function testdata.fill_test_data(virtbox)
 end
 
 function testdata.run_queries(gql_wrapper)
-    local output = ''
+    local test = tap.test('nested_record')
+    test:plan(1)
 
     local query_1 = [[
         query getUserByUid($uid: Long) {
@@ -101,12 +103,20 @@ function testdata.run_queries(gql_wrapper)
         return gql_query_1:execute(variables_1)
     end)
 
-    output = output .. 'RUN 1 {{{\n' ..
-        (('QUERY\n%s'):format(query_1:rstrip())) .. '\n' ..
-        (('VARIABLES\n%s'):format(yaml.encode(variables_1))) .. '\n' ..
-        (('RESULT\n%s'):format(yaml.encode(result_1))) .. '\n' ..
-        '}}}\n'
+    local exp_result_1 = yaml.decode(([[
+        ---
+        user:
+        - uid: 5
+          p1: p1 5
+          p2: p2 5
+          nested:
+            x: 1005
+            y: 2005
+    ]]):strip())
 
+    test:is_deeply(result_1, exp_result_1, '1')
+
+    -- XXX: uncomment when arguments for nested records will be supported
     --[=[
     local query_2 = [[
         query getUserByX($x: Long) {
@@ -128,14 +138,21 @@ function testdata.run_queries(gql_wrapper)
         return gql_query_2:execute(variables_2)
     end)
 
-    output = output .. 'RUN 2 {{{\n' ..
-        (('QUERY\n%s'):format(query_2:rstrip())) .. '\n' ..
-        (('VARIABLES\n%s'):format(yaml.encode(variables_2))) .. '\n' ..
-        (('RESULT\n%s'):format(yaml.encode(result_2))) .. '\n' ..
-        '}}}\n'
+    local exp_result_2 = yaml.decode(([[
+        ---
+        user:
+        - uid: 5
+          p1: p1 5
+          p2: p2 5
+          nested:
+            x: 1005
+            y: 2005
+    ]]):strip())
+
+    test:is_deeply(result_2, exp_result_2, '2')
     ]=]--
 
-    return output:rstrip()
+    assert(test:check(), 'check plan')
 end
 
 return testdata
