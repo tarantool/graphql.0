@@ -51,3 +51,30 @@ user_collection:
 
 }}}
 
+RUN 1_3 {{{
+QUERY
+        query users($offset: String, $first_name_re: String,
+                $middle_name_re: String) {
+            user_collection(pcre: {first_name: $first_name_re,
+                    middle_name: $middle_name_re}, offset: $offset) {
+                first_name
+                middle_name
+                last_name
+            }
+        }
+VARIABLES
+---
+middle_name_re: ич$
+first_name_re: (?i)^и
+...
+
+RESULT
+---
+user_collection:
+- last_name: Иванов
+  first_name: Иван
+  middle_name: Иванович
+...
+
+}}}
+

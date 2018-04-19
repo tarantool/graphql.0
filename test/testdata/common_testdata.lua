@@ -159,6 +159,11 @@ function common_testdata.fill_test_data(shard)
                 {'order_id_' .. t, 'user_id_' .. s, 'order of user ' .. s})
         end
     end
+
+    shard.user_collection:replace(
+        {1827767717, 'user_id_101', 'Иван', STRING_T, 'Иванович', 'Иванов'})
+    shard.order_collection:replace(
+        {'order_id_101', 'user_id_101', 'Покупка 101'})
 end
 
 function common_testdata.drop_spaces()

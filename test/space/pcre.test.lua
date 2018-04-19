@@ -104,6 +104,19 @@ local function run_queries(gql_wrapper)
             '1_2', query_1, variables_1_2, result))
     end)
 
+    -- UTF-8 in regexp
+    -- ---------------
+
+    utils.show_trace(function()
+        local variables_1_3 = {
+            first_name_re = '(?i)^и',
+            middle_name_re = 'ич$',
+        }
+        local result = gql_query_1:execute(variables_1_3)
+        results = results .. print_and_return(format_result(
+            '1_3', query_1, variables_1_3, result))
+    end)
+
     return results
 end
 
