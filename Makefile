@@ -12,8 +12,8 @@ lint:
 		test/bench/*.lua \
 		test/local/*.lua \
 		test/testdata/*.lua \
-		test/common/*.test.lua test/common/lua/*.lua \
-		test/extra/*.test.lua \
+		test/common/*.lua \
+		test/extra/*.lua \
 		test/*.lua \
 		--no-redefined --no-unused-args
 

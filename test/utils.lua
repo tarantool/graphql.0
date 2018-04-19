@@ -8,7 +8,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local yaml = require('yaml')
 local graphql = require('graphql')
-local multirunner = require('test.common.lua.multirunner')
+local multirunner = require('test.common.multirunner')
 local graphql_utils = require('graphql.utils')
 local test_run = graphql_utils.optional_require('test_run')
 test_run = test_run and test_run.new()

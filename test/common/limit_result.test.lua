@@ -8,7 +8,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local tap = require('tap')
 local utils = require('test.utils')
-local testdata = require('test.common.lua.test_data_user_order')
+local testdata = require('test.testdata.user_order_item_testdata')
 
 local function run_queries(gql_wrapper)
     local test = tap.test('result cnt')
