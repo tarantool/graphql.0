@@ -5,6 +5,7 @@
 -- [2]: https://github.com/tarantool/graphql/issues/43
 -- [3]: https://github.com/tarantool/graphql/issues/44
 
+local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
@@ -17,16 +18,6 @@ local DOMAIN = 'graphql.tarantool.org'
 -- return an error w/o file name and line number
 local function strip_error(err)
     return tostring(err):gsub('^.-:.-: (.*)$', '%1')
-end
-
-local function print_and_return(...)
-    print(...)
-    return table.concat({...}, ' ') .. '\n'
-end
-
-local function format_result(name, query, variables, result)
-    return ('RUN %s {{{\nQUERY\n%s\nVARIABLES\n%s\nRESULT\n%s\n}}}\n'):format(
-        name, query:rstrip(), yaml.encode(variables), yaml.encode(result))
 end
 
 function nullable_1_1_conn_testdata.get_test_metadata()
@@ -161,9 +152,16 @@ local function gen_prng(seed)
     })
 end
 
+--[[
+        +---------------------+
+        |  a-+      h     x y |
+        |  |\ \     |\        |
+        |  b c d    k l       |
+        |  |   |\      \      |
+        |  e   f g      m     |
+        +---------------------+
+]]--
 function nullable_1_1_conn_testdata.fill_test_data(virtbox)
-    local results = ''
-
     local virtbox = virtbox or box.space
 
     local prng = gen_prng(PRNG_SEED)
@@ -175,20 +173,6 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox)
             body = body,
         }
     end
-
-    -- the string must contain '\n\n' to being printed in the literal scalar
-    -- style
-    results = results .. print_and_return(([[
-
-
-        +---------------------+
-        |  a-+      h     x y |
-        |  |\ \     |\        |
-        |  b c d    k l       |
-        |  |   |\      \      |
-        |  e   f g      m     |
-        +---------------------+
-    ]]):rstrip())
 
     local email_trees = {
         {
@@ -297,8 +281,6 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox)
         box.NULL,
         'y',
     })
-
-    return results
 end
 
 function nullable_1_1_conn_testdata.drop_spaces()
@@ -307,10 +289,10 @@ function nullable_1_1_conn_testdata.drop_spaces()
 end
 
 function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
-    local results = ''
+    local test = tap.test('nullable_1_1_conn')
+    test:plan(5)
 
-    -- downside traversal (1:N connections)
-    -- ------------------------------------
+    -- {{{ downside traversal (1:N connections)
 
     local query_downside = [[
         query emails_tree_downside($body: String) {
@@ -329,24 +311,58 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_downside = gql_wrapper:compile(query_downside)
+    local gql_query_downside = utils.show_trace(function()
+        return gql_wrapper:compile(query_downside)
+    end)
 
-    utils.show_trace(function()
+    local result = utils.show_trace(function()
         local variables_downside_a = {body = 'a'}
-        local result = gql_query_downside:execute(variables_downside_a)
-        results = results .. print_and_return(format_result(
-            'downside_a', query_downside, variables_downside_a, result))
+        return gql_query_downside:execute(variables_downside_a)
     end)
 
-    utils.show_trace(function()
+    local exp_result = yaml.decode(([[
+        ---
+        email:
+        - successors:
+          - successors: &0 []
+            body: c
+          - successors:
+            - successors: *0
+              body: g
+            - successors: *0
+              body: f
+            body: d
+          - successors:
+            - successors: *0
+              body: e
+            body: b
+          body: a
+    ]]):strip())
+
+    test:is_deeply(result, exp_result, 'downside_a')
+
+    local result = utils.show_trace(function()
         local variables_downside_h = {body = 'h'}
-        local result = gql_query_downside:execute(variables_downside_h)
-        results = results .. print_and_return(format_result(
-            'downside_h', query_downside, variables_downside_h, result))
+        return gql_query_downside:execute(variables_downside_h)
     end)
 
-    -- upside traversal (1:1 connections)
-    -- ----------------------------------
+    local exp_result = yaml.decode(([[
+        ---
+        email:
+        - successors:
+          - successors:
+            - successors: &0 []
+              body: m
+            body: l
+          - successors: *0
+            body: k
+          body: h
+    ]]):strip())
+
+    test:is_deeply(result, exp_result, 'downside_h')
+
+    -- }}}
+    -- {{{ upside traversal (1:1 connections)
 
     local query_upside = [[
         query emails_trace_upside($body: String) {
@@ -367,40 +383,66 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
 
     local gql_query_upside = gql_wrapper:compile(query_upside)
 
-    utils.show_trace(function()
+    local result = utils.show_trace(function()
         local variables_upside = {body = 'f'}
-        local result = gql_query_upside:execute(variables_upside)
-        results = results .. print_and_return(format_result(
-            'upside', query_upside, variables_upside, result))
+        return gql_query_upside:execute(variables_upside)
     end)
 
-    -- FULL MATCH constraint: connection key parts must be all non-nulls or all
-    -- nulls; both expected to fail
-    -- ------------------------------------------------------------------------
+    local exp_result = yaml.decode(([[
+        ---
+        email:
+        - body: f
+          in_reply_to:
+            body: d
+            in_reply_to:
+              body: a
+    ]]):strip())
+
+    test:is_deeply(result, exp_result, 'upside')
+
+    -- }}}
+    -- {{{ FULL MATCH constraint
+
+    -- connection key parts must be all non-nulls or all nulls; both expected
+    -- to fail
 
     local variables_upside_x = {body = 'x'}
     local ok, err = pcall(function()
-        local result = gql_query_upside:execute(variables_upside_x)
-        results = results .. print_and_return(format_result(
-            'upside_x', query_upside, variables_upside_x, result))
+        return gql_query_upside:execute(variables_upside_x)
     end)
 
     local result = {ok = ok, err = strip_error(err)}
-    results = results .. print_and_return(format_result(
-        'upside_x', query_upside, variables_upside_x, result))
+    local exp_result = yaml.decode(([[
+        ---
+        ok: false
+        err: 'FULL MATCH constraint was failed: connection key parts must be
+          all non-nulls or all nulls; object: {"domain":"graphql.tarantool.org",
+          "localpart":"062b56b1885c71c51153ccb880ac7315","body":"x",
+          "in_reply_to_domain":"graphql.tarantool.org",
+          "in_reply_to_localpart":null}'
+    ]]):strip())
+    exp_result.err = exp_result.err:gsub(', ', ',')
+    test:is_deeply(result, exp_result, 'upside_x')
 
     local variables_upside_y = {body = 'y'}
     local ok, err = pcall(function()
-        local result = gql_query_upside:execute(variables_upside_y)
-        results = results .. print_and_return(format_result(
-            'upside_y', query_upside, variables_upside_y, result))
+        return gql_query_upside:execute(variables_upside_y)
     end)
 
     local result = {ok = ok, err = strip_error(err)}
-    results = results .. print_and_return(format_result(
-        'upside_y', query_upside, variables_upside_y, result))
+    local exp_result = yaml.decode(([[
+        ---
+        ok: false
+        err: 'FULL MATCH constraint was failed: connection key parts must be
+          all non-nulls or all nulls; object: {"domain":"graphql.tarantool.org",
+          "localpart":"1f70391f6ba858129413bd801b12acbf","body":"y",
+          "in_reply_to_domain":null,
+          "in_reply_to_localpart":"1f70391f6ba858129413bd801b12acbf"}'
+    ]]):strip())
+    exp_result.err = exp_result.err:gsub(', ', ',')
+    test:is_deeply(result, exp_result, 'upside_y')
 
-    return results
+    assert(test:check(), 'check plan')
 end
 
 return nullable_1_1_conn_testdata
