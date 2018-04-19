@@ -9,6 +9,7 @@ local json = require('json')
 local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 local clock = require('clock')
+local bit = require('bit')
 local rex, is_pcre2 = utils.optional_require('rex_pcre2'), true
 if rex == nil then
     -- fallback to libpcre
@@ -793,14 +794,23 @@ local function match_using_re(obj, pcre)
         assert(rex ~= nil, 'we should not pass over :compile() ' ..
             'with a query contains PCRE matching when there are '..
             'no lrexlib-pcre (rex_pcre) module present')
+        local flags = rex.flags()
         -- emulate behaviour of (?i) on libpcre (libpcre2 supports it)
-        local cfg
+        local cfg = 0
         if not is_pcre2 then
             local cnt
             re, cnt = re:gsub('^%(%?i%)', '')
             if cnt > 0 then
-                cfg = 'i'
+                cfg = bit.bor(cfg, flags.CASELESS)
             end
+        end
+        -- enable UTF-8
+        if is_pcre2 then
+            cfg = bit.bor(cfg, flags.UTF)
+            cfg = bit.bor(cfg, flags.UCP)
+        else
+            cfg = bit.bor(cfg, flags.UTF8)
+            cfg = bit.bor(cfg, flags.UCP)
         end
         -- XXX: compile re once
         local re = rex.new(re, cfg)
