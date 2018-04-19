@@ -10,7 +10,7 @@ default:
 lint:
 	luacheck graphql/*.lua \
 		test/bench/*.lua \
-		test/local/*.lua \
+		test/space/*.lua \
 		test/testdata/*.lua \
 		test/common/*.lua \
 		test/extra/*.lua \
