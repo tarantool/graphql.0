@@ -220,7 +220,7 @@ local visitors = {
 
   fragmentDefinition = {
     enter = function(node, context)
-      kind = context.schema:getType(node.typeCondition.name.value) or false
+      local kind = context.schema:getType(node.typeCondition.name.value) or false
       table.insert(context.objects, kind)
     end,
 

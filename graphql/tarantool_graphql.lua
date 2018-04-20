@@ -43,6 +43,7 @@ local execute = require('graphql.core.execute')
 local query_to_avro = require('graphql.query_to_avro')
 local simple_config = require('graphql.simple_config')
 local config_complement = require('graphql.config_complement')
+local server = require('graphql.server.server')
 
 local utils = require('graphql.utils')
 local check = utils.check
@@ -216,7 +217,7 @@ local function gql_argument_type(avro_schema)
 
             fields[field.name] = {
                 name = field.name,
-                kind = types.nonNull(gql_field_type),
+                kind = gql_field_type,
             }
         end
 
@@ -1225,20 +1226,6 @@ local function parse_cfg(cfg)
     return state
 end
 
---- The function checks that one and only one GraphQL operation
---- (query/mutation/subscription) is defined in the AST and it's type
---- is 'query' as mutations and subscriptions are not supported yet.
-local function assert_gql_query_ast(func_name, ast)
-    assert(#ast.definitions == 1,
-        func_name .. ': expected an one query')
-    assert(ast.definitions[1].operation == 'query',
-        func_name .. ': expected a query operation')
-    local operation_name = ast.definitions[1].name.value
-    assert(type(operation_name) == 'string',
-        func_name .. 'operation_name must be a string, got ' ..
-        type(operation_name))
-end
-
 --- The function just makes some reasonable assertions on input
 --- and then call graphql-lua execute.
 local function gql_execute(qstate, variables)
@@ -1258,6 +1245,15 @@ local function gql_execute(qstate, variables)
         operation_name)
 end
 
+local function compile_and_execute(state, query, variables)
+    assert(type(state) == 'table', 'use :gql_execute(...) instead of ' ..
+        '.execute(...)')
+    check(query, 'query', 'string')
+    check(variables, 'variables', 'table', 'nil')
+    local compiled_query = state:compile(query)
+    return compiled_query:execute(variables)
+end
+
 --- The function parses a query string, validate the resulting query
 --- against the GraphQL schema and provides an object with the function to
 --- execute the query with specific variables values.
@@ -1271,8 +1267,16 @@ local function gql_compile(state, query)
     assert(state.schema ~= nil, 'have not compiled schema')
 
     local ast = parse(query)
-    assert_gql_query_ast('gql_compile', ast)
-    local operation_name = ast.definitions[1].name.value
+
+    local operation_name
+    for _, definition in pairs(ast.definitions) do
+        if definition.kind == 'operation' then
+            operation_name = definition.name.value
+        end
+    end
+
+    assert(operation_name, "there is no 'operation' in query " ..
+        "definitions:\n" .. yaml.encode(ast))
 
     validate(state.schema, ast)
 
@@ -1291,16 +1295,59 @@ local function gql_compile(state, query)
     return gql_query
 end
 
+local function start_server(gql, host, port)
+    assert(type(gql) == 'table',
+        'use :start_server(...) instead of .start_server(...)')
+
+    check(host, 'host', 'nil', 'string')
+    check(port, 'port', 'nil', 'number')
+
+    gql.server = server.init(gql, host, port)
+    gql.server:start()
+
+    return ('The GraphQL server started at http://%s:%s'):format(
+        gql.server.host, gql.server.port
+    )
+end
+
+local function stop_server(gql)
+    assert(type(gql) == 'table',
+        'use :stop_server(...) instead of .stop_server(...)')
+    assert(gql.server, 'no running server to stop')
+
+    print (('The GraphQL server stopped at http://%s:%s'):format(
+        gql.server.host, gql.server.port))
+
+    gql.server:stop()
+end
+
 function tarantool_graphql.compile(query)
     if default_instance == nil then
         default_instance = tarantool_graphql.new()
     end
-    return default_instance.compile(query)
+    return default_instance:compile(query)
 end
 
 function tarantool_graphql.execute(query, variables)
-    local compiled_query = tarantool_graphql.compile(query)
-    return compiled_query.execute(variables)
+    if default_instance == nil then
+        default_instance = tarantool_graphql.new()
+    end
+    return default_instance:execute(query, variables)
+end
+
+function tarantool_graphql.start_server()
+    if default_instance == nil then
+        default_instance = tarantool_graphql.new()
+    end
+
+    return default_instance:start_server()
+end
+
+function tarantool_graphql.stop_server()
+    if default_instance ~= nil and default_instance.server ~= nil then
+        return default_instance:stop_server()
+    end
+    return 'there is no active server in default Tarantool graphql instance'
 end
 
 --- The function creates an accessor of desired type with default configuration.
@@ -1443,6 +1490,9 @@ function tarantool_graphql.new(cfg)
     return setmetatable(state, {
         __index = {
             compile = gql_compile,
+            execute = compile_and_execute,
+            start_server = start_server,
+            stop_server = stop_server,
             internal = { -- for unit testing
                 cfg = cfg,
             }

@@ -58,6 +58,14 @@ __Schema = types.object({
         end
       },
 
+      subscriptionType = {
+        description = 'If this server supports mutation, the type that mutation operations will be rooted at.',
+        kind = __Type,
+        resolve = function(_)
+          return nil
+        end
+      },
+
       directives = {
         description = 'A list of all directives supported by this server.',
         kind = types.nonNull(types.list(types.nonNull(__Directive))),
@@ -230,7 +238,7 @@ __Type = types.object({
         kind = types.list(types.nonNull(__Type)),
         resolve = function(kind)
           if kind.__type == 'Object' then
-            return kind.interfaces
+            return kind.interfaces or {}
           end
         end
       },

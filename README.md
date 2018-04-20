@@ -87,6 +87,61 @@ The following example doesn't work:
 }
 ```
 
+## Usage
+
+There are two ways to use the lib.
+1) Create an instance and use it (detailed examples may be found in /test):
+```
+local graphql = require('graphql').new({
+    schemas = schemas,
+    collections = collections,
+    accessor = accessor,
+    service_fields = service_fields,
+    indexes = indexes
+})
+
+local query = [[
+    query user($user_id: String) {
+        user_collection(user_id: $user_id) {
+            user_id
+            name
+        }
+    }
+]]
+
+local compiled_query = graphql:compile(query)
+local variables = {user_id = 'user_id_1'}
+local result = compiled_query:execute(variables)
+```
+2) Use the lib itself (it will create a default instance underhood. As no
+avro-schema is given, GraphQL schemas will be generated from results
+box.space.some_space:format()):
+```
+local graphql_lib = require('graphql')
+-- considering the same query and variables
+
+local compiled_query = graphql_lib.compile(query)
+local result = compiled_query:execute(variables)
+```
+
+# GraphiQL
+```
+local graphql = require('graphql').new({
+    schemas = schemas,
+    collections = collections,
+    accessor = accessor,
+    service_fields = service_fields,
+    indexes = indexes
+})
+
+graphql:start_server()
+-- now you can use GraphiQL interface at http://127.0.0.1:8080
+graphql:stop_server()
+
+-- as well you may do (with creating default instance underhood)
+require('graphql').start_server()
+```
+
 ## Run tests
 
 ```
