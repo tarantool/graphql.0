@@ -9,14 +9,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local graphql = require('graphql')
 local testdata = require('test.testdata.compound_index_testdata')
-
--- utils
--- -----
-
--- return an error w/o file name and line number
-local function strip_error(err)
-    return tostring(err):gsub('^.-:.-: (.*)$', '%1')
-end
+local test_utils = require('test.utils')
 
 -- init box, upload test data and acquire metadata
 -- -----------------------------------------------
@@ -57,7 +50,8 @@ local function create_gql_wrapper(metadata)
 end
 
 local ok, err = pcall(create_gql_wrapper, metadata)
-print(('INIT: ok: %s; err: %s'):format(tostring(ok), strip_error(err)))
+print(('INIT: ok: %s; err: %s'):format(tostring(ok),
+    test_utils.strip_error(err)))
 
 -- restore back cut part
 metadata.collections.order_collection.connections[1].parts[2] = saved_part
@@ -78,7 +72,8 @@ metadata.indexes.user_collection.user_str_index = {
 }
 
 local ok, err = pcall(create_gql_wrapper, metadata)
-print(('INIT: ok: %s; err: %s'):format(tostring(ok), strip_error(err)))
+print(('INIT: ok: %s; err: %s'):format(tostring(ok),
+    test_utils.strip_error(err)))
 
 -- restore metadata back
 metadata.indexes.user_collection.user_str_index = nil

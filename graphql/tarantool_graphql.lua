@@ -64,14 +64,30 @@ local function is_scalar_type(avro_schema_type)
         ['int*'] = true,
         ['long'] = true,
         ['long*'] = true,
---[[
         ['float'] = true,
         ['float*'] = true,
         ['double'] = true,
         ['double*'] = true,
         ['boolean'] = true,
         ['boolean*'] = true,
-]]--
+        ['string'] = true,
+        ['string*'] = true,
+        ['null'] = true,
+    }
+
+    return scalar_types[avro_schema_type] or false
+end
+
+local function is_comparable_scalar_type(avro_schema_type)
+    check(avro_schema_type, 'avro_schema_type', 'string')
+
+    local scalar_types = {
+        ['int'] = true,
+        ['int*'] = true,
+        ['long'] = true,
+        ['long*'] = true,
+        ['boolean'] = true,
+        ['boolean*'] = true,
         ['string'] = true,
         ['string*'] = true,
         ['null'] = true,
@@ -133,7 +149,20 @@ local types_long = types.scalar({
     serialize = function(value) return tonumber(value) end,
     parseValue = function(value) return tonumber(value) end,
     parseLiteral = function(node)
+        -- 'int' is name of the immediate value type
         if node.kind == 'int' then
+            return tonumber(node.value)
+        end
+    end
+})
+
+local types_double = types.scalar({
+    name = 'Double',
+    serialize = tonumber,
+    parseValue = tonumber,
+    parseLiteral = function(node)
+        -- 'float' and 'int' are names of immediate value types
+        if node.kind == 'float' or node.kind == 'int' then
             return tonumber(node.value)
         end
     end
@@ -152,8 +181,6 @@ local types_map = types.scalar({
     end
 })
 
--- XXX: boolean
--- XXX: float
 local function convert_scalar_type(avro_schema, opts)
     local opts = opts or {}
     assert(type(opts) == 'table', 'opts must be nil or table, got ' ..
@@ -162,19 +189,25 @@ local function convert_scalar_type(avro_schema, opts)
     assert(type(raise) == 'boolean', 'opts.raise must be boolean, got ' ..
         type(raise))
 
+    local scalar_types = {
+        ['int'] = types.int.nonNull,
+        ['int*'] = types.int,
+        ['long'] = types_long.nonNull,
+        ['long*'] = types_long,
+        ['float'] = types.float.nonNull,
+        ['float*'] = types.float,
+        ['double'] = types_double.nonNull,
+        ['double*'] = types_double,
+        ['boolean'] = types.boolean.nonNull,
+        ['boolean*'] = types.boolean,
+        ['string'] = types.string.nonNull,
+        ['string*'] = types.string,
+    }
+
     local avro_t = avro_type(avro_schema)
-    if avro_t == 'int' then
-        return types.int.nonNull
-    elseif avro_t == 'int*' then
-        return types.int
-    elseif avro_t == 'long' then
-        return types_long.nonNull
-    elseif avro_t == 'long*' then
-        return types_long
-    elseif avro_t == 'string' then
-        return types.string.nonNull
-    elseif avro_t == 'string*' then
-        return types.string
+    local graphql_type = scalar_types[avro_t]
+    if graphql_type ~= nil then
+        return graphql_type
     end
 
     if raise then
@@ -277,7 +310,9 @@ local function convert_record_fields_to_args(fields, opts)
         -- record; we don't expect map, array or union here as well as we don't
         -- expect avro-schema reference.
         local avro_t = avro_type(field.type, {allow_references = true})
-        if not skip_compound or is_scalar_type(avro_t) then
+        local add_field = is_comparable_scalar_type(avro_t) or
+            (not skip_compound and not is_scalar_type(avro_t))
+        if add_field then
             local gql_class = gql_argument_type(field.type)
             args[field.name] = nullable(gql_class)
         end

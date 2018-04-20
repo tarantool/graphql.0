@@ -6,13 +6,9 @@ local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
+local test_utils = require('test.utils')
 
 local nullable_index_testdata = {}
-
--- return an error w/o file name and line number
-local function strip_error(err)
-    return tostring(err):gsub('^.-:.-: (.*)$', '%1')
-end
 
 function nullable_index_testdata.get_test_metadata()
     local schemas = json.decode([[{
@@ -243,7 +239,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
         return gql_query_1:execute(variables_1)
     end)
 
-    local result = {ok = ok, err = strip_error(err)}
+    local result = {ok = ok, err = test_utils.strip_error(err)}
     local exp_result = yaml.decode(([[
         ---
         ok: false

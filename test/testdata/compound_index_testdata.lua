@@ -2,13 +2,9 @@ local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
+local test_utils = require('test.utils')
 
 local compound_index_testdata = {}
-
--- return an error w/o file name and line number
-local function strip_error(err)
-    return tostring(err):gsub('^.-:.-: (.*)$', '%1')
-end
 
 -- schemas and meta-information
 -- ----------------------------
@@ -1238,7 +1234,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
         return gql_query_4:execute(variables_4_2)
     end)
 
-    local result_4_2 = {ok = ok, err = strip_error(err)}
+    local result_4_2 = {ok = ok, err = test_utils.strip_error(err)}
 
     local exp_result_4_2 = yaml.decode(([[
         ---
@@ -1325,7 +1321,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
         return gql_query_5:execute(variables_5_2)
     end)
 
-    local result_5_2 = {ok = ok, err = strip_error(err)}
+    local result_5_2 = {ok = ok, err = test_utils.strip_error(err)}
 
     local exp_result_5_2 = yaml.decode(([[
         ---

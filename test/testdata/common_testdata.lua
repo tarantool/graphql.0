@@ -2,8 +2,25 @@ local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
+local test_utils = require('test.utils')
 
 local common_testdata = {}
+
+-- needed to compare a dump with floats/doubles, because, say,
+-- `tonumber(tostring(1/3)) == 1/3` is `false`
+local function deeply_number_tostring(t)
+    if type(t) == 'table' then
+        local res = {}
+        for k, v in pairs(t) do
+            res[k] = deeply_number_tostring(v)
+        end
+        return res
+    elseif type(t) == 'number' then
+        return tostring(t)
+    else
+        return table.deepcopy(t)
+    end
+end
 
 function common_testdata.get_test_metadata()
     local schemas = json.decode([[{
@@ -23,7 +40,10 @@ function common_testdata.get_test_metadata()
             "fields": [
                 { "name": "order_id", "type": "string" },
                 { "name": "user_id", "type": "string" },
-                { "name": "description", "type": "string" }
+                { "name": "description", "type": "string" },
+                { "name": "price", "type": "double" },
+                { "name": "discount", "type": "float" },
+                { "name": "in_stock", "type": "boolean" }
             ]
         }
     }]])
@@ -142,11 +162,11 @@ function common_testdata.fill_test_data(shard)
     shard.user_collection:replace(
         {1827767717, 'user_id_2', 'Vasiliy', NULL_T, box.NULL, 'Pupkin'})
     shard.order_collection:replace(
-        {'order_id_1', 'user_id_1', 'first order of Ivan'})
+        {'order_id_1', 'user_id_1', 'first order of Ivan', 0, 0, true})
     shard.order_collection:replace(
-        {'order_id_2', 'user_id_1', 'second order of Ivan'})
+        {'order_id_2', 'user_id_1', 'second order of Ivan', 0, 0, false})
     shard.order_collection:replace(
-        {'order_id_3', 'user_id_2', 'first order of Vasiliy'})
+        {'order_id_3', 'user_id_2', 'first order of Vasiliy', 0, 0, true})
 
     for i = 3, 100 do
         local s = tostring(i)
@@ -155,8 +175,10 @@ function common_testdata.fill_test_data(shard)
             'last name ' .. s})
         for j = (4 + (i - 3) * 40), (4 + (i - 2) * 40) - 1 do
             local t = tostring(j)
-            shard.order_collection:replace(
-                {'order_id_' .. t, 'user_id_' .. s, 'order of user ' .. s})
+            shard.order_collection:replace({
+                'order_id_' .. t, 'user_id_' .. s, 'order of user ' .. s,
+                i + j / 3, i + j / 3, j % 2 == 1,
+            })
         end
     end
 end
@@ -169,7 +191,7 @@ end
 
 function common_testdata.run_queries(gql_wrapper)
     local test = tap.test('common')
-    test:plan(10)
+    test:plan(18)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -593,6 +615,338 @@ function common_testdata.run_queries(gql_wrapper)
         test:is_deeply(result, exp_result_5_2, '5_2')
     end)
     ]=]--
+
+    -- {{{ float, double
+
+    local query_6 = [[
+        query order($limit: Int, $offset: String, $in_stock: Boolean) {
+            order_collection(limit: $limit, offset: $offset,
+                    in_stock: $in_stock) {
+                order_id
+                user_id
+                price
+                discount
+                in_stock
+            }
+        }
+    ]]
+
+    local query_6_i_true = [[
+        query order($limit: Int, $offset: String) {
+            order_collection(limit: $limit, offset: $offset,
+                    in_stock: true) {
+                order_id
+                user_id
+                price
+                discount
+                in_stock
+            }
+        }
+    ]]
+
+    local query_6_i_false = [[
+        query order($limit: Int, $offset: String) {
+            order_collection(limit: $limit, offset: $offset,
+                    in_stock: false) {
+                order_id
+                user_id
+                price
+                discount
+                in_stock
+            }
+        }
+    ]]
+
+    local gql_query_6 = utils.show_trace(function()
+        return gql_wrapper:compile(query_6)
+    end)
+    local gql_query_6_i_true = utils.show_trace(function()
+        return gql_wrapper:compile(query_6_i_true)
+    end)
+    local gql_query_6_i_false = utils.show_trace(function()
+        return gql_wrapper:compile(query_6_i_false)
+    end)
+
+    local exp_result_6_1 = yaml.decode(([[
+        ---
+        order_collection:
+        - price: 0
+          in_stock: true
+          user_id: user_id_1
+          order_id: order_id_1
+          discount: 0
+        - price: 6.3333333333333
+          in_stock: false
+          user_id: user_id_3
+          order_id: order_id_10
+          discount: 6.3333334922791
+        - price: 38.333333333333
+          in_stock: false
+          user_id: user_id_5
+          order_id: order_id_100
+          discount: 38.333332061768
+        - price: 360.33333333333
+          in_stock: false
+          user_id: user_id_27
+          order_id: order_id_1000
+          discount: 360.33334350586
+        - price: 360.66666666667
+          in_stock: true
+          user_id: user_id_27
+          order_id: order_id_1001
+          discount: 360.66665649414
+        - price: 361
+          in_stock: false
+          user_id: user_id_27
+          order_id: order_id_1002
+          discount: 361
+        - price: 361.33333333333
+          in_stock: true
+          user_id: user_id_27
+          order_id: order_id_1003
+          discount: 361.33334350586
+        - price: 362.66666666667
+          in_stock: false
+          user_id: user_id_28
+          order_id: order_id_1004
+          discount: 362.66665649414
+        - price: 363
+          in_stock: true
+          user_id: user_id_28
+          order_id: order_id_1005
+          discount: 363
+        - price: 363.33333333333
+          in_stock: false
+          user_id: user_id_28
+          order_id: order_id_1006
+          discount: 363.33334350586
+    ]]):strip())
+
+    utils.show_trace(function()
+        local variables_6_1 = {limit = 10}
+        local result = gql_query_6:execute(variables_6_1)
+        local exp_result_6_1 = deeply_number_tostring(exp_result_6_1)
+        local result = deeply_number_tostring(result)
+        test:is_deeply(result, exp_result_6_1, '6_1')
+    end)
+
+    local exp_result_6_2 = yaml.decode(([[
+        ---
+        order_collection:
+        - price: 0
+          in_stock: true
+          user_id: user_id_1
+          order_id: order_id_1
+          discount: 0
+        - price: 360.66666666667
+          in_stock: true
+          user_id: user_id_27
+          order_id: order_id_1001
+          discount: 360.66665649414
+        - price: 361.33333333333
+          in_stock: true
+          user_id: user_id_27
+          order_id: order_id_1003
+          discount: 361.33334350586
+        - price: 363
+          in_stock: true
+          user_id: user_id_28
+          order_id: order_id_1005
+          discount: 363
+        - price: 363.66666666667
+          in_stock: true
+          user_id: user_id_28
+          order_id: order_id_1007
+          discount: 363.66665649414
+        - price: 364.33333333333
+          in_stock: true
+          user_id: user_id_28
+          order_id: order_id_1009
+          discount: 364.33334350586
+        - price: 38.666666666667
+          in_stock: true
+          user_id: user_id_5
+          order_id: order_id_101
+          discount: 38.666667938232
+        - price: 365
+          in_stock: true
+          user_id: user_id_28
+          order_id: order_id_1011
+          discount: 365
+        - price: 365.66666666667
+          in_stock: true
+          user_id: user_id_28
+          order_id: order_id_1013
+          discount: 365.66665649414
+        - price: 366.33333333333
+          in_stock: true
+          user_id: user_id_28
+          order_id: order_id_1015
+          discount: 366.33334350586
+    ]]):strip())
+
+    utils.show_trace(function()
+        local exp_result_6_2 = deeply_number_tostring(exp_result_6_2)
+
+        local variables_6_2 = {limit = 10, in_stock = true}
+        local result = gql_query_6:execute(variables_6_2)
+        local result = deeply_number_tostring(result)
+        test:is_deeply(result, exp_result_6_2, '6_2')
+
+        local variables_6_2 = {limit = 10}
+        local result = gql_query_6_i_true:execute(variables_6_2)
+        local result = deeply_number_tostring(result)
+        test:is_deeply(result, exp_result_6_2, '6_2')
+    end)
+
+    local exp_result_6_3 = yaml.decode(([[
+        ---
+        order_collection:
+        - price: 6.3333333333333
+          in_stock: false
+          user_id: user_id_3
+          order_id: order_id_10
+          discount: 6.3333334922791
+        - price: 38.333333333333
+          in_stock: false
+          user_id: user_id_5
+          order_id: order_id_100
+          discount: 38.333332061768
+        - price: 360.33333333333
+          in_stock: false
+          user_id: user_id_27
+          order_id: order_id_1000
+          discount: 360.33334350586
+        - price: 361
+          in_stock: false
+          user_id: user_id_27
+          order_id: order_id_1002
+          discount: 361
+        - price: 362.66666666667
+          in_stock: false
+          user_id: user_id_28
+          order_id: order_id_1004
+          discount: 362.66665649414
+        - price: 363.33333333333
+          in_stock: false
+          user_id: user_id_28
+          order_id: order_id_1006
+          discount: 363.33334350586
+        - price: 364
+          in_stock: false
+          user_id: user_id_28
+          order_id: order_id_1008
+          discount: 364
+        - price: 364.66666666667
+          in_stock: false
+          user_id: user_id_28
+          order_id: order_id_1010
+          discount: 364.66665649414
+        - price: 365.33333333333
+          in_stock: false
+          user_id: user_id_28
+          order_id: order_id_1012
+          discount: 365.33334350586
+        - price: 366
+          in_stock: false
+          user_id: user_id_28
+          order_id: order_id_1014
+          discount: 366
+    ]]):strip())
+
+    utils.show_trace(function()
+        local exp_result_6_3 = deeply_number_tostring(exp_result_6_3)
+
+        local variables_6_3 = {limit = 10, in_stock = false}
+        local result = gql_query_6:execute(variables_6_3)
+        local result = deeply_number_tostring(result)
+        test:is_deeply(result, exp_result_6_3, '6_3')
+
+        local variables_6_3 = {limit = 10}
+        local result = gql_query_6_i_false:execute(variables_6_3)
+        local result = deeply_number_tostring(result)
+        test:is_deeply(result, exp_result_6_3, '6_3')
+    end)
+
+    -- should fail
+    local query_7 = [[
+        query order {
+            order_collection(price: 10.0) {
+                order_id
+                user_id
+                price
+                discount
+                in_stock
+            }
+        }
+    ]]
+
+    local exp_result_7 = yaml.decode(([[
+        ---
+        ok: false
+        err: Non-existent argument "price"
+    ]]):strip())
+
+    local ok, err = pcall(function()
+        return gql_wrapper:compile(query_7)
+    end)
+
+    local result = {ok = ok, err = test_utils.strip_error(err)}
+    test:is_deeply(result, exp_result_7, '7')
+
+    -- should fail
+    local query_8 = [[
+        query order($price: Float) {
+            order_collection(price: $price) {
+                order_id
+                user_id
+                price
+                discount
+                in_stock
+            }
+        }
+    ]]
+
+    local exp_result_8 = yaml.decode(([[
+        ---
+        ok: false
+        err: Non-existent argument "price"
+    ]]):strip())
+
+    local ok, err = pcall(function()
+        return gql_wrapper:compile(query_8)
+    end)
+
+    local result = {ok = ok, err = test_utils.strip_error(err)}
+    test:is_deeply(result, exp_result_8, '8')
+
+    -- should fail
+    local query_9 = [[
+        query order($price: Double) {
+            order_collection(price: $price) {
+                order_id
+                user_id
+                price
+                discount
+                in_stock
+            }
+        }
+    ]]
+
+    local exp_result_9 = yaml.decode(([[
+        ---
+        ok: false
+        err: Non-existent argument "price"
+    ]]):strip())
+
+    local ok, err = pcall(function()
+        return gql_wrapper:compile(query_9)
+    end)
+
+    local result = {ok = ok, err = test_utils.strip_error(err)}
+    test:is_deeply(result, exp_result_9, '9')
+
+    -- }}}
 
     assert(test:check(), 'check plan')
 end
