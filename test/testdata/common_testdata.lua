@@ -1,13 +1,9 @@
+local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
 
 local common_testdata = {}
-
-local function print_and_return(...)
-    print(...)
-    return table.concat({...}, ' ') .. '\n'
-end
 
 function common_testdata.get_test_metadata()
     local schemas = json.decode([[{
@@ -172,7 +168,8 @@ function common_testdata.drop_spaces()
 end
 
 function common_testdata.run_queries(gql_wrapper)
-    local results = ''
+    local test = tap.test('common')
+    test:plan(10)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -188,12 +185,22 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
+    local exp_result_1 = yaml.decode(([[
+        ---
+        order_collection:
+        - order_id: order_id_1
+          description: first order of Ivan
+          user_connection:
+            user_id: user_id_1
+            last_name: Ivanov
+            first_name: Ivan
+    ]]):strip())
+
     utils.show_trace(function()
         local variables_1 = {order_id = 'order_id_1'}
         local gql_query_1 = gql_wrapper:compile(query_1)
         local result = gql_query_1:execute(variables_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        test:is_deeply(result, exp_result_1, '1')
     end)
 
     local query_2 = [[
@@ -211,16 +218,57 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_2
+    local gql_query_2 = utils.show_trace(function()
+        return gql_wrapper:compile(query_2)
+    end)
+
+    local exp_result_2_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_1
+          last_name: Ivanov
+          first_name: Ivan
+          order_connection:
+          - order_id: order_id_1
+            description: first order of Ivan
+          - order_id: order_id_2
+            description: second order of Ivan
+    ]]):strip())
 
     utils.show_trace(function()
-        gql_query_2 = gql_wrapper:compile(query_2)
-
-        local variables_2 = {user_id = 'user_id_1'}
-        local result = gql_query_2:execute(variables_2)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        local variables_2_1 = {user_id = 'user_id_1'}
+        local result = gql_query_2:execute(variables_2_1)
+        test:is_deeply(result, exp_result_2_1, '2_1')
     end)
+
+    local exp_result_2_2 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_42
+          last_name: last name 42
+          first_name: first name 42
+          order_connection:
+          - order_id: order_id_1574
+            description: order of user 42
+          - order_id: order_id_1575
+            description: order of user 42
+          - order_id: order_id_1576
+            description: order of user 42
+          - order_id: order_id_1577
+            description: order of user 42
+          - order_id: order_id_1578
+            description: order of user 42
+          - order_id: order_id_1579
+            description: order of user 42
+          - order_id: order_id_1580
+            description: order of user 42
+          - order_id: order_id_1581
+            description: order of user 42
+          - order_id: order_id_1582
+            description: order of user 42
+          - order_id: order_id_1583
+            description: order of user 42
+    ]]):strip())
 
     utils.show_trace(function()
         local variables_2_2 = {
@@ -229,9 +277,21 @@ function common_testdata.run_queries(gql_wrapper)
             offset = 'order_id_1573', -- 10th
         }
         local result = gql_query_2:execute(variables_2_2)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        test:is_deeply(result, exp_result_2_2, '2_2')
     end)
+
+    local exp_result_2_3 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_42
+          last_name: last name 42
+          first_name: first name 42
+          order_connection:
+          - order_id: order_id_1602
+            description: order of user 42
+          - order_id: order_id_1603
+            description: order of user 42
+    ]]):strip())
 
     utils.show_trace(function()
         local variables_2_3 = {
@@ -240,9 +300,19 @@ function common_testdata.run_queries(gql_wrapper)
             offset = 'order_id_1601', -- 38th
         }
         local result = gql_query_2:execute(variables_2_3)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        test:is_deeply(result, exp_result_2_3, '2_3')
     end)
+
+    local exp_result_2_4 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_42
+          last_name: last name 42
+          first_name: first name 42
+          order_connection:
+          - order_id: order_id_1603
+            description: order of user 42
+    ]]):strip())
 
     utils.show_trace(function()
         local variables_2_4 = {
@@ -251,16 +321,103 @@ function common_testdata.run_queries(gql_wrapper)
             offset = 'order_id_1602', -- 39th
         }
         local result = gql_query_2:execute(variables_2_4)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        test:is_deeply(result, exp_result_2_4, '2_4')
     end)
+
+    local exp_result_2_5 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_42
+          last_name: last name 42
+          first_name: first name 42
+          order_connection:
+          - order_id: order_id_1564
+            description: order of user 42
+          - order_id: order_id_1565
+            description: order of user 42
+          - order_id: order_id_1566
+            description: order of user 42
+          - order_id: order_id_1567
+            description: order of user 42
+          - order_id: order_id_1568
+            description: order of user 42
+          - order_id: order_id_1569
+            description: order of user 42
+          - order_id: order_id_1570
+            description: order of user 42
+          - order_id: order_id_1571
+            description: order of user 42
+          - order_id: order_id_1572
+            description: order of user 42
+          - order_id: order_id_1573
+            description: order of user 42
+          - order_id: order_id_1574
+            description: order of user 42
+          - order_id: order_id_1575
+            description: order of user 42
+          - order_id: order_id_1576
+            description: order of user 42
+          - order_id: order_id_1577
+            description: order of user 42
+          - order_id: order_id_1578
+            description: order of user 42
+          - order_id: order_id_1579
+            description: order of user 42
+          - order_id: order_id_1580
+            description: order of user 42
+          - order_id: order_id_1581
+            description: order of user 42
+          - order_id: order_id_1582
+            description: order of user 42
+          - order_id: order_id_1583
+            description: order of user 42
+          - order_id: order_id_1584
+            description: order of user 42
+          - order_id: order_id_1585
+            description: order of user 42
+          - order_id: order_id_1586
+            description: order of user 42
+          - order_id: order_id_1587
+            description: order of user 42
+          - order_id: order_id_1588
+            description: order of user 42
+          - order_id: order_id_1589
+            description: order of user 42
+          - order_id: order_id_1590
+            description: order of user 42
+          - order_id: order_id_1591
+            description: order of user 42
+          - order_id: order_id_1592
+            description: order of user 42
+          - order_id: order_id_1593
+            description: order of user 42
+          - order_id: order_id_1594
+            description: order of user 42
+          - order_id: order_id_1595
+            description: order of user 42
+          - order_id: order_id_1596
+            description: order of user 42
+          - order_id: order_id_1597
+            description: order of user 42
+          - order_id: order_id_1598
+            description: order of user 42
+          - order_id: order_id_1599
+            description: order of user 42
+          - order_id: order_id_1600
+            description: order of user 42
+          - order_id: order_id_1601
+            description: order of user 42
+          - order_id: order_id_1602
+            description: order of user 42
+          - order_id: order_id_1603
+            description: order of user 42
+    ]]):strip())
 
     -- no limit, no offset
     utils.show_trace(function()
         local variables_2_5 = {user_id = 'user_id_42'}
         local result = gql_query_2:execute(variables_2_5)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        test:is_deeply(result, exp_result_2_5, '2_5')
     end)
 
     local query_3 = [[
@@ -273,6 +430,41 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
+    local exp_result_3 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_54
+          last_name: last name 54
+          first_name: first name 54
+        - user_id: user_id_55
+          last_name: last name 55
+          first_name: first name 55
+        - user_id: user_id_56
+          last_name: last name 56
+          first_name: first name 56
+        - user_id: user_id_57
+          last_name: last name 57
+          first_name: first name 57
+        - user_id: user_id_58
+          last_name: last name 58
+          first_name: first name 58
+        - user_id: user_id_59
+          last_name: last name 59
+          first_name: first name 59
+        - user_id: user_id_6
+          last_name: last name 6
+          first_name: first name 6
+        - user_id: user_id_60
+          last_name: last name 60
+          first_name: first name 60
+        - user_id: user_id_61
+          last_name: last name 61
+          first_name: first name 61
+        - user_id: user_id_62
+          last_name: last name 62
+          first_name: first name 62
+    ]]):strip())
+
     utils.show_trace(function()
         local variables_3 = {
             limit = 10,
@@ -280,8 +472,7 @@ function common_testdata.run_queries(gql_wrapper)
         }
         local gql_query_3 = gql_wrapper:compile(query_3)
         local result = gql_query_3:execute(variables_3)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        test:is_deeply(result, exp_result_3, '3')
     end)
 
     -- extra filter for 1:N connection
@@ -301,7 +492,20 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_4 = gql_wrapper:compile(query_4)
+    local gql_query_4 = utils.show_trace(function()
+        return gql_wrapper:compile(query_4)
+    end)
+
+    local exp_result_4_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_1
+          last_name: Ivanov
+          first_name: Ivan
+          order_connection:
+          - order_id: order_id_1
+            description: first order of Ivan
+    ]]):strip())
 
     -- should match 1 order
     utils.show_trace(function()
@@ -310,9 +514,17 @@ function common_testdata.run_queries(gql_wrapper)
             description = 'first order of Ivan',
         }
         local result = gql_query_4:execute(variables_4_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        test:is_deeply(result, exp_result_4_1, '4_1')
     end)
+
+    local exp_result_4_2 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_1
+          last_name: Ivanov
+          first_name: Ivan
+          order_connection: []
+    ]]):strip())
 
     -- should match no orders
     utils.show_trace(function()
@@ -321,8 +533,7 @@ function common_testdata.run_queries(gql_wrapper)
             description = 'non-existent order',
         }
         local result = gql_query_4:execute(variables_4_2)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        test:is_deeply(result, exp_result_4_2, '4_2')
     end)
 
     -- extra filter for 1:1 connection
@@ -342,7 +553,20 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_5 = gql_wrapper:compile(query_5)
+    local gql_query_5 = utils.show_trace(function()
+        return gql_wrapper:compile(query_5)
+    end)
+
+    local exp_result_5_1 = yaml.decode(([[
+        ---
+        order_collection:
+        - order_id: order_id_1
+          description: first order of Ivan
+          user_connection:
+            user_id: user_id_1
+            last_name: Ivanov
+            first_name: Ivan
+    ]]):strip())
 
     -- should match 1 user
     utils.show_trace(function()
@@ -351,22 +575,26 @@ function common_testdata.run_queries(gql_wrapper)
             description = 'first order of Ivan',
         }
         local result = gql_query_5:execute(variables_5_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        test:is_deeply(result, exp_result_5_1, '5_1')
     end)
 
-    -- should match no users (or give an error?)
-    --utils.show_trace(function()
-    --    local variables_5_2 = {
-    --        first_name = 'non-existent user',
-    --        description = 'first order of Ivan',
-    --    }
-    --    local result = gql_query_5:execute(variables_5_2)
-    --    results = results .. print_and_return(
-    --        ('RESULT\n%s'):format(yaml.encode(result)))
-    --end)
+    --[=[
+    local exp_result_5_2 = yaml.decode(([[
+        --- []
+    ]]):strip())
 
-    return results
+    -- should match no users (or give an error?)
+    utils.show_trace(function()
+        local variables_5_2 = {
+            first_name = 'non-existent user',
+            description = 'first order of Ivan',
+        }
+        local result = gql_query_5:execute(variables_5_2)
+        test:is_deeply(result, exp_result_5_2, '5_2')
+    end)
+    ]=]--
+
+    assert(test:check(), 'check plan')
 end
 
 return common_testdata

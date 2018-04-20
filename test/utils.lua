@@ -8,7 +8,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local yaml = require('yaml')
 local graphql = require('graphql')
-local multirunner = require('test.common.lua.multirunner')
+local multirunner = require('test.common.multirunner')
 local graphql_utils = require('graphql.utils')
 local test_run = graphql_utils.optional_require('test_run')
 test_run = test_run and test_run.new()
@@ -25,16 +25,20 @@ function utils.print_and_return(...)
     return table.concat({ ... }, ' ') .. '\n'
 end
 
-function utils.graphql_from_testdata(testdata, shard)
+function utils.graphql_from_testdata(testdata, shard, graphql_opts)
+    local graphql_opts = graphql_opts or {}
     local meta = testdata.meta or testdata.get_test_metadata()
 
-    local gql_wrapper = graphql.new({
+    local default_graphql_opts = {
         schemas = meta.schemas,
         collections = meta.collections,
         service_fields = meta.service_fields,
         indexes = meta.indexes,
         accessor = shard and 'shard' or 'space',
-    })
+    }
+
+    local gql_wrapper = graphql.new(graphql_utils.merge_tables(
+        default_graphql_opts, graphql_opts))
 
     return gql_wrapper
 end
@@ -53,7 +57,8 @@ function utils.run_testdata(testdata, opts)
         workload = function(_, shard)
             local virtbox = shard or box.space
             testdata.fill_test_data(virtbox)
-            local gql_wrapper = utils.graphql_from_testdata(testdata, shard)
+            local gql_wrapper = utils.graphql_from_testdata(testdata, shard,
+                opts.graphql_opts)
             run_queries(gql_wrapper)
         end,
         servers = {'shard1', 'shard2', 'shard3', 'shard4'},

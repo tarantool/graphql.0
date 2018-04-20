@@ -58,6 +58,8 @@ local CONFS = {
 local initialized = false
 
 local function init_shard(test_run, servers, config, use_tcp)
+    assert(initialized == false)
+
     local suite = 'common'
     local uris = test_run:create_cluster(servers, suite)
 
@@ -70,17 +72,10 @@ local function init_shard(test_run, servers, config, use_tcp)
         end
     end
 
-    -- XXX: for now we always use one shard configuration (a first one),
-    -- because it is unclear how to reload shard module with an another
-    -- configuration; the another way is use several test configurations, but
-    -- it seems to be non-working in 'core = app' tests with current test-run.
-    -- Ways to better handle this is subject to future digging.
     local shard = require('shard')
-    if not initialized then
-        shard.init(config)
-        initialized = true
-    end
+    shard.init(config)
     shard.wait_connection()
+    initialized = true
     return shard
 end
 
@@ -160,31 +155,6 @@ local function run_conf(conf_name, opts)
     return result
 end
 
--- Run tests on multiple accessors and configurations.
--- Feel free to add more configurations.
-local function run(test_run, init_function, cleanup_function, workload)
-    -- ensure stable order
-    local names = {}
-    for conf_name, conf in pairs(CONFS) do
-        -- allow to run w/o test-run
-        if test_run ~= nil or conf.type == 'space' then
-            names[#names + 1] = conf_name
-        end
-    end
-    table.sort(names)
-
-    for _, conf_name in ipairs(names) do
-        run_conf(conf_name, {
-            test_run = test_run,
-            init_function = init_function,
-            cleanup_function = cleanup_function,
-            workload = workload,
-            servers = nil,
-            use_tcp = false,
-        })
-    end
-end
-
 local function get_conf(conf_name)
     local conf = CONFS[conf_name]
     assert(conf ~= nil)
@@ -193,6 +163,5 @@ end
 
 return {
     run_conf = run_conf,
-    run = run,
     get_conf = get_conf,
 }

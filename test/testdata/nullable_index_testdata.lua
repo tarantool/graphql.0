@@ -1,3 +1,8 @@
+-- ----------------------------------------------------------
+-- Motivation: https://github.com/tarantool/graphql/issues/43
+-- ----------------------------------------------------------
+
+local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
@@ -7,11 +12,6 @@ local nullable_index_testdata = {}
 -- return an error w/o file name and line number
 local function strip_error(err)
     return tostring(err):gsub('^.-:.-: (.*)$', '%1')
-end
-
-local function print_and_return(...)
-    print(...)
-    return table.concat({...}, ' ') .. '\n'
 end
 
 function nullable_index_testdata.get_test_metadata()
@@ -223,10 +223,10 @@ function nullable_index_testdata.drop_spaces()
 end
 
 function nullable_index_testdata.run_queries(gql_wrapper)
-    local results = ''
+    local test = tap.test('nullable_index')
+    test:plan(5)
 
-    -- verify that null as an argument value is forbidden
-    -- --------------------------------------------------
+    -- {{{ verify that null as an argument value is forbidden
 
     local query_1 = [[
         query get_bar {
@@ -240,15 +240,19 @@ function nullable_index_testdata.run_queries(gql_wrapper)
     local ok, err = pcall(function()
         local gql_query_1 = gql_wrapper:compile(query_1)
         local variables_1 = {}
-        local result = gql_query_1:execute(variables_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        return gql_query_1:execute(variables_1)
     end)
 
-    results = results .. print_and_return(('RESULT: ok: %s; err: %s'):format(tostring(ok), strip_error(err)))
+    local result = {ok = ok, err = strip_error(err)}
+    local exp_result = yaml.decode(([[
+        ---
+        ok: false
+        err: Syntax error near line 2
+    ]]):strip())
+    test:is_deeply(result, exp_result, '1')
 
-    -- top-level objects: full secondary index (unique / non-unique)
-    -- -------------------------------------------------------------
+    -- }}}
+    -- {{{ top-level objects: full secondary index (unique / non-unique)
 
     local query_2 = [[
         query get_bar($id_or_null_1: String, $id_or_null_2: String,
@@ -263,42 +267,117 @@ function nullable_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_2 = gql_wrapper:compile(query_2)
-
-    -- fullscan; expected to see objects with ID > 100
-    utils.show_trace(function()
-        local variables_2_1 = {}
-        local result = gql_query_2:execute(variables_2_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+    local gql_query_2 = utils.show_trace(function()
+        return gql_wrapper:compile(query_2)
     end)
 
+    -- fullscan; expected to see objects with ID > 100
+    local result = utils.show_trace(function()
+        local variables_2_1 = {}
+        return gql_query_2:execute(variables_2_1)
+    end)
+    local exp_result = yaml.decode(([[
+        ---
+        bar:
+        - id_or_null_1: '1'
+          id_or_null_3: '1'
+          id_or_null_2: '1'
+          id: '1'
+        - id_or_null_1: '10'
+          id_or_null_3: '10'
+          id_or_null_2: '10'
+          id: '10'
+        - id_or_null_1: '100'
+          id_or_null_3: '100'
+          id_or_null_2: '100'
+          id: '100'
+        - id_or_null_3: '101'
+          id_or_null_2: '101'
+          id: '101'
+        - id_or_null_3: '102'
+          id_or_null_2: '102'
+          id: '102'
+        - id_or_null_1: '103'
+          id_or_null_3: '103'
+          id: '103'
+        - id_or_null_1: '104'
+          id_or_null_3: '104'
+          id: '104'
+        - id_or_null_1: '105'
+          id_or_null_2: '105'
+          id: '105'
+        - id_or_null_1: '106'
+          id_or_null_2: '106'
+          id: '106'
+        - id_or_null_3: '107'
+          id: '107'
+        - id_or_null_3: '108'
+          id: '108'
+        - id_or_null_2: '109'
+          id: '109'
+        - id_or_null_1: '11'
+          id_or_null_3: '11'
+          id_or_null_2: '11'
+          id: '11'
+        - id_or_null_2: '110'
+          id: '110'
+        - id_or_null_1: '111'
+          id: '111'
+        - id_or_null_1: '112'
+          id: '112'
+        - id: '113'
+        - id: '114'
+        - id_or_null_1: '12'
+          id_or_null_3: '12'
+          id_or_null_2: '12'
+          id: '12'
+        - id_or_null_1: '13'
+          id_or_null_3: '13'
+          id_or_null_2: '13'
+          id: '13'
+    ]]):strip())
+    test:is_deeply(result, exp_result, '2_1')
+
     -- lookup by the unique index; expected to see only the object with ID 42
-    utils.show_trace(function()
+    local result = utils.show_trace(function()
         local variables_2_2 = {
             id_or_null_1 = '42',
             id_or_null_2 = '42',
         }
-        local result = gql_query_2:execute(variables_2_2)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        return gql_query_2:execute(variables_2_2)
     end)
+    local exp_result = yaml.decode(([[
+        ---
+        bar:
+        - id_or_null_1: '42'
+          id_or_null_3: '42'
+          id_or_null_2: '42'
+          id: '42'
+    ]]):strip())
+    test:is_deeply(result, exp_result, '2_2')
 
     -- lookup by the non-unique index; expected to see only the object with ID
     -- 42
-    utils.show_trace(function()
+    local result = utils.show_trace(function()
         local variables_2_3 = {
             id_or_null_2 = '42',
             id_or_null_3 = '42',
         }
-        local result = gql_query_2:execute(variables_2_3)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        return gql_query_2:execute(variables_2_3)
     end)
+    local exp_result = yaml.decode(([[
+        ---
+        bar:
+        - id_or_null_1: '42'
+          id_or_null_3: '42'
+          id_or_null_2: '42'
+          id: '42'
+    ]]):strip())
+    test:is_deeply(result, exp_result, '2_3')
 
-    -- connection: partial match with compound secondary index (nullable part
-    -- within a key / outside, but within the index)
-    -- ----------------------------------------------------------------------
+    -- }}}
+    -- {{{ connection: partial match with compound secondary index (nullable
+    -- part within a key / outside, but within the index)
 
     local query_3 = [[
         query get_foo($id: String) {
@@ -314,15 +393,25 @@ function nullable_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    utils.show_trace(function()
+    local result = utils.show_trace(function()
         local variables_3 = {id = '42'}
         local gql_query_3 = gql_wrapper:compile(query_3)
-        local result = gql_query_3:execute(variables_3)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        return gql_query_3:execute(variables_3)
     end)
+    local exp_result = yaml.decode(([[
+        ---
+        foo:
+        - bar_partial_unique:
+          - id: '42'
+          bar_partial_non_unique:
+          - id: '42'
+          id: '42'
+    ]]):strip())
+    test:is_deeply(result, exp_result, '3')
 
-    return results
+    -- }}}
+
+    assert(test:check(), 'check plan')
 end
 
 return nullable_index_testdata

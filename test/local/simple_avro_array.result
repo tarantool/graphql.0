@@ -1,9 +1,0 @@
-RESULT
----
-user_collection:
-- user_id: def
-  favorite_food:
-  - meat
-  - potato
-...
-

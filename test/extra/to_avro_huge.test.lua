@@ -2,12 +2,14 @@
 local fio = require('fio')
 local yaml = require('yaml')
 local avro = require('avro_schema')
-local data = require('test_data_user_order')
 local test = require('tap').test('to avro schema')
+
 -- require in-repo version of graphql/ sources despite current working directory
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
     package.path
+
+local data = require('test.testdata.user_order_item_testdata')
 
 local graphql = require('graphql')
 

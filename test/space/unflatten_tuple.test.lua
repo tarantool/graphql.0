@@ -7,8 +7,11 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
     package.path
 
+local tap = require('tap')
+local yaml = require('yaml')
 local avro = require('avro_schema')
 local graphql = require('graphql')
+local utils = require('graphql.utils')
 local testdata = require('test.testdata.common_testdata')
 
 -- init box, upload test data and acquire metadata
@@ -77,7 +80,47 @@ local gql_wrapper = graphql.new({
 -- run queries
 -- -----------
 
-testdata.run_queries(gql_wrapper)
+local function run_queries(gql_wrapper)
+    local test = tap.test('unflatten_tuple')
+    test:plan(1)
+
+    local query_1 = [[
+        query user_by_order($order_id: String) {
+            order_collection(order_id: $order_id) {
+                order_id
+                description
+                user_connection {
+                    user_id
+                    last_name
+                    first_name
+                }
+            }
+        }
+    ]]
+
+    local exp_result_1 = yaml.decode(([[
+        ---
+        order_collection:
+        - order_id: order_id_1
+          description: first order of Ivan$
+          user_connection:
+            user_id: user_id_1
+            last_name: Ivanov$
+            first_name: Ivan$
+    ]]):strip())
+
+    local result = utils.show_trace(function()
+        local variables_1 = {order_id = 'order_id_1'}
+        local gql_query_1 = gql_wrapper:compile(query_1)
+        return gql_query_1:execute(variables_1)
+    end)
+
+    test:is_deeply(result, exp_result_1, '1')
+
+    assert(test:check(), 'check plan')
+end
+
+run_queries(gql_wrapper)
 
 -- clean up
 -- --------

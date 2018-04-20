@@ -1329,7 +1329,10 @@ local function create_default_accessor(cfg)
             collections = cfg.collections,
             service_fields = cfg.service_fields,
             indexes = cfg.indexes,
-            collection_use_tomap = cfg.collection_use_tomap
+            collection_use_tomap = cfg.collection_use_tomap,
+            resulting_object_cnt_max = cfg.resulting_object_cnt_max,
+            fetched_object_cnt_max = cfg.fetched_object_cnt_max,
+            timeout_ms = cfg.timeout_ms,
         }, cfg.accessor_funcs)
     end
 
@@ -1339,7 +1342,10 @@ local function create_default_accessor(cfg)
             collections = cfg.collections,
             service_fields = cfg.service_fields,
             indexes = cfg.indexes,
-            collection_use_tomap = cfg.collection_use_tomap
+            collection_use_tomap = cfg.collection_use_tomap,
+            resulting_object_cnt_max = cfg.resulting_object_cnt_max,
+            fetched_object_cnt_max = cfg.fetched_object_cnt_max,
+            timeout_ms = cfg.timeout_ms,
         }, cfg.accessor_funcs);
     end
 end

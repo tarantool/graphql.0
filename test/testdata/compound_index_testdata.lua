@@ -1,19 +1,13 @@
+local tap = require('tap')
 local json = require('json')
+local yaml = require('yaml')
 local utils = require('graphql.utils')
-local test_utils =  require('test.utils')
 
 local compound_index_testdata = {}
-
-local format_result = test_utils.format_result
 
 -- return an error w/o file name and line number
 local function strip_error(err)
     return tostring(err):gsub('^.-:.-: (.*)$', '%1')
-end
-
-local function print_and_return(...)
-    print(...)
-    return table.concat({...}, ' ') .. '\n'
 end
 
 -- schemas and meta-information
@@ -197,10 +191,10 @@ function compound_index_testdata.drop_spaces()
 end
 
 function compound_index_testdata.run_queries(gql_wrapper)
-    local results = ''
+    local test = tap.test('compound')
+    test:plan(14)
 
-    -- get a top-level object by a full compound primary key
-    -- -----------------------------------------------------
+    -- {{{ get a top-level object by a full compound primary key
 
     local query_1 = [[
         query users($user_str: String, $user_num: Long,
@@ -215,73 +209,209 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1 = gql_wrapper:compile(query_1)
-
-    utils.show_trace(function()
-        local variables_1_1 = {user_str = 'user_str_b', user_num = 12}
-        local result = gql_query_1:execute(variables_1_1)
-        results = results .. print_and_return(format_result(
-            '1_1', query_1, variables_1_1, result))
+    local gql_query_1 = utils.show_trace(function()
+        return gql_wrapper:compile(query_1)
     end)
 
-    -- get a top-level object by a full compound primary key plus filter
-    -- -----------------------------------------------------------------
+    local result_1_1 = utils.show_trace(function()
+        local variables_1_1 = {user_str = 'user_str_b', user_num = 12}
+        return gql_query_1:execute(variables_1_1)
+    end)
 
-    utils.show_trace(function()
+    local exp_result_1_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 12
+    ]]):strip())
+
+    test:is_deeply(result_1_1, exp_result_1_1, '1_1')
+
+    -- }}}
+    -- {{{ get a top-level object by a full compound primary key plus filter
+
+    local result_1_2 = utils.show_trace(function()
         local variables_1_2 = {
             user_str = 'user_str_b',
             user_num = 12,
             first_name = 'non-existent',
         }
-        local result = gql_query_1:execute(variables_1_2)
-        results = results .. print_and_return(format_result(
-            '1_2', query_1, variables_1_2, result))
+        return gql_query_1:execute(variables_1_2)
     end)
 
-    -- select top-level objects by a partial compound primary key (or maybe use
-    -- fullscan)
-    -- ------------------------------------------------------------------------
+    local exp_result_1_2 = yaml.decode(([[
+        ---
+        user_collection: []
+    ]]):strip())
 
-    utils.show_trace(function()
+    test:is_deeply(result_1_2, exp_result_1_2, '1_2')
+
+    -- }}}
+    -- {{{ select top-level objects by a partial compound primary key (or maybe
+    -- use fullscan)
+
+    local result_1_3 = utils.show_trace(function()
         local variables_1_3 = {user_num = 12}
-        local result = gql_query_1:execute(variables_1_3)
-        results = results .. print_and_return(format_result(
-            '1_3', query_1, variables_1_3, result))
+        return gql_query_1:execute(variables_1_3)
     end)
 
-    utils.show_trace(function()
+    local exp_result_1_3 = yaml.decode(([[
+        ---
+        user_collection:
+        - last_name: last name a
+          user_str: user_str_a
+          first_name: first name a
+          user_num: 12
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 12
+        - last_name: last name c
+          user_str: user_str_c
+          first_name: first name c
+          user_num: 12
+        - last_name: last name d
+          user_str: user_str_d
+          first_name: first name d
+          user_num: 12
+        - last_name: last name e
+          user_str: user_str_e
+          first_name: first name e
+          user_num: 12
+    ]]):strip())
+
+    test:is_deeply(result_1_3, exp_result_1_3, '1_3')
+
+    local result_1_4 = utils.show_trace(function()
         local variables_1_4 = {user_str = 'user_str_b'}
-        local result = gql_query_1:execute(variables_1_4)
-        results = results .. print_and_return(format_result(
-            '1_4', query_1, variables_1_4, result))
+        return gql_query_1:execute(variables_1_4)
     end)
 
-    -- select top-level objects by a partial compound primary key plus filter
-    -- (or maybe use fullscan)
-    -- ----------------------------------------------------------------------
+    local exp_result_1_4 = yaml.decode(([[
+        ---
+        user_collection:
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 1
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 2
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 3
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 4
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 5
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 6
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 7
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 8
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 9
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 10
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 11
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 12
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 13
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 14
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 15
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 16
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 17
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 18
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 19
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 20
+    ]]):strip())
 
-    utils.show_trace(function()
+    test:is_deeply(result_1_4, exp_result_1_4, '1_4')
+
+    -- }}}
+    -- {{{ select top-level objects by a partial compound primary key plus
+    -- filter (or maybe use fullscan)
+
+    local result_1_5 = utils.show_trace(function()
         local variables_1_5 = {
             user_num = 12,
             first_name = 'non-existent'
         }
-        local result = gql_query_1:execute(variables_1_5)
-        results = results .. print_and_return(format_result(
-            '1_5', query_1, variables_1_5, result))
+        return gql_query_1:execute(variables_1_5)
     end)
 
-    utils.show_trace(function()
+    local exp_result_1_5 = yaml.decode(([[
+        ---
+        user_collection: []
+    ]]):strip())
+
+    test:is_deeply(result_1_5, exp_result_1_5, '1_5')
+
+    local result_1_6 = utils.show_trace(function()
         local variables_1_6 = {
             user_str = 'user_str_b',
             first_name = 'non-existent'
         }
-        local result = gql_query_1:execute(variables_1_6)
-        results = results .. print_and_return(format_result(
-            '1_6', query_1, variables_1_6, result))
+        return gql_query_1:execute(variables_1_6)
     end)
 
-    -- select objects by a connection by a full compound index
-    -- -------------------------------------------------------
+    local exp_result_1_6 = yaml.decode(([[
+        ---
+        user_collection: []
+    ]]):strip())
+
+    test:is_deeply(result_1_6, exp_result_1_6, '1_6')
+
+    -- }}}
+    -- {{{ select objects by a connection by a full compound index
 
     local query_2 = [[
         query users($user_str: String, $user_num: Long, $description: String) {
@@ -299,31 +429,83 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_2 = gql_wrapper:compile(query_2)
-
-    utils.show_trace(function()
-        local variables_2_1 = {user_str = 'user_str_b', user_num = 12}
-        local result = gql_query_2:execute(variables_2_1)
-        results = results .. print_and_return(format_result(
-            '2_1', query_2, variables_2_1, result))
+    local gql_query_2 = utils.show_trace(function()
+        return gql_wrapper:compile(query_2)
     end)
 
-    -- select objects by a connection by a full compound index plus filter
-    -- -------------------------------------------------------------------
+    local result_2_1 = utils.show_trace(function()
+        local variables_2_1 = {user_str = 'user_str_b', user_num = 12}
+        return gql_query_2:execute(variables_2_1)
+    end)
 
-    utils.show_trace(function()
+    local exp_result_2_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - order_connection:
+          - order_num: 1201
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1210
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1202
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1203
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1204
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1205
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1206
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1207
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1208
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1209
+            order_str: order_str_b_9
+            description: description b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 12
+          last_name: last name b
+    ]]):strip())
+
+    test:is_deeply(result_2_1, exp_result_2_1, '2_1')
+
+    -- }}}
+    -- {{{ select objects by a connection by a full compound index plus filter
+
+    local result_2_2 = utils.show_trace(function()
         local variables_2_2 = {
             user_str = 'user_str_b',
             user_num = 12,
             description = 'non-existent',
         }
-        local result = gql_query_2:execute(variables_2_2)
-        results = results .. print_and_return(format_result(
-            '2_2', query_2, variables_2_2, result))
+        return gql_query_2:execute(variables_2_2)
     end)
 
-    -- select object by a connection by a partial compound index
-    -- ---------------------------------------------------------
+    local exp_result_2_2 = yaml.decode(([[
+        ---
+        user_collection:
+        - order_connection: []
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 12
+          last_name: last name b
+    ]]):strip())
+
+    test:is_deeply(result_2_2, exp_result_2_2, '2_2')
+
+    -- }}}
+    -- {{{ select object by a connection by a partial compound index
 
     local query_3 = [[
         query users($user_str: String, $user_num: Long) {
@@ -341,16 +523,633 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    utils.show_trace(function()
+    local result_3 = utils.show_trace(function()
         local gql_query_3 = gql_wrapper:compile(query_3)
         local variables_3 = {user_str = 'user_str_b', user_num = 12}
-        local result = gql_query_3:execute(variables_3)
-        results = results .. print_and_return(format_result(
-            '3', query_3, variables_3, result))
+        return gql_query_3:execute(variables_3)
     end)
 
-    -- offset on top-level by a full compound primary key
-    -- --------------------------------------------------
+    local exp_result_3 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_str: user_str_b
+          first_name: first name b
+          user_num: 12
+          last_name: last name b
+          order_str_connection:
+          - order_num: 101
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 110
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 102
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 103
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 104
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 105
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 106
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 107
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 108
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 201
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 210
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 202
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 205
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 208
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 301
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 310
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 302
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 305
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 308
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 401
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 410
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 402
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 405
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 408
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 501
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 510
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 502
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 505
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 508
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 601
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 610
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 602
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 605
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 608
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 701
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 710
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 702
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 705
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 708
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 801
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 810
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 802
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 805
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 808
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 901
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 910
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 902
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 905
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 908
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1001
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1010
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1002
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1005
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1008
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1101
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1110
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1102
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1105
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1108
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1201
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1210
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1202
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1205
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1208
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1301
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1310
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1302
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1305
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1308
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1401
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1410
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1402
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1405
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1408
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1501
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1510
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1502
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1505
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1508
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1601
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1610
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1602
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1605
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1608
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1701
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1710
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1702
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1705
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1708
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1801
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1810
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1802
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1805
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1808
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 1901
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 1910
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 1902
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 1905
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1908
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 2001
+            order_str: order_str_b_1
+            description: description b
+          - order_num: 2010
+            order_str: order_str_b_10
+            description: description b
+          - order_num: 2002
+            order_str: order_str_b_2
+            description: description b
+          - order_num: 2005
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 2008
+            order_str: order_str_b_8
+            description: description b
+          - order_num: 109
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 203
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 204
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 206
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 207
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 209
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 303
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 304
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 306
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 307
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 309
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 403
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 404
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 406
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 407
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 409
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 503
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 504
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 506
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 507
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 509
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 603
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 604
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 606
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 607
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 609
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 703
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 704
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 706
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 707
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 709
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 803
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 804
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 806
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 807
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 809
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 903
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 904
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 906
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 907
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 909
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1003
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1004
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1006
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1007
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1009
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1103
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1104
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1106
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1107
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1109
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1203
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1204
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1206
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1207
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1209
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1303
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1304
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1306
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1307
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1309
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1403
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1404
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1406
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1407
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1409
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1503
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1504
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1506
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1507
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1509
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1603
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1604
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1606
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1607
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1609
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1703
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1704
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1706
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1707
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1709
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1803
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1804
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1806
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1807
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1809
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 1903
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1904
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1906
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 1907
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 1909
+            order_str: order_str_b_9
+            description: description b
+          - order_num: 2003
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 2004
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 2006
+            order_str: order_str_b_6
+            description: description b
+          - order_num: 2007
+            order_str: order_str_b_7
+            description: description b
+          - order_num: 2009
+            order_str: order_str_b_9
+            description: description b
+    ]]):strip())
+
+    -- XXX: gh-40: sorting is different over space and space anf even over
+    -- different shard configurations
+    local function comparator(a, b)
+        return a.order_num < b.order_num
+    end
+    table.sort(result_3.user_collection[1].order_str_connection, comparator)
+    table.sort(exp_result_3.user_collection[1].order_str_connection, comparator)
+    test:is_deeply(result_3, exp_result_3, '3')
+
+    -- }}}
+    -- {{{ offset on top-level by a full compound primary key
 
     local query_4 = [[
         query users($limit: Int, $offset: user_collection_offset) {
@@ -363,9 +1162,11 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_4 = gql_wrapper:compile(query_4)
+    local gql_query_4 = utils.show_trace(function()
+        return gql_wrapper:compile(query_4)
+    end)
 
-    utils.show_trace(function()
+    local result_4_1 = utils.show_trace(function()
         local variables_4_1 = {
             limit = 10,
             offset = {
@@ -373,13 +1174,59 @@ function compound_index_testdata.run_queries(gql_wrapper)
                 user_num = 12,
             }
         }
-        local result = gql_query_4:execute(variables_4_1)
-        results = results .. print_and_return(format_result(
-            '4_1', query_4, variables_4_1, result))
+        return gql_query_4:execute(variables_4_1)
     end)
 
-    -- offset on top-level by a partial compound primary key (expected to fail)
-    -- ------------------------------------------------------------------------
+    local exp_result_4_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 13
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 14
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 15
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 16
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 17
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 18
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 19
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 20
+        - last_name: last name c
+          user_str: user_str_c
+          first_name: first name c
+          user_num: 1
+        - last_name: last name c
+          user_str: user_str_c
+          first_name: first name c
+          user_num: 2
+    ]]):strip())
+
+    test:is_deeply(result_4_1, exp_result_4_1, '4_1')
+
+    -- }}}
+    -- {{{ offset on top-level by a partial compound primary key (expected to
+    -- fail)
 
     local variables_4_2 = {
         limit = 10,
@@ -388,17 +1235,21 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     }
     local ok, err = pcall(function()
-        local result = gql_query_4:execute(variables_4_2)
-        results = results .. print_and_return(format_result(
-            '4_2', query_4, variables_4_2, result))
+        return gql_query_4:execute(variables_4_2)
     end)
 
-    local result = {ok = ok, err = strip_error(err)}
-    results = results .. print_and_return(format_result(
-        '4_2', query_4, variables_4_2, result))
+    local result_4_2 = {ok = ok, err = strip_error(err)}
 
-    -- offset when using a connection by a full compound primary key
-    -- -------------------------------------------------------------
+    local exp_result_4_2 = yaml.decode(([[
+        ---
+        ok: false
+        err: offset by a partial key is forbidden
+    ]]):strip())
+
+    test:is_deeply(result_4_2, exp_result_4_2, '4_2')
+
+    -- }}}
+    -- {{{ offset when using a connection by a full compound primary key
 
     local query_5 = [[
         query users($user_str: String, $user_num: Long,
@@ -417,9 +1268,11 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_5 = gql_wrapper:compile(query_5)
+    local gql_query_5 = utils.show_trace(function()
+        return gql_wrapper:compile(query_5)
+    end)
 
-    utils.show_trace(function()
+    local result_5_1 = utils.show_trace(function()
         local variables_5_1 = {
             user_str = 'user_str_b',
             user_num = 12,
@@ -429,14 +1282,36 @@ function compound_index_testdata.run_queries(gql_wrapper)
                 order_num = 1202,
             }
         }
-        local result = gql_query_5:execute(variables_5_1)
-        results = results .. print_and_return(format_result(
-            '5_1', query_5, variables_5_1, result))
+        return gql_query_5:execute(variables_5_1)
     end)
 
-    -- offset when using a connection by a partial compound primary key
+    local exp_result_5_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - order_connection:
+          - order_num: 1203
+            order_str: order_str_b_3
+            description: description b
+          - order_num: 1204
+            order_str: order_str_b_4
+            description: description b
+          - order_num: 1205
+            order_str: order_str_b_5
+            description: description b
+          - order_num: 1206
+            order_str: order_str_b_6
+            description: description b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 12
+          last_name: last name b
+    ]]):strip())
+
+    test:is_deeply(result_5_1, exp_result_5_1, '5_1')
+
+    -- }}}
+    -- {{{ offset when using a connection by a partial compound primary key
     -- (expected to fail)
-    -- ----------------------------------------------------------------
 
     local variables_5_2 = {
         user_str = 'user_str_b',
@@ -447,18 +1322,22 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     }
     local ok, err = pcall(function()
-        local result = gql_query_5:execute(variables_5_2)
-        results = results .. print_and_return(format_result(
-            '5_2', query_5, variables_5_2, result))
+        return gql_query_5:execute(variables_5_2)
     end)
 
-    local result = {ok = ok, err = strip_error(err)}
-    results = results .. print_and_return(format_result(
-        '5_2', query_5, variables_5_2, result))
+    local result_5_2 = {ok = ok, err = strip_error(err)}
 
-    -- compound offset argument constructed from separate variables (top-level
-    -- collection, full primary key)
-    -- -----------------------------------------------------------------------
+    local exp_result_5_2 = yaml.decode(([[
+        ---
+        ok: false
+        err: 'offset by a partial key is forbidden: expected "order_num" field'
+    ]]):strip())
+
+    test:is_deeply(result_5_2, exp_result_5_2, '5_2')
+
+    -- }}}
+    -- {{{ compound offset argument constructed from separate variables
+    -- (top-level collection, full primary key)
 
     local query_6 = [[
         query users($limit: Int, $user_str: String, $user_num: Long) {
@@ -472,19 +1351,66 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    utils.show_trace(function()
+    local result_6 = utils.show_trace(function()
         local gql_query_6 = gql_wrapper:compile(query_6)
         local variables_6 = {
             limit = 10,
             user_str = 'user_str_b',
             user_num = 12,
         }
-        local result = gql_query_6:execute(variables_6)
-        results = results .. print_and_return(format_result(
-            '6', query_6, variables_6, result))
+        return gql_query_6:execute(variables_6)
     end)
 
-    return results
+    local exp_result_6 = yaml.decode(([[
+        ---
+        user_collection:
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 13
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 14
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 15
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 16
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 17
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 18
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 19
+        - last_name: last name b
+          user_str: user_str_b
+          first_name: first name b
+          user_num: 20
+        - last_name: last name c
+          user_str: user_str_c
+          first_name: first name c
+          user_num: 1
+        - last_name: last name c
+          user_str: user_str_c
+          first_name: first name c
+          user_num: 2
+    ]]):strip())
+
+    test:is_deeply(result_6, exp_result_6, '6')
+
+    -- }}}
+
+    assert(test:check(), 'check plan')
 end
 
 return compound_index_testdata

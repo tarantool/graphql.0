@@ -16,11 +16,7 @@ local testdata = require('test.testdata.bench_testdata')
 -- ---------
 
 local function bench_prepare(state)
-    local virtbox = state.shard or box.space
-
-    state.gql_wrapper = bench.graphql_from_testdata(testdata, state.shard)
-    testdata.fill_test_data(virtbox)
-
+    state.gql_wrapper = bench.bench_prepare_helper(testdata, state.shard)
     local query = [[
         query match_by_passport_id($passport_id: String) {
             user(user_to_passport_c: {passport_id: $passport_id}) {
