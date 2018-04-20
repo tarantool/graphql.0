@@ -9,16 +9,12 @@ local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
+local test_utils = require('test.utils')
 
 local nullable_1_1_conn_testdata = {}
 
 local PRNG_SEED = 42
 local DOMAIN = 'graphql.tarantool.org'
-
--- return an error w/o file name and line number
-local function strip_error(err)
-    return tostring(err):gsub('^.-:.-: (.*)$', '%1')
-end
 
 function nullable_1_1_conn_testdata.get_test_metadata()
     local schemas = json.decode([[{
@@ -411,7 +407,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
         return gql_query_upside:execute(variables_upside_x)
     end)
 
-    local result = {ok = ok, err = strip_error(err)}
+    local result = {ok = ok, err = test_utils.strip_error(err)}
     local exp_result = yaml.decode(([[
         ---
         ok: false
@@ -429,7 +425,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
         return gql_query_upside:execute(variables_upside_y)
     end)
 
-    local result = {ok = ok, err = strip_error(err)}
+    local result = {ok = ok, err = test_utils.strip_error(err)}
     local exp_result = yaml.decode(([[
         ---
         ok: false

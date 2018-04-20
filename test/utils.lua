@@ -25,6 +25,11 @@ function utils.print_and_return(...)
     return table.concat({ ... }, ' ') .. '\n'
 end
 
+-- return an error w/o file name and line number
+function utils.strip_error(err)
+    return tostring(err):gsub('^.-:.-: (.*)$', '%1')
+end
+
 function utils.graphql_from_testdata(testdata, shard, graphql_opts)
     local graphql_opts = graphql_opts or {}
     local meta = testdata.meta or testdata.get_test_metadata()
