@@ -353,21 +353,30 @@ end
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.nullable_collection_types
+---
 --- @tparam table fields fields part from an avro-schema
+---
+--- @tparam table context as described in @{gql_type}; not used here
+--- explicitly, but `path` and `field_name` are *updated* and the `context` is
+--- passed deeper within the @{gql_type} call
 ---
 --- @treturn table `res` -- map with type names as keys and graphql types as
 --- values
-local function convert_record_fields(state, fields)
+local function convert_record_fields(state, fields, context)
     local res = {}
     for _, field in ipairs(fields) do
         assert(type(field.name) == 'string',
             ('field.name must be a string, got %s (schema %s)')
             :format(type(field.name), json.encode(field)))
 
+        table.insert(context.path, field.name)
+        context.field_name = field.name
         res[field.name] = {
             name = field.name,
-            kind = gql_type(state, field.type, nil, nil, field.name),
+            kind = gql_type(state, field.type, context),
         }
+        table.remove(context.path, #context.path)
+        context.field_name = nil
     end
     return res
 end
@@ -921,7 +930,20 @@ local function box_type(type_to_box, box_field_name)
 end
 
 --- The functions creates table of GraphQL types from avro-schema union type.
-local function create_union_types(avro_schema, state)
+---
+--- @tparam table avro-schema
+---
+--- @tparam table state tarantool_graphql instance
+---
+--- @tparam table context as described in @{gql_type}; not used here
+--- explicitly, but passed deeper within the @{gql_type} call
+---
+--- @treturn table union_types
+---
+--- @treturn table determinant_to_type
+---
+--- @treturn boolean is_nullable
+local function create_union_types(avro_schema, state, context)
     check(avro_schema, 'avro_schema', 'table')
     assert(utils.is_array(avro_schema), 'union avro-schema must be an array ' ..
         ', got\n' .. yaml.encode(avro_schema))
@@ -936,7 +958,7 @@ local function create_union_types(avro_schema, state)
         if type == 'null' then
             is_nullable = true
         else
-            local variant_type = gql_type(state, type)
+            local variant_type = gql_type(state, type, context)
             local box_field_name = type.name or avro_type(type)
             union_types[#union_types + 1] = box_type(variant_type, box_field_name)
             local determinant = type.name or type.type or type
@@ -950,12 +972,16 @@ end
 --- The function creates GraphQL Union type from given avro-schema union type.
 --- There are two problems with GraphQL Union types, which we solve with specific
 --- format of generated Unions. These problems are:
+---
 --- 1) GraphQL Unions represent an object that could be one of a list of
---- GraphQL Object types. So Scalars and Lists can not be one of Union types.
+---    GraphQL Object types. So Scalars and Lists can not be one of Union
+---    types.
+---
 --- 2) GraphQL responses, received from tarantool graphql, must be avro-valid.
---- On every incoming GraphQL query a corresponding avro-schema can be generated.
---- Response to this query is 'avro-valid' if it can be successfully validated with
---- this generated (from incoming query) avro-schema.
+---    On every incoming GraphQL query a corresponding avro-schema can be
+---    generated. Response to this query is 'avro-valid' if it can be
+---    successfully validated with this generated (from incoming query)
+---    avro-schema.
 ---
 --- Specific format of generated Unions include the following:
 ---
@@ -965,7 +991,9 @@ end
 --- of created GraphQL Object. This object has only one field with GraphQL type
 --- corresponding to avro scalar type (String type in our example). Avro type's
 --- name is taken as a name for this single field.
+---
 ---     [..., "string", ...]
+---
 --- turned into
 ---     MyUnion {
 ---         ...
@@ -979,7 +1007,9 @@ end
 --- object has only one field with GraphQL type corresponding to 'items'/'values'
 --- avro type. 'array' or 'map' (respectively) is taken as a name of this
 --- single field.
+---
 ---     [..., {"type": "array", "items": "int"}, ...]
+---
 --- turned into
 ---     MyUnion {
 ---         ...
@@ -998,6 +1028,7 @@ end
 ---         { "name": "foo1", "type": "string" },
 ---         { "name": "foo2", "type": "string" }
 ---     ]}
+---
 --- turned into
 ---     MyUnion {
 ---         ...
@@ -1011,11 +1042,20 @@ end
 ---
 --- Please consider full example below.
 ---
---- @tparam table state
+--- @tparam table state tarantool_graphql instance
+---
 --- @tparam table avro_schema avro-schema union type
---- @tparam string union_name name for resulting GraphQL Union type
+---
+--- @tparam table context as described in @{gql_type}; only
+--- `context.field_name` is used here (as the name of the generated GraphQL
+--- union); `path` is *updated* (with the field name) and the `context` is
+--- passed deeper within the @{create_union_types} call (which calls
+--- @{gql_type} inside)
+---
 --- @treturn table GraphQL Union type. Consider the following example:
+---
 --- Avro-schema (inside a record):
+---
 ---     ...
 ---     "name": "MyUnion", "type": [
 ---         "null",
@@ -1027,7 +1067,9 @@ end
 ---         ]}
 ---     ]
 ---     ...
+---
 --- GraphQL Union type (It will be nullable as avro-schema has 'null' variant):
+---
 ---     MyUnion {
 ---         ... on String_box {
 ---             string
@@ -1043,15 +1085,18 @@ end
 ---                 foo2
 ---             }
 ---     }
-local function create_gql_union(state, avro_schema, union_name)
+local function create_gql_union(state, avro_schema, context)
     check(avro_schema, 'avro_schema', 'table')
-    assert(utils.is_array(avro_schema), 'union avro-schema must be an array, ' ..
-    ' got ' .. yaml.encode(avro_schema))
+    assert(utils.is_array(avro_schema), 'union avro-schema must be an ' ..
+        'array, got:\n' .. yaml.encode(avro_schema))
+
+    local union_name = context.field_name
+    check(union_name, 'field_name', 'string')
 
     -- check avro-schema constraints
     for i, type in ipairs(avro_schema) do
         assert(avro_type(type) ~= 'union', 'unions must not immediately ' ..
-        'contain other unions')
+            'contain other unions')
 
         if type.name ~= nil then
             for j, another_type in ipairs(avro_schema) do
@@ -1059,8 +1104,8 @@ local function create_gql_union(state, avro_schema, union_name)
                     if another_type.name ~= nil then
                         assert(type.name:gsub('%*$', '') ~=
                             another_type.name:gsub('%*$', ''),
-                            'Unions may not contain more than one schema with ' ..
-                                'the same name')
+                            'Unions may not contain more than one schema ' ..
+                                'with the same name')
                     end
                 end
             end
@@ -1077,8 +1122,10 @@ local function create_gql_union(state, avro_schema, union_name)
     end
 
     -- create GraphQL union
+    table.insert(context.path, union_name)
     local union_types, determinant_to_type, is_nullable =
-        create_union_types(avro_schema, state)
+        create_union_types(avro_schema, state, context)
+    table.remove(context.path, #context.path)
 
     local union_type = types.union({
         types = union_types,
@@ -1090,9 +1137,9 @@ local function create_gql_union(state, avro_schema, union_name)
                 end
             end
             error(('result object has no determinant field matching ' ..
-                'determinants for this union\nresult object:\n%sdeterminants:\n%s')
-                    :format(yaml.encode(result),
-                        yaml.encode(determinant_to_type)))
+                'determinants for this union\nresult object:\n%s' ..
+                'determinants:\n%s'):format(yaml.encode(result),
+                    yaml.encode(determinant_to_type)))
         end
     })
 
@@ -1107,13 +1154,29 @@ end
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.nullable_collection_types (those are gql types)
+---
 --- @tparam table avro_schema input avro-schema
---- @tparam[opt] table collection table with schema_name, connections fields
---- described a collection (e.g. tarantool's spaces)
---- @tparam[opt] string collection_name name of `collection`
---- @tparam[opt] string field_name it is only for an union generation,
---- because avro-schema union has no name in it and specific name is necessary
---- for GraphQL union
+---
+--- @tparam table context current context of parsing the avro_schema, consists
+--- the following fields:
+---
+--- * `collection` (table; optional) is a table with `schema_name` and
+---   `connections` fields describes a collection (e.g. local tarantool spaces
+---   or sharded spaces)
+---
+--- * `collection_name` (string; optional) name of the collection
+---
+--- * `definitions` (table) map from currently parsed avro-schema names to
+---   generated GraphQL types; it allows reusing the same types w/o creation a
+---   new same-named type, that considered as an error by graphql-lua when
+---   creating type map for introspection
+---
+--- * `field_name` (string; optional) it is only for an union generation,
+---   because avro-schema union has no name in it and specific name is
+---   necessary for GraphQL union
+---
+--- * `path` (table) path to our position in avro-schema tree; it is used now
+---   only to determine whether we are on the upmost level or on a nested one
 ---
 --- If collection is passed connections from the collection will be taken into
 --- account to automatically generate corresponding decucible fields.
@@ -1124,16 +1187,22 @@ end
 --- XXX As it is not clear now what to do with complex types inside arrays
 --- (just pass to results or allow to use filters), only scalar arrays
 --- is allowed for now. Note: map is considered scalar.
-gql_type = function(state, avro_schema, collection, collection_name, field_name)
-    assert(type(state) == 'table',
-        'state must be a table, got ' .. type(state))
-    assert(avro_schema ~= nil,
-        'avro_schema must not be nil')
-    assert(collection == nil or type(collection) == 'table',
-        'collection must be nil or a table, got ' .. type(collection))
-    assert(collection_name == nil or type(collection_name) == 'string',
-        'collection_name must be nil or a string, got ' ..
-        type(collection_name))
+gql_type = function(state, avro_schema, context)
+    check(state, 'state', 'table')
+    assert(avro_schema ~= nil, 'avro_schema must not be nil')
+    check(context, 'context', 'table')
+
+    local collection = context.collection
+    local collection_name = context.collection_name
+    local definitions = context.definitions
+    local field_name = context.field_name
+    local path = context.path
+
+    check(collection, 'collection', 'table', 'nil')
+    check(collection_name, 'collection_name', 'string', 'nil')
+    check(field_name, 'field_name', 'string', 'nil')
+    check(definitions, 'definitions', 'table')
+    check(path, 'path', 'table')
 
     local accessor = state.accessor
     assert(accessor ~= nil, 'state.accessor must not be nil')
@@ -1152,7 +1221,15 @@ gql_type = function(state, avro_schema, collection, collection_name, field_name)
             ('avro_schema.fields must be a table, got %s (avro_schema %s)')
             :format(type(avro_schema.fields), json.encode(avro_schema)))
 
-        local fields = convert_record_fields(state, avro_schema.fields)
+        local graphql_type_name = next(path) == nil and collection_name or
+            avro_schema.name
+        local def = definitions[graphql_type_name .. (avro_t:endswith('*')
+            and '*' or '')]
+        if def ~= nil then
+            return def
+        end
+
+        local fields = convert_record_fields(state, avro_schema.fields, context)
 
         -- if collection param is passed then go over all connections
         for _, c in ipairs((collection or {}).connections or {}) do
@@ -1161,16 +1238,16 @@ gql_type = function(state, avro_schema, collection, collection_name, field_name)
 
         -- create gql type
         local res = types.object({
-            name = collection ~= nil and collection.name or avro_schema.name,
+            name = graphql_type_name,
             description = 'generated from avro-schema for ' ..
                 avro_schema.name,
             fields = fields,
         })
-        assert(state.definitions[avro_schema.name] == nil and
-            state.definitions[avro_schema.name .. '*'] == nil,
-            'multiple definitions of ' .. avro_schema.name)
-        state.definitions[avro_schema.name] = types.nonNull(res)
-        state.definitions[avro_schema.name .. '*'] = res
+        assert(definitions[graphql_type_name] == nil and
+            definitions[graphql_type_name .. '*'] == nil,
+            'multiple definitions of ' .. graphql_type_name)
+        definitions[graphql_type_name] = types.nonNull(res)
+        definitions[graphql_type_name .. '*'] = res
         return avro_t == 'record' and types.nonNull(res) or res
     elseif avro_t == 'enum' then
         error('enums not implemented yet') -- XXX
@@ -1182,7 +1259,7 @@ gql_type = function(state, avro_schema, collection, collection_name, field_name)
             'avro_schema.items must be a string or a table, got ' ..
             type(avro_schema.items))
 
-        local gql_items_type = gql_type(state, avro_schema.items)
+        local gql_items_type = gql_type(state, avro_schema.items, context)
         local gql_array = types.list(gql_items_type)
         return avro_t == 'array' and types.nonNull(gql_array) or gql_array
     elseif avro_t == 'map' or avro_t == 'map*' then
@@ -1195,16 +1272,16 @@ gql_type = function(state, avro_schema, collection, collection_name, field_name)
             json.encode(avro_schema)))
 
         -- validate avro schema format inside 'values'
-        gql_type(state, avro_schema.values)
+        gql_type(state, avro_schema.values, context)
 
         local gql_map = types_map
         return avro_t == 'map' and types.nonNull(gql_map) or gql_map
     elseif avro_t == 'union' then
-        return create_gql_union(state, avro_schema, field_name)
+        return create_gql_union(state, avro_schema, context)
     else
         if type(avro_schema) == 'string' then
-            if state.definitions[avro_schema] ~= nil then
-                return state.definitions[avro_schema]
+            if definitions[avro_schema] ~= nil then
+                return definitions[avro_schema]
             end
         end
 
@@ -1323,12 +1400,18 @@ local function create_root_collection(state)
             name = what,
             connections = root_connections
         }
+        local context = {
+            collection = root_collection,
+            collection_name = nil,
+            definitions = {},
+            field_name = nil,
+            path = {},
+        }
 
         -- `gql_type` is designed to create GQL type corresponding to a real
         -- schema and connections. However it also works with the fake schema.
         -- Query/Mutation type must be the Object, so it cannot be nonNull.
-        root_types[what] = nullable(gql_type(state, root_schema,
-            root_collection, nil))
+        root_types[what] = nullable(gql_type(state, root_schema, context))
     end
 
     add_extra_arguments(state, root_types)
@@ -1440,8 +1523,7 @@ local function parse_cfg(cfg)
     state.extra_arguments = utils.gen_booking_table({})
     state.extra_arguments_meta = {}
 
-    -- map from avro-schema names to graphql types
-    state.definitions = {}
+    local context = {}
 
     local accessor = cfg.accessor
     assert(accessor ~= nil, 'cfg.accessor must not be nil')
@@ -1472,13 +1554,27 @@ local function parse_cfg(cfg)
             'the schema itself: "%s" vs "%s"'):format(collection.schema_name,
             schema.name))
 
-        -- recursively converts all avro types into GraphQL types in the given
-        -- schema
         assert(schema.type == 'record',
             'top-level schema must have record avro type, got ' ..
             tostring(schema.type))
+
+        -- collection, collection_name are local for collection, definitions
+        -- are local for top-level avro-schema
+        if context[schema.name] == nil then
+            context[schema.name] = {
+                -- map from avro-schema names to graphql types
+                definitions = {},
+            }
+        end
+        context[schema.name].collection = collection
+        context[schema.name].collection_name = collection_name
+        context[schema.name].field_name = nil
+        context[schema.name].path = {}
+
+        -- recursively converts all avro types into GraphQL types in the given
+        -- schema
         local collection_type =
-            gql_type(state, schema, collection, collection_name)
+            gql_type(state, schema, context[schema.name])
         -- we utilize the fact that collection type is always non-null and
         -- don't store this information; see comment above for
         -- `nullable_collection_types` variable definition

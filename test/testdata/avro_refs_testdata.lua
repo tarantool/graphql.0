@@ -60,17 +60,32 @@ testdata.meta = {
             ]
         }
     }]]),
+    -- added foo_2: check compiling metainfo with two usages of the same schema
     collections = json.decode([[{
         "foo": {
+            "schema_name": "foo",
+            "connections": []
+        },
+        "foo_2": {
             "schema_name": "foo",
             "connections": []
         }
     }]]),
     service_fields = {
         foo = {},
+        foo_2 = {},
     },
     indexes = {
         foo = {
+            id = {
+                service_fields = {},
+                fields = {'id'},
+                index_type = 'tree',
+                unique = true,
+                primary = true,
+            },
+        },
+        foo_2 = {
             id = {
                 service_fields = {},
                 fields = {'id'},
@@ -89,10 +104,15 @@ function testdata.init_spaces()
     box.schema.create_space('foo')
     box.space.foo:create_index('id', {
         type = 'tree', unique = true, parts = {ID_FN, 'unsigned'}})
+
+    box.schema.create_space('foo_2')
+    box.space.foo_2:create_index('id', {
+        type = 'tree', unique = true, parts = {ID_FN, 'unsigned'}})
 end
 
 function testdata.drop_spaces()
     box.space.foo:drop()
+    box.space.foo_2:drop()
 end
 
 function testdata.fill_test_data(virtbox, meta)
@@ -105,7 +125,7 @@ function testdata.fill_test_data(virtbox, meta)
 
     if avro_version == 3 then
         -- non-null bar, baz and its refs
-        test_utils.replace_object(virtbox, meta, 'foo', {
+        local obj_1 = {
             id = 1,
             bar = {x = x, y = y},
             bar_ref = {x = x, y = y},
@@ -113,9 +133,9 @@ function testdata.fill_test_data(virtbox, meta)
             baz = {x = a, y = b},
             baz_ref = {x = a, y = b},
             baz_nref = {x = a, y = b},
-        })
+        }
         -- null in nullable bar, baz refs
-        test_utils.replace_object(virtbox, meta, 'foo', {
+        local obj_2 = {
             id = 2,
             bar = {x = x, y = y},
             bar_ref = {x = x, y = y},
@@ -123,28 +143,38 @@ function testdata.fill_test_data(virtbox, meta)
             baz = box.NULL,
             baz_ref = {x = a, y = b},
             baz_nref = box.NULL,
-        })
+        }
+        -- replaces
+        test_utils.replace_object(virtbox, meta, 'foo', obj_1)
+        test_utils.replace_object(virtbox, meta, 'foo', obj_2)
+        test_utils.replace_object(virtbox, meta, 'foo_2', obj_1)
+        test_utils.replace_object(virtbox, meta, 'foo_2', obj_2)
     else
         -- flatten does not work properly in the case of avro-schema-2.3.2
         local NULL_T = 0
         local VALUE_T = 1
 
         -- non-null bar, baz and its refs
-        virtbox.foo:replace({1,                       -- id
+        local tuple_1 = {1,                           -- id
             x, y, x, y, VALUE_T, {x, y},              -- bar & refs
             VALUE_T, {a, b}, a, b, VALUE_T, {a, b},   -- baz & refs
-        })
+        }
         -- null in nullable bar, baz refs
-        virtbox.foo:replace({2,                       -- id
+        local tuple_2 = {2,                           -- id
             x, y, x, y, NULL_T, box.NULL,             -- bar & refs
             NULL_T, box.NULL, a, b, NULL_T, box.NULL, -- baz & refs
-        })
+        }
+        -- replaces
+        virtbox.foo:replace(tuple_1)
+        virtbox.foo:replace(tuple_2)
+        virtbox.foo_2:replace(tuple_1)
+        virtbox.foo_2:replace(tuple_2)
     end
 end
 
 function testdata.run_queries(gql_wrapper)
     local test = tap.test('avro_refs')
-    test:plan(2)
+    test:plan(4)
 
     local query_1 = [[
         query get_by_id($id: Long) {
@@ -177,14 +207,21 @@ function testdata.run_queries(gql_wrapper)
             }
         }
     ]]
+    local query_1_p = query_1:gsub('foo', 'foo_2')
 
     local gql_query_1 = utils.show_trace(function()
         return gql_wrapper:compile(query_1)
+    end)
+    local gql_query_1_p = utils.show_trace(function()
+        return gql_wrapper:compile(query_1_p)
     end)
 
     local variables_1_1 = {id = 1}
     local result_1_1 = utils.show_trace(function()
         return gql_query_1:execute(variables_1_1)
+    end)
+    local result_1_1_p = utils.show_trace(function()
+        return gql_query_1_p:execute(variables_1_1)
     end)
 
     local exp_result_1_1 = yaml.decode(([[
@@ -210,12 +247,17 @@ function testdata.run_queries(gql_wrapper)
             x: 3000
             y: 4000
     ]]):strip())
+    local exp_result_1_1_p = {foo_2 = exp_result_1_1.foo}
 
     test:is_deeply(result_1_1, exp_result_1_1, '1_1')
+    test:is_deeply(result_1_1_p, exp_result_1_1_p, '1_1_p')
 
     local variables_1_2 = {id = 2}
     local result_1_2 = utils.show_trace(function()
         return gql_query_1:execute(variables_1_2)
+    end)
+    local result_1_2_p = utils.show_trace(function()
+        return gql_query_1_p:execute(variables_1_2)
     end)
 
     local exp_result_1_2 = yaml.decode(([[
@@ -232,8 +274,10 @@ function testdata.run_queries(gql_wrapper)
             x: 3000
             y: 4000
     ]]):strip())
+    local exp_result_1_2_p = {foo_2 = exp_result_1_2.foo}
 
     test:is_deeply(result_1_2, exp_result_1_2, '1_2')
+    test:is_deeply(result_1_2_p, exp_result_1_2_p, '1_2_p')
 
     assert(test:check(), 'check plan')
 end
