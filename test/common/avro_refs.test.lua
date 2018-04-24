@@ -6,11 +6,11 @@ local fio = require('fio')
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
-local utils = require('test.utils')
+local test_utils = require('test.utils')
 local testdata = require('test.testdata.avro_refs_testdata')
 
 box.cfg({})
 
-utils.run_testdata(testdata)
+test_utils.run_testdata(testdata)
 
 os.exit()

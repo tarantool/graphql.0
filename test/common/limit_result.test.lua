@@ -7,7 +7,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 local tap = require('tap')
-local utils = require('test.utils')
+local test_utils = require('test.utils')
 local testdata = require('test.testdata.user_order_item_testdata')
 
 local function run_queries(gql_wrapper)
@@ -53,7 +53,7 @@ end
 
 box.cfg({})
 
-utils.run_testdata(testdata, {
+test_utils.run_testdata(testdata, {
     run_queries = run_queries,
     graphql_opts = {
         resulting_object_cnt_max = 3,

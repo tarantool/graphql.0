@@ -6,7 +6,6 @@ local fio = require('fio')
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../?.lua' .. ';' .. package.path
 
-local yaml = require('yaml')
 local graphql = require('graphql')
 local multirunner = require('test.common.multirunner')
 local graphql_utils = require('graphql.utils')
@@ -15,19 +14,10 @@ test_run = test_run and test_run.new()
 
 local utils = {}
 
-function utils.format_result(name, query, variables, result)
-    return ('RUN %s {{{\nQUERY\n%s\nVARIABLES\n%s\nRESULT\n%s\n}}}\n'):format(
-    name, query:rstrip(), yaml.encode(variables), yaml.encode(result))
-end
-
-function utils.print_and_return(...)
-    print(...)
-    return table.concat({ ... }, ' ') .. '\n'
-end
-
 -- return an error w/o file name and line number
 function utils.strip_error(err)
-    return tostring(err):gsub('^.-:.-: (.*)$', '%1')
+    local res = tostring(err):gsub('^.-:.-: (.*)$', '%1')
+    return res
 end
 
 function utils.graphql_from_testdata(testdata, shard, graphql_opts)

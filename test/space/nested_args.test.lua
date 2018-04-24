@@ -7,6 +7,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
     package.path
 
+local tap = require('tap')
 local yaml = require('yaml')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
@@ -73,19 +74,10 @@ local emails_gql_wrapper = graphql.new({
 -- run queries
 -- -----------
 
-local function print_and_return(...)
-    print(...)
-    return table.concat({...}, ' ') .. '\n'
-end
-
-local function format_result(name, query, variables, result)
-    return ('RUN %s {{{\nQUERY\n%s\nVARIABLES\n%s\nRESULT\n%s\n}}}\n'):format(
-        name, query:rstrip(), yaml.encode(variables), yaml.encode(result))
-end
+local test = tap.test('nested_args')
+test:plan(2)
 
 local function run_common_queries(gql_wrapper)
-    local results = ''
-
     local query_1 = [[
         query user_by_order($user_id: String) {
             order_collection(user_connection: {user_id: $user_id}) {
@@ -100,20 +92,34 @@ local function run_common_queries(gql_wrapper)
         }
     ]]
 
-    utils.show_trace(function()
-        local variables_1 = {user_id = 'user_id_1'}
-        local gql_query_1 = gql_wrapper:compile(query_1)
-        local result = gql_query_1:execute(variables_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+    local gql_query_1 = utils.show_trace(function()
+        return gql_wrapper:compile(query_1)
     end)
 
-    return results
+    local variables_1 = {user_id = 'user_id_1'}
+    local result_1 = utils.show_trace(function()
+        return gql_query_1:execute(variables_1)
+    end)
+    local exp_result_1 = yaml.decode(([[
+        ---
+        order_collection:
+        - order_id: order_id_1
+          description: first order of Ivan
+          user_connection:
+            user_id: user_id_1
+            last_name: Ivanov
+            first_name: Ivan
+        - order_id: order_id_2
+          description: second order of Ivan
+          user_connection:
+            user_id: user_id_1
+            last_name: Ivanov
+            first_name: Ivan
+    ]]):strip())
+    test:is_deeply(result_1, exp_result_1, '1')
 end
 
 local function run_emails_queries(gql_wrapper)
-    local results = ''
-
     -- upside traversal (1:1 connections)
     -- ----------------------------------
 
@@ -131,19 +137,40 @@ local function run_emails_queries(gql_wrapper)
         }
     ]]
 
-    utils.show_trace(function()
-        local variables_upside = {upside_body = 'a'}
-        local gql_query_upside = gql_wrapper:compile(query_upside)
-        local result = gql_query_upside:execute(variables_upside)
-        results = results .. print_and_return(format_result(
-            'upside', query_upside, variables_upside, result))
+    local gql_query_upside = utils.show_trace(function()
+        return gql_wrapper:compile(query_upside)
     end)
 
-    return results
+    local variables_upside = {upside_body = 'a'}
+    local result_upside = utils.show_trace(function()
+        return gql_query_upside:execute(variables_upside)
+    end)
+    local exp_result_upside = yaml.decode(([[
+        ---
+        email:
+        - body: g
+          in_reply_to:
+            body: d
+            in_reply_to:
+              body: a
+        - body: f
+          in_reply_to:
+            body: d
+            in_reply_to:
+              body: a
+        - body: e
+          in_reply_to:
+            body: b
+            in_reply_to:
+              body: a
+    ]]):strip())
+    test:is_deeply(result_upside, exp_result_upside, 'upside')
 end
 
 run_common_queries(common_gql_wrapper)
 run_emails_queries(emails_gql_wrapper)
+
+assert(test:check(), 'check plan')
 
 -- clean up
 -- --------
