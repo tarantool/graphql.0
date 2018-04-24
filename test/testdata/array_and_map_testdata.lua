@@ -1,13 +1,9 @@
+local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
 
 local array_testdata = {}
-
-local function print_and_return(...)
-    print(...)
-    return table.concat({ ... }, ' ') .. '\n'
-end
 
 function array_testdata.get_test_metadata()
     local schemas = json.decode([[{
@@ -108,9 +104,10 @@ function array_testdata.drop_spaces()
 end
 
 function array_testdata.run_queries(gql_wrapper)
-    local results = ''
+    local test = tap.test('array_and_map')
+    test:plan(1)
 
-    local query = [[
+    local query_1 = [[
         query user_holidays($user_id: String) {
             user_collection(user_id: $user_id) {
                 user_id
@@ -124,15 +121,31 @@ function array_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    utils.show_trace(function()
-        local variables_1 = { user_id = 'user_id_1' }
-        local gql_query_1 = gql_wrapper:compile(query)
-        local result = gql_query_1:execute(variables_1)
-        results = results .. print_and_return(
-        ('RESULT\n%s'):format(yaml.encode(result)))
+    local gql_query_1 = utils.show_trace(function()
+        return gql_wrapper:compile(query_1)
+    end)
+    local variables_1 = { user_id = 'user_id_1' }
+    local result_1 = utils.show_trace(function()
+        return gql_query_1:execute(variables_1)
     end)
 
-    return results
+    local exp_result_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - favorite_holidays: {'december': 'new year', 'march': 'vacation'}
+          user_id: user_id_1
+          user_balances:
+          - value: 33
+          - value: 44
+          favorite_food:
+          - meat
+          - potato
+          customer_balances: {'salary': {'value': 333}, 'deposit': {'value': 444}}
+    ]]):strip())
+
+    test:is_deeply(result_1, exp_result_1, '1')
+
+    assert(test:check(), 'check plan')
 end
 
 return array_testdata

@@ -1,124 +1,59 @@
+local tap = require('tap')
 local json = require('json')
+local yaml = require('yaml')
+local avro = require('avro_schema')
 local utils = require('graphql.utils')
-local test_utils = require('test.utils')
 
 local union_testdata = {}
 
+local union_testdata_schemas
+
 function union_testdata.get_test_metadata()
     local schemas = json.decode([[{
-        "hero": {
-            "name": "hero",
+        "user_collection": {
+            "name": "user_collection",
             "type": "record",
             "fields": [
-                { "name": "hero_id", "type": "string" },
-                { "name": "hero_type", "type" : "string" }
-            ]
-        },
-        "human": {
-            "name": "human",
-            "type": "record",
-            "fields": [
-                { "name": "hero_id", "type": "string" },
+                { "name": "user_id", "type": "string" },
                 { "name": "name", "type": "string" },
-                { "name": "episode", "type": "string"}
-            ]
-        },
-        "starship": {
-            "name": "starship",
-            "type": "record",
-            "fields": [
-                { "name": "hero_id", "type": "string" },
-                { "name": "model", "type": "string" },
-                { "name": "episode", "type": "string"}
+                { "name": "stuff", "type": [
+                    "null",
+                    "string",
+                    "int",
+                    { "type": "map", "values": "int" },
+                    { "type": "record", "name": "Foo", "fields":[
+                        { "name": "foo1", "type": "string" },
+                        { "name": "foo2", "type": "string" }
+                    ]},
+                    {"type":"array","items": { "type":"map","values":"string" } }
+                ]}
             ]
         }
     }]])
+    union_testdata_schemas = schemas
 
     local collections = json.decode([[{
-        "hero_collection": {
-            "schema_name": "hero",
-            "connections": [
-                {
-                    "name": "hero_connection",
-                    "type": "1:1",
-                    "variants": [
-                        {
-                            "determinant": {"hero_type": "human"},
-                            "destination_collection": "human_collection",
-                            "parts": [
-                                {
-                                    "source_field": "hero_id",
-                                    "destination_field": "hero_id"
-                                }
-                            ],
-                            "index_name": "human_id_index"
-                        },
-                        {
-                            "determinant": {"hero_type": "starship"},
-                            "destination_collection": "starship_collection",
-                            "parts": [
-                                {
-                                    "source_field": "hero_id",
-                                    "destination_field": "hero_id"
-                                }
-                            ],
-                            "index_name": "starship_id_index"
-                        }
-                    ]
-                }
-            ]
-        },
-        "human_collection": {
-            "schema_name": "human",
-            "connections": []
-        },
-        "starship_collection": {
-            "schema_name": "starship",
+        "user_collection": {
+            "schema_name": "user_collection",
             "connections": []
         }
     }]])
 
     local service_fields = {
-        hero = {
-            { name = 'expires_on', type = 'long', default = 0 },
-        },
-        human = {
-            { name = 'expires_on', type = 'long', default = 0 },
-        },
-        starship = {
-            { name = 'expires_on', type = 'long', default = 0 },
+        user_collection = {
+            {name = 'expires_on', type = 'long', default = 0}
         }
     }
 
     local indexes = {
-        hero_collection = {
-            hero_id_index = {
+        user_collection = {
+            user_id_index = {
                 service_fields = {},
-                fields = { 'hero_id' },
+                fields = {'user_id'},
                 index_type = 'tree',
                 unique = true,
                 primary = true,
-            },
-        },
-
-        human_collection = {
-            human_id_index = {
-                service_fields = {},
-                fields = { 'hero_id' },
-                index_type = 'tree',
-                unique = true,
-                primary = true,
-            },
-        },
-
-        starship_collection = {
-            starship_id_index = {
-                service_fields = {},
-                fields = { 'hero_id' },
-                index_type = 'tree',
-                unique = true,
-                primary = true,
-            },
+            }
         }
     }
 
@@ -131,22 +66,12 @@ function union_testdata.get_test_metadata()
 end
 
 function union_testdata.init_spaces()
-    local ID_FIELD_NUM = 2
+    local USER_ID_FIELD = 2
 
     box.once('test_space_init_spaces', function()
-        box.schema.create_space('hero_collection')
-        box.space.hero_collection:create_index('hero_id_index',
-            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
-        )
-
-        box.schema.create_space('human_collection')
-        box.space.human_collection:create_index('human_id_index',
-            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
-        )
-
-        box.schema.create_space('starship_collection')
-        box.space.starship_collection:create_index('starship_id_index',
-            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
+        box.schema.create_space('user_collection')
+        box.space.user_collection:create_index('user_id_index',
+            {type = 'tree', unique = true, parts = { USER_ID_FIELD, 'string' }}
         )
     end)
 end
@@ -154,63 +79,129 @@ end
 function union_testdata.fill_test_data(shard)
     local shard = shard or box.space
 
-    shard.hero_collection:replace(
-        { 1827767717, 'hero_id_1', 'human'})
-    shard.hero_collection:replace(
-        { 1827767717, 'hero_id_2', 'starship'})
+    local NULL = 0
+    local STRING = 1
+    local INT = 2
+    local MAP = 3
+    local OBJ = 4
+    local ARR_MAP = 5
 
-    shard.human_collection:replace(
-        { 1827767717, 'hero_id_1', 'Luke', "EMPR"})
+    shard.user_collection:replace(
+        {1827767717, 'user_id_1', 'Nobody', NULL, box.NULL})
 
-    shard.starship_collection:replace(
-        { 1827767717, 'hero_id_2', 'Falcon-42', "NEW"})
+    shard.user_collection:replace(
+        {1827767717, 'user_id_2', 'Zlata', STRING, 'Some string'})
+
+    shard.user_collection:replace(
+        {1827767717, 'user_id_3', 'Ivan', INT, 123})
+
+    shard.user_collection:replace(
+        {1827767717, 'user_id_4', 'Jane', MAP, {salary = 333, deposit = 444}})
+
+    shard.user_collection:replace(
+        {1827767717, 'user_id_5', 'Dan', OBJ, {'foo1 string', 'foo2 string'}})
+
+    shard.user_collection:replace(
+        {1827767717, 'user_id_6', 'Max', ARR_MAP,
+         {{salary = 'salary string', deposit = 'deposit string'},
+         {salary = 'string salary', deposit = 'string deposit'}}})
 end
 
 function union_testdata.drop_spaces()
     box.space._schema:delete('oncetest_space_init_spaces')
-    box.space.human_collection:drop()
-    box.space.starship_collection:drop()
-    box.space.hero_collection:drop()
+    box.space.user_collection:drop()
 end
 
 function union_testdata.run_queries(gql_wrapper)
-    local results = ''
+    local test = tap.test('union')
+    test:plan(7)
 
-    local query = [[
-        query obtainHeroes($hero_id: String) {
-            hero_collection(hero_id: $hero_id) {
-                hero_id
-                hero_type
-                hero_connection {
-                    ... on human_collection {
-                        name
+    local query_1 = [[
+        query user_collection {
+            user_collection {
+                user_id
+                name
+                stuff {
+                    ... on String_box {
+                        string
                     }
-                    ... on starship_collection {
-                        model
+
+                    ... on Int_box {
+                        int
+                    }
+
+                    ... on List_box {
+                        array
+                    }
+
+                    ... on Map_box {
+                        map
+                    }
+
+                    ... on Foo_box {
+                        Foo {
+                            foo1
+                            foo2
+                        }
                     }
                 }
             }
         }
     ]]
 
-    local gql_query = gql_wrapper:compile(query)
-
-    utils.show_trace(function()
-        local variables_1 = {hero_id = 'hero_id_1'}
-        local result = gql_query:execute(variables_1)
-        results = results .. test_utils.print_and_return(test_utils.format_result(
-        '1', query, variables_1, result))
-
+    local gql_query_1 = utils.show_trace(function()
+        return gql_wrapper:compile(query_1)
     end)
 
-    utils.show_trace(function()
-        local variables_2 = {hero_id = 'hero_id_2'}
-        local result = gql_query:execute(variables_2)
-        results = results .. test_utils.print_and_return(test_utils.format_result(
-        '2', query, variables_2, result))
+    local variables_1 = {}
+
+    local result_1 = utils.show_trace(function()
+        return gql_query_1:execute(variables_1)
     end)
 
-    return results
+    local exp_result_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_1
+          name: Nobody
+        - user_id: user_id_2
+          name: Zlata
+          stuff:
+            string: Some string
+        - user_id: user_id_3
+          name: Ivan
+          stuff:
+            int: 123
+        - user_id: user_id_4
+          name: Jane
+          stuff:
+            map: {'salary': 333, 'deposit': 444}
+        - user_id: user_id_5
+          name: Dan
+          stuff:
+            Foo:
+              foo1: foo1 string
+              foo2: foo2 string
+        - user_id: user_id_6
+          name: Max
+          stuff:
+            array:
+            - {'salary': 'salary string', 'deposit': 'deposit string'}
+            - {'salary': 'string salary', 'deposit': 'string deposit'}
+    ]]):strip())
+
+    test:is_deeply(result_1, exp_result_1, '1')
+
+    -- validating results with initial avro-schema
+    local schemas = union_testdata_schemas
+    local ok, schema = avro.create(schemas.user_collection)
+    assert(ok)
+    for i, user in ipairs(result_1.user_collection) do
+        local ok, res = avro.validate(schema, user)
+        test:ok(ok, ('validate %dth user'):format(i), res)
+    end
+
+    assert(test:check(), 'check plan')
 end
 
 return union_testdata

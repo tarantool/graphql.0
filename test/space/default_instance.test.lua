@@ -1,7 +1,7 @@
 #!/usr/bin/env tarantool
 
+local tap = require('tap')
 local utils = require('graphql.utils')
-local test_utils = require('test.utils')
 local yaml = require('yaml')
 local json = require('json')
 local fio = require('fio')
@@ -38,27 +38,41 @@ local query = [[
     }
 ]]
 
+local test = tap.test('default_instance')
+test:plan(5)
+
 -- test require('graphql').compile(query)
 utils.show_trace(function()
     local variables_1 = {user_id = 'user_id_1'}
     local compiled_query = gql_lib.compile(query)
     local result = compiled_query:execute(variables_1)
-    test_utils.print_and_return(
-        ('RESULT\n%s'):format(yaml.encode(result)))
+    local exp_result = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_1
+          name: Ivan
+    ]]):strip())
+    test:is_deeply(result, exp_result, '1')
 end)
 
 -- test require('graphql').execute(query)
 utils.show_trace(function()
     local variables_2 = {user_id = 'user_id_2'}
     local result = gql_lib.execute(query, variables_2)
-    test_utils.print_and_return(
-        ('RESULT\n%s'):format(yaml.encode(result)))
+    local exp_result = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_2
+          name: Vasiliy
+    ]]):strip())
+    test:is_deeply(result, exp_result, '2')
 end)
 
 -- test server
 utils.show_trace(function()
     local res = gql_lib.start_server()
-    print(res .. '\n')
+    local exp_res_start = 'The GraphQL server started at http://127.0.0.1:8080'
+    test:is(res, exp_res_start, 'start_server')
 
     local method = 'POST'
     local url = "http://127.0.0.1:8080/graphql"
@@ -72,13 +86,19 @@ utils.show_trace(function()
     end)
 
     local body = json.decode(response.body)
+    local exp_body_data = yaml.decode(([[
+        --- {'user_collection': [{'user_id': 'user_id_1', 'name': 'Ivan'}, {'user_id': 'user_id_2',
+              'name': 'Vasiliy'}]}
+    ]]):strip())
 
-    test_utils.print_and_return(
-        ('RESULT\n%s'):format(yaml.encode(body.data))
-    )
+    test:is_deeply(body.data, exp_body_data, '3')
 
-    gql_lib.stop_server()
+    local res = gql_lib.stop_server()
+    local exp_res_stop = 'The GraphQL server stopped at http://127.0.0.1:8080'
+    test:is(res, exp_res_stop, 'stop_server')
 end)
+
+assert(test:check(), 'check plan')
 
 box.space.user_collection:drop()
 

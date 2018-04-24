@@ -1,15 +1,9 @@
 #!/usr/bin/env tarantool
 
---local json = require('json')
+local tap = require('tap')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
 local graphql = require('graphql')
-
-
-local function print_and_return(...)
-    print(...)
-    return table.concat({...}, ' ') .. '\n'
-end
 
 local function init_spaces()
     local U_USER_ID_FN = 1
@@ -43,9 +37,9 @@ local function drop_spaces()
     box.space.user_collection:drop()
 end
 
-
 local function run_queries(gql_wrapper)
-    local results = ''
+    local test = tap.test('zero_config')
+    test:plan(2)
 
     local query_1 = [[
         query user_order($user_id: String) {
@@ -57,23 +51,66 @@ local function run_queries(gql_wrapper)
         }
     ]]
 
-    utils.show_trace(function()
-        local variables_1 = {user_id = 'user_id_1'}
-        local gql_query_1 = gql_wrapper:compile(query_1)
-        local result = gql_query_1:execute(variables_1)
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+    local gql_query_1 = utils.show_trace(function()
+        return gql_wrapper:compile(query_1)
     end)
 
-    utils.show_trace(function()
+    local result_1_1 = utils.show_trace(function()
+        local variables_1_1 = {user_id = 'user_id_1'}
+        return gql_query_1:execute(variables_1_1)
+    end)
+
+    local exp_result_1_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_1
+          age: 42
+          name: Ivan
+    ]]):strip())
+    test:is_deeply(result_1_1, exp_result_1_1, '1_1')
+
+    local result_1_2 = utils.show_trace(function()
         local cfg = gql_wrapper.internal.cfg
         cfg.accessor = nil
-        local result = cfg
-        results = results .. print_and_return(
-            ('RESULT\n%s'):format(yaml.encode(result)))
+        return cfg
     end)
 
-    return results
+    local exp_result_1_2 = yaml.decode(([[
+        ---
+        schemas:
+          user_collection:
+            type: record
+            name: user_collection
+            fields:
+            - name: user_id
+              type: string
+            - name: name
+              type: string
+            - name: age
+              type: long*
+        connections: []
+        indexes:
+          user_collection:
+            user_id_index:
+              unique: true
+              primary: true
+              service_fields: []
+              fields:
+              - user_id
+              index_type: tree
+        collections:
+          user_collection:
+            schema_name: user_collection
+            connections: []
+            name: user_collection
+        collection_use_tomap:
+          user_collection: true
+        service_fields:
+          user_collection: []
+    ]]):strip())
+    test:is_deeply(result_1_2, exp_result_1_2, '1_2')
+
+    assert(test:check(), 'check plan')
 end
 
 utils.show_trace(function()

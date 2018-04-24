@@ -1350,10 +1350,10 @@ local function stop_server(gql)
         'use :stop_server(...) instead of .stop_server(...)')
     assert(gql.server, 'no running server to stop')
 
-    print (('The GraphQL server stopped at http://%s:%s'):format(
-        gql.server.host, gql.server.port))
-
     gql.server:stop()
+
+    return ('The GraphQL server stopped at http://%s:%s'):format(
+        gql.server.host, gql.server.port)
 end
 
 function tarantool_graphql.compile(query)

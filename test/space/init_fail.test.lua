@@ -7,6 +7,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
     package.path
 
+local tap = require('tap')
 local graphql = require('graphql')
 local testdata = require('test.testdata.compound_index_testdata')
 local test_utils = require('test.utils')
@@ -49,15 +50,22 @@ local function create_gql_wrapper(metadata)
     })
 end
 
+local test = tap.test('init_fail')
+test:plan(3)
+
 local ok, err = pcall(create_gql_wrapper, metadata)
-print(('INIT: ok: %s; err: %s'):format(tostring(ok),
-    test_utils.strip_error(err)))
+local err_exp = '1:1 connection "user_connection" of collection ' ..
+    '"order_collection" has less fields than the index of ' ..
+    '"user_str_num_index" collection (cannot prove uniqueness of the partial ' ..
+    'index)'
+test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+    'not enough fields')
 
 -- restore back cut part
 metadata.collections.order_collection.connections[1].parts[2] = saved_part
 
 local ok, res = pcall(create_gql_wrapper, metadata)
-print(('INIT: ok: %s; type(res): %s'):format(tostring(ok), type(res)))
+test:is_deeply({ok, type(res)}, {true, 'table'}, 'enough fields')
 
 -- multiple primary indexes
 -- ------------------------
@@ -72,11 +80,16 @@ metadata.indexes.user_collection.user_str_index = {
 }
 
 local ok, err = pcall(create_gql_wrapper, metadata)
-print(('INIT: ok: %s; err: %s'):format(tostring(ok),
-    test_utils.strip_error(err)))
+local err_exp = 'several indexes were marked as primary in the ' ..
+    '"user_collection" collection, at least "user_str_index" and ' ..
+    '"user_str_num_index"'
+test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+    'multiple primary indexes')
 
 -- restore metadata back
 metadata.indexes.user_collection.user_str_index = nil
+
+assert(test:check(), 'check plan')
 
 -- clean up
 -- --------

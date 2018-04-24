@@ -7,7 +7,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 local test_utils = require('test.utils')
-local testdata = require('test.testdata.compound_index_testdata')
+local testdata = require('test.testdata.array_and_map_testdata')
 
 box.cfg({})
 
