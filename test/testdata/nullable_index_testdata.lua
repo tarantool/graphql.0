@@ -1,5 +1,6 @@
 -- ----------------------------------------------------------
 -- Motivation: https://github.com/tarantool/graphql/issues/43
+-- and https://github.com/tarantool/shard/issues/61
 -- ----------------------------------------------------------
 
 local tap = require('tap')
@@ -158,7 +159,7 @@ function nullable_index_testdata.fill_test_data(shard)
     local NULL_T = 0
     local STRING_T = 1
 
-    for i = 1, 100 do
+    for i = 1, 114 do
         local s = tostring(i)
         shard.foo:replace({s, s, s, s})
     end
@@ -220,7 +221,7 @@ end
 
 function nullable_index_testdata.run_queries(gql_wrapper)
     local test = tap.test('nullable_index')
-    test:plan(5)
+    test:plan(6)
 
     -- {{{ verify that null as an argument value is forbidden
 
@@ -389,12 +390,15 @@ function nullable_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local result = utils.show_trace(function()
-        local variables_3 = {id = '42'}
-        local gql_query_3 = gql_wrapper:compile(query_3)
-        return gql_query_3:execute(variables_3)
+    local gql_query_3 = utils.show_trace(function()
+        return gql_wrapper:compile(query_3)
     end)
-    local exp_result = yaml.decode(([[
+
+    local variables_3_1 = {id = '42'}
+    local result_3_1 = utils.show_trace(function()
+        return gql_query_3:execute(variables_3_1)
+    end)
+    local exp_result_3_1 = yaml.decode(([[
         ---
         foo:
         - bar_partial_unique:
@@ -403,7 +407,21 @@ function nullable_index_testdata.run_queries(gql_wrapper)
           - id: '42'
           id: '42'
     ]]):strip())
-    test:is_deeply(result, exp_result, '3')
+    test:is_deeply(result_3_1, exp_result_3_1, '3_1')
+
+    local variables_3_2 = {id = '103'}
+    local result_3_2 = utils.show_trace(function()
+        return gql_query_3:execute(variables_3_2)
+    end)
+    local exp_result_3_2 = yaml.decode(([[
+        ---
+        foo:
+        - bar_partial_unique:
+          - id: '103'
+          bar_partial_non_unique: []
+          id: '103'
+    ]]):strip())
+    test:is_deeply(result_3_2, exp_result_3_2, '3_2')
 
     -- }}}
 
