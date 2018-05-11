@@ -5,8 +5,8 @@ sudo: true
 dist: trusty
 
 env:
-    - SHARD_VERSION=1.2
-    - SHARD_VERSION=2.1
+    - SHARD_VERSION=1.2 AVRO_SCHEMA=2.3.2
+    - SHARD_VERSION=2.1 AVRO_SCHEMA=2.3.2
 
 branches:
   only:
@@ -37,7 +37,7 @@ install:
   - sudo make install
   - cd ..
   - tarantoolctl rocks install shard "${SHARD_VERSION}"
-  - tarantoolctl rocks install avro-schema
+  - tarantoolctl rocks install avro-schema "${AVRO_SCHEMA}"
   - cd graphql
   - git submodule update --recursive --init
   - tarantoolctl rocks install lulpeg
