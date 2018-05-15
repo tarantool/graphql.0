@@ -17,12 +17,15 @@ if rex == nil then
 end
 local avro_helpers = require('graphql.avro_helpers')
 
+local check = utils.check
+
 -- XXX: consider using [1] when it will be mature enough;
 -- look into [2] for the status.
 -- [1]: https://github.com/igormunkin/lua-re
 -- [2]: https://github.com/tarantool/tarantool/issues/2764
 
 local accessor_general = {}
+
 local DEF_RESULTING_OBJECT_CNT_MAX = 10000
 local DEF_FETCHED_OBJECT_CNT_MAX = 10000
 local DEF_TIMEOUT_MS = 1000
@@ -39,14 +42,21 @@ local TIMEOUT_INFINITY = 18446744073709551615ULL / (2 * 10^6) -- microseconds
 accessor_general.TIMEOUT_INFINITY = TIMEOUT_INFINITY
 
 --- Validate and compile set of avro schemas (with respect to service fields).
+---
 --- @tparam table schemas map where keys are string names and values are
---- avro schemas; consider an example in @{tarantool_graphql.new} function
---- description.
+---               avro schemas; consider an example in @{tarantool_graphql.new}
+---               function description.
 --- @tparam table service_fields map where keys are string names of avro
---- schemas (from `schemas` argument) and values are service fields descriptions;
---- consider the example in the @{new} function description.
+---               schemas (from `schemas` argument) and values are service
+---               fields descriptions; consider the example in the @{new}
+---               function description.
+---
+--- @treturn table `models` list of compiled schemas
+--- @treturn table `service_fields_defaults` list of default values of service
+---                fields
 local function compile_schemas(schemas, service_fields)
     local service_fields_types = {}
+    local service_fields_defaults = {}
     for name, service_fields_list in pairs(service_fields) do
         assert(type(name) == 'string',
             'service_fields key must be a string, got ' .. type(name))
@@ -54,6 +64,7 @@ local function compile_schemas(schemas, service_fields)
             'service_fields_list must be a table, got ' ..
             type(service_fields_list))
         local sf_types = {}
+        local sf_defaults = {}
         for _, v in ipairs(service_fields_list) do
             assert(type(v) == 'table',
                 'service_fields_list item must be a table, got ' .. type(v))
@@ -63,8 +74,10 @@ local function compile_schemas(schemas, service_fields)
                 'service_field type must be a string, got ' .. type(v.type))
             assert(v.default ~= nil, 'service_field default must not be a nil')
             sf_types[#sf_types + 1] = v.type
+            sf_defaults[#sf_defaults + 1] = v.default
         end
         service_fields_types[name] = sf_types
+        service_fields_defaults[name] = sf_defaults
     end
 
     local models = {}
@@ -93,7 +106,7 @@ local function compile_schemas(schemas, service_fields)
 
         models[name] = model
     end
-    return models
+    return models, service_fields_defaults
 end
 
 --- Get user-provided meta-information about the primary index of given
@@ -297,6 +310,21 @@ local function flatten_filter(self, filter, collection_name, index_name)
     return full_match, value_list, new_filter
 end
 
+--- Validate `from` parameter of accessor_instance:select().
+---
+--- @tparam table from see @{tarantool_graphql.new}
+---
+--- Raises an error when the validation fails.
+---
+--- @return nothing
+local function validate_from_parameter(from)
+    check(from, 'from', 'table')
+    check(from.collection_name, 'from.collection_name', 'nil', 'string')
+    check(from.connection_name, 'from.connection_name', 'string')
+    check(from.destination_args_names, 'from.destination_args_names', 'table')
+    check(from.destination_args_values, 'from.destination_args_values', 'table')
+end
+
 --- Choose an index for lookup tuple(s) by a 'filter'. The filter holds fields
 --- values of object(s) we want to find. It uses prebuilt `lookup_index_name`
 --- table representing available indexes, which created by the
@@ -311,8 +339,8 @@ end
 --- function will search through
 ---
 --- @tparam table from information about a connection bring executor to select
---- from a current collection; its `collection_name` is 'Query' selecting
---- top-level objects;it has the following structure:
+--- from a current collection; `from.collection_name == nil` means selecting
+--- top-level objects; it has the following structure:
 ---
 ---     {
 ---         collection_name = <...> (string),
@@ -352,8 +380,7 @@ local get_index_name = function(self, collection_name, from, filter, args)
         'self must be a table, got ' .. type(self))
     assert(type(collection_name) == 'string',
         'collection_name must be a string, got ' .. type(collection_name))
-    assert(from == nil or type(from) == 'table',
-        'from must be nil or a table, got ' .. type(from))
+    check(from, 'from', 'table')
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
     assert(type(args) == 'table',
@@ -379,7 +406,7 @@ local get_index_name = function(self, collection_name, from, filter, args)
     -- If an offset is set we return it as `pivot.filter`. So, select will be
     -- performed by an index from the connection, then the result will be
     -- postprocessed using `pivot`.
-    if from.collection_name ~= 'Query' then
+    if from.collection_name ~= nil then
         local connection_index =
             connection_indexes[collection_name][from.connection_name]
         local index_name = connection_index.index_name
@@ -951,20 +978,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
     assert(type(collection_name) == 'string',
         'collection_name must be a string, got ' ..
         type(collection_name))
-    assert(from == nil or type(from) == 'table',
-        'from must be nil or a string, got ' .. type(from))
-    assert(from == nil or type(from.collection_name) == 'string',
-        'from must be nil or from.collection_name must be a string, got ' ..
-        type((from or {}).collection_name))
-    assert(from == nil or type(from.connection_name) == 'string',
-        'from must be nil or from.connection_name must be a string, got ' ..
-        type((from or {}).connection_name))
-    assert(from == nil or type(from.destination_args_names) == 'table',
-        'from must be nil or from.destination_args_names must be a table, ' ..
-        'got ' .. type((from or {}).destination_args_names))
-    assert(from == nil or type(from.destination_args_values) == 'table',
-        'from must be nil or from.destination_args_values must be a table, ' ..
-        'got ' .. type((from or {}).destination_args_values))
+    check(from, 'from', 'table')
     assert(type(filter) == 'table',
         'filter must be a table, got ' .. type(filter))
     assert(type(args) == 'table',
@@ -989,7 +1003,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         self, collection_name, from, filter, args) -- we redefine filter here
     local index = index_name ~= nil and
         self.funcs.get_index(collection_name, index_name) or nil
-    if from.collection_name ~= 'Query' then
+    if from.collection_name ~= nil then
         -- allow fullscan only for a top-level object
         assert(index ~= nil,
             ('cannot find index "%s" in space "%s"'):format(
@@ -1089,6 +1103,49 @@ local function select_internal(self, collection_name, from, filter, args, extra)
     return objs
 end
 
+--- Insert an object.
+---
+--- Parameters are the same as for @{select_internal}.
+---
+--- @treturn table list of a single object we inserted
+---
+--- We can just return the object and omit select_internal() call, because we
+--- forbid any filters/args that could affect the result.
+local function insert_internal(self, collection_name, from, filter, args, extra)
+    local object = extra.extra_args.insert
+    if object == nil then return nil end
+    local err_msg = '"insert" must be the only argument when it is present'
+    assert(next(filter) == nil, err_msg)
+    assert(next(args) == nil, err_msg)
+    check(from, 'from', 'table')
+    -- allow only top level collection
+    check(from.collection_name, 'from.collection_name', 'nil')
+
+    -- convert object -> tuple (set default values from a schema)
+    local collection = self.collections[collection_name]
+    assert(collection ~= nil,
+        ('cannot find the collection "%s"'):format(collection_name))
+    local schema_name = collection.schema_name
+    assert(type(schema_name) == 'string',
+        'schema_name must be a string, got ' .. type(schema_name))
+    local default_flatten_object = self.default_flatten_object[schema_name]
+    assert(default_flatten_object ~= nil,
+        ('cannot find default_flatten_object ' ..
+        'for collection "%s"'):format(collection_name))
+    local tuple = self.funcs.flatten_object(collection_name, object, {
+        service_fields_defaults =
+            self.service_fields_defaults[schema_name],
+    }, default_flatten_object)
+
+    -- insert tuple & tuple -> object (with default values set before)
+    local new_tuple = self.funcs.insert_tuple(collection_name, tuple)
+    local new_object = self.funcs.unflatten_tuple(collection_name, new_tuple, {
+        use_tomap = self.collection_use_tomap[collection_name]
+    }, self.default_unflatten_tuple[schema_name])
+
+    return {new_object}
+end
+
 --- Set of asserts to check the `funcs` argument of the @{accessor_general.new}
 --- function.
 --- @tparam table funcs set of function as defined in the
@@ -1109,6 +1166,12 @@ local function validate_funcs(funcs)
     assert(type(funcs.unflatten_tuple) == 'function',
         'funcs.unflatten_tuple must be a function, got ' ..
         type(funcs.unflatten_tuple))
+    assert(type(funcs.flatten_object) == 'function',
+        'funcs.flatten_object must be a function, got ' ..
+        type(funcs.flatten_object))
+    assert(type(funcs.insert_tuple) == 'function',
+        'funcs.insert_tuple must be a function, got ' ..
+        type(funcs.insert_tuple))
 end
 
 --- This function is called on first select related to a query. Its purpose is
@@ -1246,11 +1309,19 @@ end
 --- query behaviour in case it requires more resources than expected _(default
 --- value is 10,000)_; `timeout_ms` _(default is 1000)_
 ---
---- @tparam table funcs set of functions (`is_collection_exists`, `get_index`,
---- `get_primary_index`, `unflatten_tuple`) allows this abstract data accessor
---- behaves in the certain way (say, like space data accessor or shard data
---- accessor); consider the `accessor_space` and the `accessor_shard` modules
---- documentation for this functions description
+--- @tparam table funcs set of functions:
+---
+--- * `is_collection_exists`,
+--- * `get_index`,
+--- * `get_primary_index`,
+--- * `unflatten_tuple`,
+--- * `flatten_object`,
+--- * `insert_tuple`.
+---
+--- They allows this abstract data accessor behaves in the certain way (say,
+--- like space data accessor or shard data accessor); consider the
+--- `accessor_space` and the `accessor_shard` modules documentation for these
+--- functions description.
 ---
 --- For examples of `opts.schemas` and `opts.collections` consider the
 --- @{tarantool_graphql.new} function description.
@@ -1318,20 +1389,41 @@ function accessor_general.new(opts, funcs)
         ('timeouts more then graphql.TIMEOUT_INFINITY (%s) ' ..
         'do not supported'):format(tostring(TIMEOUT_INFINITY)))
 
-    local models = compile_schemas(schemas, service_fields)
+    local models, service_fields_defaults = compile_schemas(schemas,
+        service_fields)
     validate_collections(collections, schemas, indexes)
     local index_cache = build_index_cache(indexes, collections)
 
-    -- create default unflatten functions, that can be called from
-    -- funcs.unflatten_tuple when an additional pre/postprocessing is not
-    -- needed
+    -- create default unflatten/flatten functions, that can be called from
+    -- funcs.unflatten_tuple/funcs.flatten_object when an additional
+    -- pre/postprocessing is not needed
     local default_unflatten_tuple = {}
+    local default_flatten_object = {}
     for schema_name, model in pairs(models) do
         default_unflatten_tuple[schema_name] =
-            function(_, tuple)
+            function(_, tuple, opts)
+                local opts = opts or {}
+                check(opts, 'opts', 'table')
+
                 local ok, obj = model.unflatten(tuple)
-                assert(ok, 'cannot unflat tuple: ' .. tostring(obj))
+                assert(ok, ('cannot unflat tuple of schema "%s": %s'):format(
+                    schema_name, tostring(obj)))
                 return obj
+            end
+        default_flatten_object[schema_name] =
+            function(_, obj, opts)
+                local opts = opts or {}
+                check(opts, 'opts', 'table')
+                local service_fields_defaults = opts.service_fields_defaults or
+                    {}
+                check(service_fields_defaults, 'service_fields_defaults',
+                    'table')
+
+                local ok, tuple = model.flatten(obj,
+                    unpack(service_fields_defaults))
+                assert(ok, ('cannot flat object of schema "%s": %s'):format(
+                    schema_name, tostring(tuple)))
+                return tuple
             end
     end
 
@@ -1344,6 +1436,8 @@ function accessor_general.new(opts, funcs)
         indexes = indexes,
         models = models,
         default_unflatten_tuple = default_unflatten_tuple,
+        default_flatten_object = default_flatten_object,
+        service_fields_defaults = service_fields_defaults,
         collection_use_tomap = opts.collection_use_tomap or {},
         index_cache = index_cache,
         funcs = funcs,
@@ -1356,23 +1450,19 @@ function accessor_general.new(opts, funcs)
         __index = {
             select = function(self, parent, collection_name, from,
                     filter, args, extra)
-                assert(type(parent) == 'table',
-                    'parent must be a table, got ' .. type(parent))
-                assert(from == nil or type(from) == 'table',
-                    'from must be nil or a string, got ' .. type(from))
-                assert(from == nil or type(from.collection_name) == 'string',
-                    'from must be nil or from.collection_name ' ..
-                    'must be a string, got ' ..
-                    type((from or {}).collection_name))
-                assert(from == nil or type(from.connection_name) == 'string',
-                    'from must be nil or from.connection_name ' ..
-                    'must be a string, got ' ..
-                    type((from or {}).connection_name))
+                check(parent, 'parent', 'table')
+                validate_from_parameter(from)
+
                 --`qcontext` initialization
                 if extra.qcontext.initialized ~= true then
                     init_qcontext(self, extra.qcontext)
                     extra.qcontext.initialized = true
                 end
+
+                local inserted = insert_internal(self, collection_name, from,
+                    filter, args, extra)
+                if inserted ~= nil then return inserted end
+
                 return select_internal(self, collection_name, from, filter,
                     args, extra)
             end,
@@ -1391,6 +1481,15 @@ function accessor_general.new(opts, funcs)
                     {name = 'offset', type = offset_type},
                     -- {name = 'filter', type = ...},
                     pcre_field,
+                }
+            end,
+            extra_args = function(self, collection_name)
+                local collection = self.collections[collection_name]
+                local schema_name = collection.schema_name
+                local schema = table.copy(self.schemas[schema_name])
+                schema.name = collection_name .. '_insert'
+                return {
+                    {name = 'insert', type = schema}
                 }
             end,
         }

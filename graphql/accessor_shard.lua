@@ -7,6 +7,8 @@ local utils = require('graphql.utils')
 local shard = utils.optional_require('shard')
 local accessor_general = require('graphql.accessor_general')
 
+local check = utils.check
+
 local accessor_shard = {}
 
 local LIMIT = 100000 -- XXX: we need to raise an error when a limit reached
@@ -99,10 +101,10 @@ end
 --- @tparam cdata/table tuple
 --- @tparam table opts
 --- * `use_tomap` (boolean, default: false; whether objects in collection
---- collection_name intended to be unflattened using tuple:tomap({names_only = true})
---- method instead of compiled_avro_schema.unflatten(tuple)
+---   collection_name intended to be unflattened using
+---   `tuple:tomap({names_only = true})` method instead of
+---   `compiled_avro_schema.unflatten(tuple)`
 --- @tparam function default unflatten action, call it in the following way:
----
 ---
 ---     return default(collection_name, tuple)
 ---
@@ -112,6 +114,41 @@ local function unflatten_tuple(collection_name, tuple, opts, default)
     end
 
     return default(collection_name, tuple)
+end
+
+--- Convert an object to a tuple.
+---
+--- @tparam string collection_name
+--- @tparam table obj
+--- @tparam table opts
+--- * `service_fields_defaults` (list (Lua table), default: empty list; list of
+---   values to set service fields)
+--- @tparam function default flatten action, call it in the following way:
+---
+---    return default(collection_name, obj, opts)
+---
+--- @treturn cdata/table `tuple`
+local function flatten_object(collection_name, obj, opts, default)
+    local opts = opts or {}
+    check(opts, 'opts', 'table')
+    local service_fields_defaults = opts.service_fields_defaults or {}
+    check(service_fields_defaults, 'service_fields_defaults', 'table')
+    return default(collection_name, obj, opts)
+end
+
+--- Insert a tuple into a collection.
+---
+--- @tparam string collection_name
+---
+--- @tparam cdata/table tuple
+---
+--- @treturn cdata/table `tuple`
+local function insert_tuple(collection_name, tuple)
+    local tuples = shard:insert(collection_name, tuple)
+    check(tuples, 'tuples', 'table')
+    assert(#tuples >= 1, 'expected >= 1 tuples inserted, got ' ..
+        tostring(#tuples))
+    return tuples[1]
 end
 
 --- Create a new shard data accessor instance.
@@ -135,6 +172,8 @@ function accessor_shard.new(opts, funcs)
         get_index = funcs.get_index or get_index,
         get_primary_index = funcs.get_primary_index or get_primary_index,
         unflatten_tuple = funcs.unflatten_tuple or unflatten_tuple,
+        flatten_object = funcs.flatten_object or flatten_object,
+        insert_tuple = funcs.insert_tuple or insert_tuple,
     }
 
     return accessor_general.new(opts, res_funcs)

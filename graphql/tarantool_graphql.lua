@@ -32,6 +32,7 @@
 
 local json = require('json')
 local yaml = require('yaml')
+local log = require('log')
 
 local accessor_space = require('graphql.accessor_space')
 local accessor_shard = require('graphql.accessor_shard')
@@ -286,6 +287,8 @@ end
 --- * `skip_compound` -- do not add fields of record type to the arguments;
 --- default: false.
 ---
+--- * `dont_skip` -- do not skip any fields; default: false.
+---
 --- @treturn table `args` -- map with type names as keys and graphql types as
 --- values
 local function convert_record_fields_to_args(fields, opts)
@@ -300,6 +303,9 @@ local function convert_record_fields_to_args(fields, opts)
     assert(type(skip_compound) == 'boolean',
         'skip_compound must be a boolean, got ' .. type(skip_compound))
 
+    local dont_skip = opts.dont_skip or false
+    check(dont_skip, 'dont_skip', 'boolean')
+
     local args = {}
     for _, field in ipairs(fields) do
         assert(type(field.name) == 'string',
@@ -311,11 +317,22 @@ local function convert_record_fields_to_args(fields, opts)
         -- record; we don't expect map, array or union here as well as we don't
         -- expect avro-schema reference.
         local avro_t = avro_type(field.type, {allow_references = true})
-        local add_field = is_comparable_scalar_type(avro_t) or
+        local add_field = dont_skip or is_comparable_scalar_type(avro_t) or
             (not skip_compound and not is_scalar_type(avro_t))
         if add_field then
-            local gql_class = gql_argument_type(field.type)
-            args[field.name] = nullable(gql_class)
+            local ok, gql_class = pcall(gql_argument_type, field.type)
+            -- XXX: we need better avro-schema -> graphql types converter to
+            -- handle the following cases:
+            -- * scalar arguments that can be checked for equality (object
+            --   args): skip any other
+            -- * pcre / limit / offset (nothing special here I guess)
+            -- * auxiliary schemas for insert / update: don't skip anything
+            if ok then
+                args[field.name] = nullable(gql_class)
+            else
+                log.warn(('Cannot add argument "%s": %s'):format(
+                    field.name, tostring(gql_class)))
+            end
         end
     end
     return args
@@ -463,21 +480,25 @@ local function are_all_parts_null(parent, connection_parts)
 end
 
 local function separate_args_instance(args_instance, connection_args,
-                                      connection_list_args)
+                                      connection_list_args, extra_args)
     local object_args_instance = {}
     local list_args_instance = {}
+    local extra_args_instance = {}
+
     for k, v in pairs(args_instance) do
         if connection_list_args[k] ~= nil then
             list_args_instance[k] = v
         elseif connection_args[k] ~= nil then
             object_args_instance[k] = v
+        elseif extra_args[k] ~= nil then
+            extra_args_instance[k] = v
         else
             error(('cannot found "%s" field ("%s" value) ' ..
                 'within allowed fields'):format(tostring(k),
                     json.encode(v)))
         end
     end
-    return object_args_instance, list_args_instance
+    return object_args_instance, list_args_instance, extra_args_instance
 end
 
 --- The function converts passed simple connection to a field of GraphQL type.
@@ -523,6 +544,7 @@ local function convert_simple_connection(state, connection, collection_name)
     local c_args = args_from_destination_collection(state,
         c.destination_collection, c.type)
     local c_list_args = state.list_arguments[c.destination_collection]
+    local e_args = state.extra_arguments[c.destination_collection]
 
     local field = {
         name = c.name,
@@ -544,12 +566,12 @@ local function convert_simple_connection(state, connection, collection_name)
             local destination_args_names, destination_args_values =
                 parent_args_values(parent, c.parts)
 
-            -- Avoid non-needed index lookup on a destination
-            -- collection when all connection parts are null:
+            -- Avoid non-needed index lookup on a destination collection when
+            -- all connection parts are null:
             -- * return null for 1:1* connection;
-            -- * return {} for 1:N connection (except the case when
-            --   source collection is the Query pseudo-collection).
-            if collection_name ~= 'Query' and are_all_parts_null(parent, c.parts)
+            -- * return {} for 1:N connection (except the case when source
+            --   collection is the query or the mutation pseudo-collection).
+            if collection_name ~= nil and are_all_parts_null(parent, c.parts)
                 then
                     if c.type ~= '1:1*' and c.type ~= '1:N' then
                         -- `if` is to avoid extra json.encode
@@ -572,12 +594,16 @@ local function convert_simple_connection(state, connection, collection_name)
             local extra = {
                 qcontext = info.qcontext,
                 resolveField = resolveField, -- for subrequests
+                extra_args = {},
             }
 
             -- object_args_instance will be passed to 'filter'
             -- list_args_instance will be passed to 'args'
-            local object_args_instance, list_args_instance =
-                separate_args_instance(args_instance, c_args, c_list_args)
+            -- extra_args_instance will be passed to 'extra.extra_args'
+            local object_args_instance, list_args_instance,
+                extra_args_instance = separate_args_instance(args_instance,
+                    c_args, c_list_args, e_args)
+            extra.extra_args = extra_args_instance
 
             local objs = state.accessor:select(parent,
                 c.destination_collection, from,
@@ -684,6 +710,7 @@ local function convert_multihead_connection(state, connection, collection_name)
     local union_types = {}
     local collection_to_arguments = {}
     local collection_to_list_arguments = {}
+    local collection_to_extra_arguments = {}
     local var_num_to_box_field_name = {}
 
     for _, v in ipairs(c.variants) do
@@ -708,9 +735,11 @@ local function convert_multihead_connection(state, connection, collection_name)
             v.destination_collection, c.type)
 
         local v_list_args = state.list_arguments[v.destination_collection]
+        local v_extra_args = state.extra_arguments[v.destination_collection]
 
         collection_to_arguments[v.destination_collection] = v_args
         collection_to_list_arguments[v.destination_collection] = v_list_args
+        collection_to_extra_arguments[v.destination_collection] = v_extra_args
     end
 
     local determinant_keys = utils.get_keys(c.variants[1].determinant)
@@ -757,12 +786,12 @@ local function convert_multihead_connection(state, connection, collection_name)
             local destination_args_names, destination_args_values =
                 parent_args_values(parent, v.parts)
 
-            -- Avoid non-needed index lookup on a destination
-            -- collection when all connection parts are null:
+            -- Avoid non-needed index lookup on a destination collection when
+            -- all connection parts are null:
             -- * return null for 1:1* connection;
-            -- * return {} for 1:N connection (except the case when
-            --   source collection is the Query pseudo-collection).
-            if collection_name ~= 'Query' and are_all_parts_null(parent, v.parts)
+            -- * return {} for 1:N connection (except the case when source
+            --   collection is the query or the mutation pseudo-collection).
+            if collection_name ~= nil and are_all_parts_null(parent, v.parts)
                 then
                     if c.type ~= '1:1*' and c.type ~= '1:N' then
                         -- `if` is to avoid extra json.encode
@@ -782,17 +811,22 @@ local function convert_multihead_connection(state, connection, collection_name)
                 destination_args_values = destination_args_values,
             }
             local extra = {
-                qcontext = info.qcontext
+                qcontext = info.qcontext,
+                extra_args = {},
             }
 
             local c_args = collection_to_arguments[destination_collection]
-            local c_list_args = collection_to_list_arguments[destination_collection]
+            local c_list_args =
+                collection_to_list_arguments[destination_collection]
+            local e_args = collection_to_extra_arguments[destination_collection]
 
-            --object_args_instance -- passed to 'filter'
-            --list_args_instance -- passed to 'args'
-
-            local object_args_instance, list_args_instance =
-                separate_args_instance(args_instance, c_args, c_list_args)
+            -- object_args_instance will be passed to 'filter'
+            -- list_args_instance will be passed to 'args'
+            -- extra_args_instance will be passed to 'extra.extra_args'
+            local object_args_instance, list_args_instance,
+                extra_args_instance = separate_args_instance(args_instance,
+                    c_args, c_list_args, e_args)
+            extra.extra_args = extra_args_instance
 
             local objs = state.accessor:select(parent,
                 v.destination_collection, from,
@@ -1069,12 +1103,12 @@ end
 --- @tparam[opt] string field_name it is only for an union generation,
 --- because avro-schema union has no name in it and specific name is necessary
 --- for GraphQL union
---- If collection is passed, two things are changed within this function:
 ---
---- 1. Connections from the collection will be taken into account to
----    automatically generate corresponding decucible fields.
---- 2. The collection name will be used as the resulting graphql type name
----    instead of the avro-schema name.
+--- If collection is passed connections from the collection will be taken into
+--- account to automatically generate corresponding decucible fields.
+---
+--- If collection_name is passed it will be used as the resulting graphql type
+--- name instead of the avro-schema name.
 ---
 --- XXX As it is not clear now what to do with complex types inside arrays
 --- (just pass to results or allow to use filters), only scalar arrays
@@ -1089,11 +1123,6 @@ gql_type = function(state, avro_schema, collection, collection_name, field_name)
     assert(collection_name == nil or type(collection_name) == 'string',
         'collection_name must be nil or a string, got ' ..
         type(collection_name))
-    assert((collection == nil and collection_name == nil) or
-        (collection ~= nil and collection_name ~= nil),
-        ('collection and collection_name must be nils or ' ..
-        'non-nils simultaneously, got: %s and %s'):format(type(collection),
-            type(collection_name)))
 
     local accessor = state.accessor
     assert(accessor ~= nil, 'state.accessor must not be nil')
@@ -1177,11 +1206,12 @@ gql_type = function(state, avro_schema, collection, collection_name, field_name)
     end
 end
 
---- Create virtual root collection `Query`, which has connections to any
---- collection.
+--- Create virtual root collections `query` and `mutation`, which has
+--- connections to any collection.
 ---
---- Actually, each GQL query starts its execution from the `Query` collection.
---- That is why it shoult contain connections to any collection.
+--- Actually, each GQL query starts its execution from the `query` or
+--- `mutation` collection. That is why it shoult contain connections to any
+--- collection.
 ---
 --- @tparam table state dictionary which contains all information about the
 --- schema, arguments, types...
@@ -1197,23 +1227,43 @@ local function create_root_collection(state)
             type = "1:N"
         })
     end
-    local root_schema = {
-        type = "record",
-        name = "Query",
-        -- The fake root has no fields.
-        fields = {}
-    }
-    local root_collection = {
-        name = "Query",
-        connections = root_connections
-    }
 
-    -- `gql_type` is designed to create GQL type corresponding to a real schema
-    -- and connections. However it also works with the fake schema.
-    -- Query type must be the Object, so it cannot be nonNull.
-    local root_type = gql_type(state, root_schema, root_collection, "Query")
+    local root_types = {}
+
+    for _, what in ipairs({'Query', 'Mutation'}) do
+        local root_schema = {
+            type = "record",
+            name = what,
+            -- The fake root has no fields.
+            fields = {}
+        }
+        local root_collection = {
+            name = what,
+            connections = root_connections
+        }
+
+        -- `gql_type` is designed to create GQL type corresponding to a real
+        -- schema and connections. However it also works with the fake schema.
+        -- Query/Mutation type must be the Object, so it cannot be nonNull.
+        root_types[what] = nullable(gql_type(state, root_schema,
+            root_collection, nil))
+
+    end
+
+    -- add extra arguments to top-level fields (collections)
+    for collection_name, field in pairs(root_types['Mutation'].fields) do
+        -- Prevent exposing an argument into the query schema subtree (it is
+        -- needed because we use a booking table for arguments).
+        field.arguments = table.copy(field.arguments)
+
+        for name, arg in pairs(state.extra_arguments[collection_name]) do
+            field.arguments[name] = arg
+        end
+    end
+
     state.schema = schema.create({
-        query = nullable(root_type),
+        query = root_types['Query'],
+        mutation = root_types['Mutation'],
     })
 end
 
@@ -1307,6 +1357,12 @@ local function parse_cfg(cfg)
     state.list_arguments = utils.gen_booking_table({})
     state.all_arguments = utils.gen_booking_table({})
 
+    -- Booking table used here because of the one reason: inside a resolve
+    -- function we need to determine that a user-provided argument is an extra
+    -- argument. We capture extra_arguments[collection_name] into the resolve
+    -- function and sure it exists and will not be changed.
+    state.extra_arguments = utils.gen_booking_table({})
+
     -- map from avro-schema names to graphql types
     state.definitions = {}
 
@@ -1359,9 +1415,12 @@ local function parse_cfg(cfg)
             {skip_compound = true})
         local list_args = convert_record_fields_to_args(
             accessor:list_args(collection_name))
+        local extra_args = convert_record_fields_to_args(
+            accessor:extra_args(collection_name), {dont_skip = true})
 
         state.object_arguments[collection_name] = object_args
         state.list_arguments[collection_name] = list_args
+        state.extra_arguments[collection_name] = extra_args
     end
 
     add_connection_arguments(state)
@@ -1375,7 +1434,7 @@ local function parse_cfg(cfg)
         state.all_arguments[collection_name] = args
     end
 
-    -- create fake root `Query` collection
+    -- create fake root for the `query` and the `mutation` collection
     create_root_collection(state)
 
     return state
@@ -1594,7 +1653,7 @@ end
 ---         __index = {
 ---             select = function(self, parent, collection_name, from,
 ---                     object_args_instance, list_args_instance, extra)
----                 -- from is nil for a top-level object, otherwise it is
+---                 -- * from has the following structure:
 ---                 --
 ---                 -- {
 ---                 --     collection_name = <...>,
@@ -1603,14 +1662,16 @@ end
 ---                 --     destination_args_values = <...>,
 ---                 -- }
 ---                 --
+---                 -- from.collection_name is nil for a top-level collection.
+---                 --
 ---                 -- `extra` is a table which contains additional data for
 ---                 -- the query:
 ---                 --
 ---                 -- * `qcontext` (table) can be used by an accessor to store
 ---                 --   any query-related data;
 ---                 -- * `resolveField(field_name, object, filter, opts)`
----                 -- (function) for performing a subrequest on a fields
----                 -- connected using a 1:1 or 1:1* connection.
+---                 --   (function) for performing a subrequest on a fields
+---                 --   connected using a 1:1 or 1:1* connection.
 ---                 --
 ---                 return ...
 ---             end,
@@ -1621,6 +1682,9 @@ end
 ---                     {name = 'pcre', type = <...>},
 ---                 }
 ---             end,
+---             extra_args = function(self, collection_name)
+---                 return ...
+---             end
 ---         }
 ---     }),
 --- })

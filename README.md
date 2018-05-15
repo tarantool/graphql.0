@@ -124,7 +124,67 @@ local compiled_query = graphql_lib.compile(query)
 local result = compiled_query:execute(variables)
 ```
 
-# GraphiQL
+### Mutations
+
+Example with an object passed from a variable:
+
+```
+mutation insert_user_and_order($user: user_collection_insert,
+        $order: order_collection_insert) {
+    user_collection(insert: $user) {
+        user_id
+        first_name
+        last_name
+    }
+    order_collection(insert: $order) {
+        order_id
+        description
+        in_stock
+    }
+}
+```
+
+Example with immediate argument for an object:
+
+```
+mutation insert_user_and_order {
+    user_collection(insert: {
+        user_id: "user_id_new_1"
+        first_name: "Peter"
+        last_name: "Petrov"
+    }) {
+        user_id
+        first_name
+        last_name
+    }
+    order_collection(insert: {
+        order_id: "order_id_new_1"
+        user_id: "user_id_new_1"
+        description: "Peter's order"
+        price: 0.0
+        discount: 0.0
+        # in_stock: true should be set as default value
+    }) {
+        order_id
+        description
+        in_stock
+    }
+}
+```
+
+Consider the following details:
+
+* `${collection_name}_insert` is the name of the type whose value intended to
+  pass to the `insert` argument. This type / argument requires a user to set
+  all fields of an inserting object.
+* Inserting cannot be used on connection fields, it is allowed only for
+  top-level fields (named as well as collections).
+* It is forbidden to use `insert` argument with any other argument.
+* A mutation with insert argument always return the object that was just
+  inserted.
+* Of course `insert` argument is forbidden in `query` requests.
+
+## GraphiQL
 ```
 local graphql = require('graphql').new({
     schemas = schemas,

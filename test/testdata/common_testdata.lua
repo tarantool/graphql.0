@@ -43,7 +43,7 @@ function common_testdata.get_test_metadata()
                 { "name": "description", "type": "string" },
                 { "name": "price", "type": "double" },
                 { "name": "discount", "type": "float" },
-                { "name": "in_stock", "type": "boolean" }
+                { "name": "in_stock", "type": "boolean", "default": true }
             ]
         }
     }]])
