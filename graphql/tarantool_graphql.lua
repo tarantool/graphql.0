@@ -369,6 +369,51 @@ local function specify_destination_type(destination_type, connection_type)
     end
 end
 
+--- The function 'boxes' given collection type.
+---
+--- Why the 'boxing' of collection types is needed and how it is done is
+--- described in comments to @{convert_multihead_connection}.
+---
+--- @tparam table type_to_box GraphQL Object type (which represents a collection)
+--- @tparam string connection_type of given collection (1:1, 1:1* or 1:N)
+--- @tparam string type_to_box_name name of given 'type_to_box' (It can not
+--- be taken from 'type_to_box' because at the time of function execution
+--- 'type_to_box' refers to an empty table, which later will be filled with
+--- actual type table)
+--- @treturn table GraphQL Object type representing 'boxed' collection
+--- @treturn string name of the single field in the box GraphQL Object
+local function box_collection_type(type_to_box, connection_type, type_to_box_name)
+    check(type_to_box, 'type_to_box', 'table')
+    check(connection_type, 'connection_type', 'string')
+    check(type_to_box_name, 'type_to_box_name', 'string')
+
+    local box_type_name
+    local box_type_description
+
+    if connection_type == '1:1' then
+        box_type_name = 'box_' .. type_to_box_name
+        box_type_description = 'Box around 1:1 multi-head variant'
+    elseif connection_type == '1:1*' then
+        box_type_name = 'box_' .. type_to_box_name
+        box_type_description = 'Box around 1:1* multi-head variant'
+    elseif connection_type == '1:N' then
+        box_type_name = 'box_array_' .. type_to_box_name
+        box_type_description = 'Box around 1:N multi-head variant'
+    else
+        error('unknown connection type: ' .. tostring(connection_type))
+    end
+
+    local field_name = type_to_box_name
+    local box_field = {[field_name] = {name = field_name, kind = type_to_box}}
+    local box_type = types.object({
+        name = box_type_name,
+        description = box_type_description,
+        fields = box_field
+    })
+
+    return box_type, field_name
+end
+
 local function parent_args_values(parent, connection_parts)
     local destination_args_names = {}
     local destination_args_values = {}
@@ -449,11 +494,9 @@ end
 --- connection
 local function convert_simple_connection(state, connection, collection_name)
     local c = connection
-    assert(type(c.destination_collection) == 'string',
-        'connection.destination_collection must be a string, got ' ..
-        type(c.destination_collection))
-    assert(type(c.parts) == 'table',
-        'connection.parts must be a table, got ' .. type(c.parts))
+
+    check(c.destination_collection, 'connection.destination_collection', 'string')
+    check (c.parts, 'connection.parts', 'table')
 
     -- gql type of connection field
     local destination_type =
@@ -461,13 +504,9 @@ local function convert_simple_connection(state, connection, collection_name)
     assert(destination_type ~= nil,
         ('destination_type (named %s) must not be nil'):format(
         c.destination_collection))
+
     local raw_destination_type = destination_type
-
-    local c_args = args_from_destination_collection(state,
-        c.destination_collection, c.type)
     destination_type = specify_destination_type(destination_type, c.type)
-
-    local c_list_args = state.list_arguments[c.destination_collection]
 
     -- capture `raw_destination_type`
     local function genResolveField(info)
@@ -480,6 +519,10 @@ local function convert_simple_connection(state, connection, collection_name)
                 object, filter, info, opts)
         end
     end
+
+    local c_args = args_from_destination_collection(state,
+        c.destination_collection, c.type)
+    local c_list_args = state.list_arguments[c.destination_collection]
 
     local field = {
         name = c.name,
@@ -559,44 +602,112 @@ local function convert_simple_connection(state, connection, collection_name)
     return field
 end
 
---- The function converts passed union connection to a field of GraphQL type.
---- It combines destination collections of passed union connection into
---- the Union GraphQL type.
---- (destination collections are 'types' of a 'Union' in GraphQL).
+--- The function converts passed multi-head connection to GraphQL Union type.
+---
+--- Destination collections of passed multi-head connection are turned into
+--- variants of resulting GraphQL Union type. Note that GraphQL types which
+--- represent destination collections are wrapped with 'box' types. Here is 'how'
+--- and 'why' it is done.
+---
+--- How:
+--- Let's consider multi-head connection with two destination collections:
+---     "human": {
+---         "name": "human",
+---         "type": "record",
+---         "fields": [
+---             { "name": "hero_id", "type": "string" },
+---             { "name": "name", "type": "string" }
+---         ]
+---     }
+---
+---     "starship": {
+---         "name": "starship",
+---         "type": "record",
+---         "fields": [
+---             { "name": "hero_id", "type": "string" },
+---             { "name": "model", "type": "string" }
+---         ]
+---     }
+---
+--- In case of 1:1 multi-head connection the resulting field can be accessed as
+--- follows:
+---     hero_connection {
+---         ... on box_human_collection {
+---             human_collection {
+---                 name
+---             }
+---         }
+---         ... on box_starship_collection {
+---             starship_collection {
+---                 model
+---             }
+---         }
+---     }
+---
+--- In case of 1:N multi-head connection:
+---     hero_connection {
+---         ... on box_array_human_collection {
+---             human_collection {
+---                 name
+---             }
+---         }
+---         ... on box_array_starship_collection {
+---             starship_collection {
+---                 model
+---             }
+---         }
+---     }
+---
+--- Why:
+--- There are two reasons for 'boxing'.
+--- 1) In case of 1:N connections, destination collections are represented by
+--- GraphQL Lists (of Objects). But according to the GraphQL specification only
+--- Objects can be variants of Union. So we need to 'box' Lists (into Objects
+--- with single field) to use them as Union variants.
+--- 2) GraphQL responses, received from tarantool graphql, must be avro-valid.
+--- On every incoming GraphQL query a corresponding avro-schema can be generated.
+--- Response to this query is 'avro-valid' if it can be successfully validated with
+--- this generated (from incoming query) avro-schema. In case of multi-head
+--- connections it means that value of multi-head connection field must have
+--- the following format: SomeDestinationCollectionType: {...} where {...}
+--- indicates the YAML encoding of a SomeDestinationCollectionType instance.
+--- In case of 1:N {...} indicates a list of instances. Using of 'boxing'
+--- provides the needed format.
 ---
 --- @tparam table state for collection types
---- @tparam table connection union connection to create field on
+--- @tparam table connection multi-head connection to create GraphQL Union on
 --- @tparam table collection_name name of the collection which has given
 --- connection
-local function convert_union_connection(state, connection, collection_name)
+--- @treturn table GraphQL Union type
+local function convert_multihead_connection(state, connection, collection_name)
     local c = connection
     local union_types = {}
     local collection_to_arguments = {}
     local collection_to_list_arguments = {}
+    local var_num_to_box_field_name = {}
 
     for _, v in ipairs(c.variants) do
         assert(v.determinant, 'each variant should have a determinant')
-            assert(type(v.determinant) == 'table', 'variant\'s determinant ' ..
-            'must end be a table, got ' .. type(v.determinant))
-        assert(type(v.destination_collection) == 'string',
-            'variant.destination_collection must be a string, got ' ..
-            type(v.destination_collection))
-        assert(type(v.parts) == 'table',
-            'variant.parts must be a table, got ' .. type(v.parts))
+        check(v.determinant, 'variant\'s determinant', 'table')
+        check(v.destination_collection, 'variant.destination_collection', 'string')
+        check(v.parts, 'variant.parts', 'table')
 
         local destination_type =
             state.nullable_collection_types[v.destination_collection]
         assert(destination_type ~= nil,
             ('destination_type (named %s) must not be nil'):format(
                 v.destination_collection))
+        destination_type = specify_destination_type(destination_type, c.type)
+
+        local variant_type, box_field_name = box_collection_type(destination_type,
+            c.type, v.destination_collection)
+        var_num_to_box_field_name[#union_types + 1] = box_field_name
+        union_types[#union_types + 1] = variant_type
 
         local v_args = args_from_destination_collection(state,
             v.destination_collection, c.type)
-        destination_type = specify_destination_type(destination_type, c.type)
 
         local v_list_args = state.list_arguments[v.destination_collection]
-
-        union_types[#union_types + 1] = destination_type
 
         collection_to_arguments[v.destination_collection] = v_args
         collection_to_list_arguments[v.destination_collection] = v_list_args
@@ -612,21 +723,22 @@ local function convert_union_connection(state, connection, collection_name)
             'Determinant keys:\n"%s"'):
             format(yaml.encode(parent), yaml.encode(determinant_keys)))
 
-        local variant_num
-        local resulting_variant
-        for i, variant in ipairs(c.variants) do
-            variant_num = i
-            local is_match = utils.is_subtable(parent, variant.determinant)
-
+        local var_idx
+        local res_var
+        for i, var in ipairs(c.variants) do
+            local is_match = utils.is_subtable(parent, var.determinant)
             if is_match then
-                resulting_variant = variant
+                res_var = var
+                var_idx = i
                 break
             end
         end
 
-        assert(resulting_variant, ('Variant resolving failed.'..
+        local box_field_name = var_num_to_box_field_name[var_idx]
+
+        assert(res_var, ('Variant resolving failed.'..
             'Parent object: "%s"\n'):format(yaml.encode(parent)))
-        return resulting_variant, variant_num
+        return res_var, var_idx, box_field_name
     end
 
     local field = {
@@ -637,8 +749,9 @@ local function convert_union_connection(state, connection, collection_name)
         }),
         arguments = nil, -- see Border cases/Unions at the top of the file
         resolve = function(parent, args_instance, info)
-            local v, variant_num = resolve_variant(parent)
+            local v, variant_num, box_field_name = resolve_variant(parent)
             local destination_type = union_types[variant_num]
+
             local destination_collection =
                 state.nullable_collection_types[v.destination_collection]
             local destination_args_names, destination_args_values =
@@ -693,9 +806,16 @@ local function convert_union_connection(state, connection, collection_name)
                 -- situation above
                 assert(#objs == 1, 'expect one matching object, got ' ..
                     tostring(#objs))
-                return objs[1], destination_type
+
+                -- this 'wrapping' is needed because we use 'select' on
+                -- 'collection' GraphQL type and the result of the resolve function
+                -- must be in {'collection_name': {result}} format to
+                -- be avro-valid
+                local formatted_obj = {[box_field_name] = objs[1]}
+                return formatted_obj, destination_type
             else -- c.type == '1:N'
-                return objs, destination_type
+                local formatted_objs = {[box_field_name] = objs}
+                return formatted_objs, destination_type
             end
         end
     }
@@ -720,33 +840,33 @@ local convert_connection_to_field = function(state, connection, collection_name)
     assert(type(connection.name) == 'string',
         'connection.name must be a string, got ' .. type(connection.name))
     assert(connection.destination_collection or connection.variants,
-        'connection must either destination_collection or variatns field')
+        'connection must either destination_collection or variants field')
 
     if connection.destination_collection then
         return convert_simple_connection(state, connection, collection_name)
     end
 
     if connection.variants then
-        return convert_union_connection(state, connection, collection_name)
+        return convert_multihead_connection(state, connection, collection_name)
     end
 end
 
 --- The function 'boxes' given GraphQL type into GraphQL Object 'box' type.
 ---
---- @tparam table gql_type GraphQL type to be boxed
---- @tparam string avro_name type (or name, in record case) of avro-schema which
---- was used to create `gql_type`. `avro_name` is used to provide avro-valid names
---- for fields of boxed types
+--- @tparam table type_to_box GraphQL type to be boxed
+--- @tparam string box_field_name name of the single box field
 --- @treturn table GraphQL Object
-local function box_type(gql_type, avro_name)
-    check(gql_type, 'gql_type', 'table')
+local function box_type(type_to_box, box_field_name)
+    check(type_to_box, 'type_to_box', 'table')
+    check(box_field_name, 'box_field_name', 'string')
 
-    local gql_true_type = nullable(gql_type)
+    local gql_true_type = nullable(type_to_box)
 
     local box_name = gql_true_type.name or gql_true_type.__type
     box_name = box_name .. '_box'
 
-    local box_fields = {[avro_name] = {name = avro_name, kind = gql_type}}
+    local box_fields = {[box_field_name] = {name = box_field_name,
+        kind = type_to_box }}
 
     return types.object({
         name = box_name,
