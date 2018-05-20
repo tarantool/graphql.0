@@ -11,10 +11,12 @@ end
 -- start console first
 require('console').listen(os.getenv('ADMIN'))
 
-box.cfg({
-    listen = instance_uri(INSTANCE_ID),
-})
+box.cfg({})
 
 box.once('shard_init', function()
     box.schema.user.grant('guest', 'read,write,execute', 'universe')
 end)
+
+box.cfg({
+    listen = instance_uri(INSTANCE_ID),
+})
