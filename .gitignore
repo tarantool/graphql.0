@@ -20,5 +20,8 @@ doc/apidoc
 # benchmarks results
 bench.*.result.txt
 
+# packpack build directory
+/build
+
 # temporary directory for make apidoc-lint
 doc/apidoc-lint-tmp
