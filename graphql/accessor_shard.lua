@@ -3,7 +3,8 @@
 --- `accessor_shard.new` function to create a new shard data accessor instance.
 
 local json = require('json')
-local shard = require('shard')
+local utils = require('graphql.utils')
+local shard = utils.optional_require('shard')
 local accessor_general = require('graphql.accessor_general')
 
 local accessor_shard = {}
@@ -118,6 +119,8 @@ function accessor_shard.new(opts, funcs)
     local funcs = funcs or {}
     assert(type(funcs) == 'table',
         'funcs must be nil or a table, got ' .. type(funcs))
+    assert(shard ~= nil,
+        'tarantool/shard module is needed to working with accessor_shard')
 
     for k, v in pairs(funcs) do
         assert(type(k) == 'string',
