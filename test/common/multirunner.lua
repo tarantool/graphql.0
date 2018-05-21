@@ -61,7 +61,9 @@ local function init_shard(test_run, servers, config, use_tcp)
     assert(initialized == false)
 
     local suite = 'common'
-    local uris = test_run:create_cluster(servers, suite)
+    local uris = test_run:create_cluster(servers, suite, {
+        return_listen_uri = use_tcp,
+    })
 
     -- we don't know ports before create cluster
     if use_tcp then
