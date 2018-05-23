@@ -72,6 +72,13 @@ function utils.flatten_object(meta, collection_name, object,
     return tuple
 end
 
+function utils.unflatten_tuple(meta, collection_name, tuple)
+    local model = get_model(meta, collection_name)
+    local ok, object = model.unflatten(tuple)
+    assert(ok, tostring(object))
+    return object
+end
+
 function utils.replace_object(virtbox, meta, collection_name, object,
         service_field_values)
     local tuple = utils.flatten_object(meta, collection_name, object,

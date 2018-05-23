@@ -1146,6 +1146,62 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     return {new_object}
 end
 
+--- Update an object.
+---
+--- Same-named parameters meaning is the same as for @{select_internal}.
+---
+--- @tparam table self the data accessor instance
+---
+--- @tparam string collection_name name of collection to perform update
+---
+--- @tparam table extra `extra.extra_args.update` is used
+---
+--- @tparam table selected objects to perform update
+---
+--- @treturn table `new_objects` list of updated objects (in the order of the
+--- `selected` parameter)
+local function update_internal(self, collection_name, extra, selected)
+    local xobject = extra.extra_args.update
+    if xobject == nil then return nil end
+
+    -- convert xobject -> update statements
+    local collection = self.collections[collection_name]
+    assert(collection ~= nil,
+        ('cannot find the collection "%s"'):format(collection_name))
+    local schema_name = collection.schema_name
+    assert(type(schema_name) == 'string',
+        'schema_name must be a string, got ' .. type(schema_name))
+
+    local default_xflatten = self.default_xflatten[schema_name]
+    assert(default_xflatten ~= nil,
+        ('cannot find default_xflatten ' ..
+        'for collection "%s"'):format(collection_name))
+
+    local statements = self.funcs.xflatten(collection_name, xobject, {
+        service_fields_defaults =
+            self.service_fields_defaults[schema_name],
+    }, default_xflatten)
+
+    local _, primary_index_meta = get_primary_index_meta(self, collection_name)
+    local new_objects = {}
+    for _, object in ipairs(selected) do
+        local key = {}
+        for _, field_name in ipairs(primary_index_meta.fields) do
+            table.insert(key, object[field_name])
+        end
+        -- XXX: we can pass a tuple corresponding the object to update_tuple to
+        -- save one get operation
+        local new_tuple = self.funcs.update_tuple(collection_name, key,
+            statements)
+        local new_object = self.funcs.unflatten_tuple(collection_name,
+            new_tuple, {use_tomap = self.collection_use_tomap[collection_name]},
+            self.default_unflatten_tuple[schema_name])
+        table.insert(new_objects, new_object)
+    end
+
+    return new_objects
+end
+
 --- Set of asserts to check the `funcs` argument of the @{accessor_general.new}
 --- function.
 --- @tparam table funcs set of function as defined in the
@@ -1169,9 +1225,15 @@ local function validate_funcs(funcs)
     assert(type(funcs.flatten_object) == 'function',
         'funcs.flatten_object must be a function, got ' ..
         type(funcs.flatten_object))
+    assert(type(funcs.xflatten) == 'function',
+        'funcs.xflatten must be a function, got ' ..
+        type(funcs.xflatten))
     assert(type(funcs.insert_tuple) == 'function',
         'funcs.insert_tuple must be a function, got ' ..
         type(funcs.insert_tuple))
+    assert(type(funcs.update_tuple) == 'function',
+        'funcs.update_tuple must be a function, got ' ..
+        type(funcs.update_tuple))
 end
 
 --- This function is called on first select related to a query. Its purpose is
@@ -1294,6 +1356,164 @@ local function get_pcre_argument_type(self, collection_name)
     return pcre_type
 end
 
+--- Create default unflatten/flatten/xflatten functions, that can be called
+--- from funcs.unflatten_tuple/funcs.flatten_object/funcs.xflatten when an
+--- additional pre/postprocessing is not needed.
+---
+--- @tparam table models list of compiled schemas
+---
+--- @treturn table table with default_* fields with maps from schema name to
+--- the corresponding default *flatten function
+local function gen_default_object_tuple_map_funcs(models)
+    local default_unflatten_tuple = {}
+    local default_flatten_object = {}
+    local default_xflatten = {}
+    for schema_name, model in pairs(models) do
+        default_unflatten_tuple[schema_name] = function(_, tuple, opts)
+            local opts = opts or {}
+            check(opts, 'opts', 'table')
+
+            local ok, obj = model.unflatten(tuple)
+            assert(ok, ('cannot unflat tuple of schema "%s": %s'):format(
+                schema_name, tostring(obj)))
+            return obj
+        end
+        default_flatten_object[schema_name] = function(_, obj, opts)
+            local opts = opts or {}
+            check(opts, 'opts', 'table')
+            local sf_defaults = opts.service_fields_defaults or {}
+            check(sf_defaults, 'service_fields_defaults', 'table')
+
+            local ok, tuple = model.flatten(obj, unpack(sf_defaults))
+            assert(ok, ('cannot flat object of schema "%s": %s'):format(
+                schema_name, tostring(tuple)))
+            return tuple
+        end
+        default_xflatten[schema_name] = function(_, xobject, opts)
+            local opts = opts or {}
+            check(opts, 'opts', 'table')
+
+            -- it is not needed now, but maybe needed in custom xflatten
+            local sf_defaults = opts.service_fields_defaults or {}
+            check(sf_defaults, 'service_fields_defaults', 'table')
+
+            local ok, statements = model.xflatten(xobject)
+            assert(ok, ('cannot xflat xobject of schema "%s": %s'):format(
+                schema_name, tostring(xobject)))
+            return statements
+        end
+    end
+    return {
+        default_unflatten_tuple = default_unflatten_tuple,
+        default_flatten_object = default_flatten_object,
+        default_xflatten = default_xflatten,
+    }
+end
+
+--- List of avro-schema fields to use as arguments of a collection field and
+--- 1:N connection field.
+---
+--- @tparam table self the data accessor instance
+---
+--- @tparam string collection_name name of collection to create the fields
+---
+--- @treturn table list of avro-schema fields
+local function list_args(self, collection_name)
+    local offset_type = get_primary_key_type(self, collection_name)
+
+    -- add `pcre` argument only if lrexlib-pcre was found
+    local pcre_field
+    if rex ~= nil then
+        local pcre_type = get_pcre_argument_type(self, collection_name)
+        pcre_field = {name = 'pcre', type = pcre_type}
+    end
+
+    return {
+        {name = 'limit', type = 'int'},
+        {name = 'offset', type = offset_type},
+        -- {name = 'filter', type = ...},
+        pcre_field,
+    }
+end
+
+--- List of avro-schema fields to use as extra arguments of a collection /
+--- a connection field.
+---
+--- Mutation arguments (insert, update, delete) are generated here.
+---
+--- @tparam table self the data accessor instance
+---
+--- @tparam string collection_name name of collection to create the fields
+---
+--- @treturn table list of avro-schema fields
+---
+--- @treturn table map with flags to describe where generated arguments should
+--- be used; the format is the following:
+---
+---    {
+---        <field name> = {
+---            add_to_mutations_only = <boolean>,
+---            add_to_top_fields_only = <boolean>,
+---        },
+---        ...
+---    }
+local function extra_args(self, collection_name)
+    local collection = self.collections[collection_name]
+    local schema_name = collection.schema_name
+
+    local schema_insert = table.copy(self.schemas[schema_name])
+    schema_insert.name = collection_name .. '_insert'
+
+    local _, primary_index_meta = get_primary_index_meta(self,
+        collection_name)
+
+    local schema_update = {
+        name = collection_name .. '_update',
+        type = 'record',
+        fields = {},
+    }
+    -- add all fields except ones whose are part of the primary key
+    for _, field in ipairs(self.schemas[schema_name].fields) do
+        assert(field.name ~= nil, 'field.name is nil')
+        local is_field_part_of_primary_key = false
+        for _, pk_field_name in ipairs(primary_index_meta.fields) do
+            if field.name == pk_field_name then
+                is_field_part_of_primary_key = true
+                break
+            end
+        end
+
+        if not is_field_part_of_primary_key then
+            local field = table.copy(field)
+            field.type = avro_helpers.make_avro_type_nullable(
+                field.type)
+            table.insert(schema_update.fields, field)
+        end
+    end
+
+    local schema_delete = 'boolean'
+
+    return {
+        {name = 'insert', type = schema_insert},
+        {name = 'update', type = schema_update},
+        {name = 'delete', type = schema_delete},
+    }, {
+        insert = {
+            add_to_mutations_only = true,
+            add_to_top_fields_only = true,
+        },
+        update = {
+            add_to_mutations_only = true,
+            add_to_top_fields_only = false,
+        },
+        delete = {
+            add_to_mutations_only = true,
+            add_to_top_fields_only = false,
+        },
+    }
+end
+
+
 --- Create a new data accessor.
 ---
 --- Provided `funcs` argument determines certain functions for retrieving
@@ -1393,39 +1613,8 @@ function accessor_general.new(opts, funcs)
         service_fields)
     validate_collections(collections, schemas, indexes)
     local index_cache = build_index_cache(indexes, collections)
-
-    -- create default unflatten/flatten functions, that can be called from
-    -- funcs.unflatten_tuple/funcs.flatten_object when an additional
-    -- pre/postprocessing is not needed
-    local default_unflatten_tuple = {}
-    local default_flatten_object = {}
-    for schema_name, model in pairs(models) do
-        default_unflatten_tuple[schema_name] =
-            function(_, tuple, opts)
-                local opts = opts or {}
-                check(opts, 'opts', 'table')
-
-                local ok, obj = model.unflatten(tuple)
-                assert(ok, ('cannot unflat tuple of schema "%s": %s'):format(
-                    schema_name, tostring(obj)))
-                return obj
-            end
-        default_flatten_object[schema_name] =
-            function(_, obj, opts)
-                local opts = opts or {}
-                check(opts, 'opts', 'table')
-                local service_fields_defaults = opts.service_fields_defaults or
-                    {}
-                check(service_fields_defaults, 'service_fields_defaults',
-                    'table')
-
-                local ok, tuple = model.flatten(obj,
-                    unpack(service_fields_defaults))
-                assert(ok, ('cannot flat object of schema "%s": %s'):format(
-                    schema_name, tostring(tuple)))
-                return tuple
-            end
-    end
+    local default_object_tuple_map_funcs =
+        gen_default_object_tuple_map_funcs(models)
 
     validate_funcs(funcs)
 
@@ -1435,8 +1624,12 @@ function accessor_general.new(opts, funcs)
         service_fields = service_fields,
         indexes = indexes,
         models = models,
-        default_unflatten_tuple = default_unflatten_tuple,
-        default_flatten_object = default_flatten_object,
+        default_unflatten_tuple =
+            default_object_tuple_map_funcs.default_unflatten_tuple,
+        default_flatten_object =
+            default_object_tuple_map_funcs.default_flatten_object,
+        default_xflatten =
+            default_object_tuple_map_funcs.default_xflatten,
         service_fields_defaults = service_fields_defaults,
         collection_use_tomap = opts.collection_use_tomap or {},
         index_cache = index_cache,
@@ -1463,35 +1656,17 @@ function accessor_general.new(opts, funcs)
                     filter, args, extra)
                 if inserted ~= nil then return inserted end
 
-                return select_internal(self, collection_name, from, filter,
+                local selected = select_internal(self, collection_name, from, filter,
                     args, extra)
-            end,
-            list_args = function(self, collection_name)
-                local offset_type = get_primary_key_type(self, collection_name)
 
-                -- add `pcre` argument only if lrexlib-pcre was found
-                local pcre_field
-                if rex ~= nil then
-                    local pcre_type = get_pcre_argument_type(self, collection_name)
-                    pcre_field = {name = 'pcre', type = pcre_type}
-                end
+                local updated = update_internal(self, collection_name, extra,
+                    selected)
+                if updated ~= nil then return updated end
 
-                return {
-                    {name = 'limit', type = 'int'},
-                    {name = 'offset', type = offset_type},
-                    -- {name = 'filter', type = ...},
-                    pcre_field,
-                }
+                return selected
             end,
-            extra_args = function(self, collection_name)
-                local collection = self.collections[collection_name]
-                local schema_name = collection.schema_name
-                local schema = table.copy(self.schemas[schema_name])
-                schema.name = collection_name .. '_insert'
-                return {
-                    {name = 'insert', type = schema}
-                }
-            end,
+            list_args = list_args,
+            extra_args = extra_args,
         }
     })
 end

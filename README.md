@@ -126,6 +126,8 @@ local result = compiled_query:execute(variables)
 
 ### Mutations
 
+#### Insert
+
 Example with an object passed from a variable:
 
 ```
@@ -180,9 +182,93 @@ Consider the following details:
 * Inserting cannot be used on connection fields, it is allowed only for
   top-level fields (named as well as collections).
 * It is forbidden to use `insert` argument with any other argument.
-* A mutation with insert argument always return the object that was just
+* A mutation with an `insert` argument always return the object that was just
   inserted.
 * Of course `insert` argument is forbidden in `query` requests.
+
+#### Update
+
+Example with an update statement passed from a variable. Note that here we
+update an object given by a connection (inside an one of nested fields of a
+request):
+
+```
+mutation update_user_and_order(
+    $user_id: String
+    $order_id: String
+    $xuser: user_collection_update
+    $xorder: order_collection_update
+) {
+    # update nested user
+    order_collection(order_id: $order_id) {
+        order_id
+        description
+        user_connection(update: $xuser) {
+            user_id
+            first_name
+            last_name
+        }
+    }
+    # update nested order (only the first, because of limit)
+    user_collection(user_id: $user_id) {
+        user_id
+        first_name
+        last_name
+        order_connection(limit: 1, update: $xorder) {
+            order_id
+            description
+            in_stock
+        }
+    }
+}
+```
+
+Example with immediate argument for an update statement:
+
+```
+mutation update_user_and_order {
+    user_collection(user_id: "user_id_1", update: {
+        first_name: "Peter"
+        last_name: "Petrov"
+    }) {
+        user_id
+        first_name
+        last_name
+    }
+    order_collection(order_id: "order_id_1", update: {
+        description: "Peter's order"
+        price: 0.0
+        discount: 0.0
+        in_stock: false
+    }) {
+        order_id
+        description
+        in_stock
+    }
+}
+```
+
+Consider the following details:
+
+* `${collection_name}_update` is the name of the type whose value intended to
+  pass to the `update` argument. This type / argument requires a user to set
+  subset of fields of an updating object except primary key parts.
+* A mutation with an `update` argument always return the updated object.
+* The `update` argument is forbidden in `query` requests.
+* Objects are selected by filters first, then updated using a statement in the
+  `update` argument, then connected objects are selected.
+* The `limit` and `offset` arguments applied before update, so a user can use
+  `limit: 1` to update only first match.
+* Objects traversed in deep-first up-first order as it written in a mutation
+  request. So an `update` argument potentially changes those fields that are
+  follows the updated object in this order.
+* Filters by connected objects are performed before update. Resulting connected
+  objects given after the update (it is matter when a field(s) of the parent
+  objects by whose the connection is made is subject to change).
+
+#### Delete
+
+TBD
 
 ## GraphiQL
 ```
