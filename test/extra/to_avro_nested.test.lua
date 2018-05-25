@@ -17,7 +17,7 @@ box.cfg{wal_mode="none"}
 test:plan(4)
 
 data.init_spaces()
-data.fill_test_data(box.space)
+data.fill_test_data(box.space, data.meta)
 
 local accessor = graphql.accessor_space.new({
     schemas = data.meta.schemas,

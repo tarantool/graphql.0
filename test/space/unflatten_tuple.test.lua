@@ -21,15 +21,15 @@ local testdata = require('test.testdata.common_testdata')
 box.cfg{background = false}
 testdata.init_spaces()
 
--- upload test data
-testdata.fill_test_data()
-
 -- acquire metadata
 local metadata = testdata.get_test_metadata()
 local schemas = metadata.schemas
 local collections = metadata.collections
 local service_fields = metadata.service_fields
 local indexes = metadata.indexes
+
+-- upload test data
+testdata.fill_test_data(box.space, metadata)
 
 -- build accessor and graphql schemas
 -- ----------------------------------

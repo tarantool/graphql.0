@@ -6,6 +6,7 @@ local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
+local test_utils = require('test.utils')
 
 local testdata = {}
 
@@ -68,14 +69,22 @@ function testdata.drop_spaces()
     box.space.user:drop()
 end
 
-function testdata.fill_test_data(virtbox)
+function testdata.fill_test_data(virtbox, meta)
     for i = 1, 15 do
         local uid = i
         local p1 = 'p1 ' .. tostring(i)
         local p2 = 'p2 ' .. tostring(i)
         local x = 1000 + i
         local y = 2000 + i
-        virtbox.user:replace({uid, p1, p2, x, y})
+        test_utils.replace_object(virtbox, meta, 'user', {
+            uid = uid,
+            p1 = p1,
+            p2 = p2,
+            nested = {
+                x = x,
+                y = y,
+            }
+        })
     end
 end
 

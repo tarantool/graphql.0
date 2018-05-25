@@ -155,7 +155,7 @@ make test
 * For use:
   * tarantool,
   * lulpeg,
-  * >=tarantool/avro-schema-2.0-71-gfea0ead (but < 3.0.0),
+  * >=tarantool/avro-schema-2.0-71-gfea0ead,
   * >=tarantool/shard-1.1-91-gfa88bf8 (but < 2.0) or
     >=tarantool/shard-2.1-0-g0a7d98f (optional),
   * lrexlib-pcre2 or lrexlib-pcre (optional),
@@ -164,7 +164,7 @@ make test
   * python 2.7,
   * virtualenv,
   * luacheck,
-  * >=tarantool/avro-schema-2.2.2-4-g1145e3e (but < 3.0.0),
+  * >=tarantool/avro-schema-2.2.2-4-g1145e3e,
   * >=tarantool/shard-1.1-92-gec1a27e (but < 2.0) or
     >=tarantool/shard-2.1-0-g0a7d98f,
   * tarantool/http.
