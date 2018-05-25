@@ -114,15 +114,15 @@ function nullable_index_testdata.get_test_metadata()
     }
 end
 
-function nullable_index_testdata.init_spaces()
+function nullable_index_testdata.init_spaces(avro_version)
     -- foo fields
     local FOO_ID_FN = 1
 
     -- bar fields
     local BAR_ID_FN = 1
-    local BAR_ID_OR_NULL_1_FN = 3
-    local BAR_ID_OR_NULL_2_FN = 5
-    local BAR_ID_OR_NULL_3_FN = 7
+    local BAR_ID_OR_NULL_1_FN = avro_version == 3 and 2 or 3
+    local BAR_ID_OR_NULL_2_FN = avro_version == 3 and 3 or 5
+    local BAR_ID_OR_NULL_3_FN = avro_version == 3 and 4 or 7
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('foo')
@@ -153,64 +153,146 @@ function nullable_index_testdata.init_spaces()
     end)
 end
 
-function nullable_index_testdata.fill_test_data(shard)
-    local shard = shard or box.space
-
-    local NULL_T = 0
-    local STRING_T = 1
-
+function nullable_index_testdata.fill_test_data(virtbox, meta)
     for i = 1, 114 do
         local s = tostring(i)
-        shard.foo:replace({s, s, s, s})
+        test_utils.replace_object(virtbox, meta, 'foo', {
+            id = s,
+            bar_id_1 = s,
+            bar_id_2 = s,
+            data = s,
+        })
     end
     -- str, str, str
     for i = 1, 100 do
         local s = tostring(i)
-        shard.bar:replace({s, STRING_T, s, STRING_T, s, STRING_T, s, s})
+        test_utils.replace_object(virtbox, meta, 'bar', {
+            id = s,
+            id_or_null_1 = s,
+            id_or_null_2 = s,
+            id_or_null_3 = s,
+            data = s,
+        })
     end
     -- null, str, str
     local s = '101'
-    shard.bar:replace({s, NULL_T, box.NULL, STRING_T, s, STRING_T, s, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = box.NULL,
+        id_or_null_2 = s,
+        id_or_null_3 = s,
+        data = s,
+    })
     local s = '102'
-    shard.bar:replace({s, NULL_T, box.NULL, STRING_T, s, STRING_T, s, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = box.NULL,
+        id_or_null_2 = s,
+        id_or_null_3 = s,
+        data = s,
+    })
     -- str, null, str
     local s = '103'
-    shard.bar:replace({s, STRING_T, s, NULL_T, box.NULL, STRING_T, s, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = s,
+        id_or_null_2 = box.NULL,
+        id_or_null_3 = s,
+        data = s,
+    })
     local s = '104'
-    shard.bar:replace({s, STRING_T, s, NULL_T, box.NULL, STRING_T, s, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = s,
+        id_or_null_2 = box.NULL,
+        id_or_null_3 = s,
+        data = s,
+    })
     -- str, str, null
     local s = '105'
-    shard.bar:replace({s, STRING_T, s, STRING_T, s, NULL_T, box.NULL, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = s,
+        id_or_null_2 = s,
+        id_or_null_3 = box.NULL,
+        data = s,
+    })
     local s = '106'
-    shard.bar:replace({s, STRING_T, s, STRING_T, s, NULL_T, box.NULL, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = s,
+        id_or_null_2 = s,
+        id_or_null_3 = box.NULL,
+        data = s,
+    })
     -- null, null, str
     local s = '107'
-    shard.bar:replace(
-        {s, NULL_T, box.NULL, NULL_T, box.NULL, STRING_T, s, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = box.NULL,
+        id_or_null_2 = box.NULL,
+        id_or_null_3 = s,
+        data = s,
+    })
     local s = '108'
-    shard.bar:replace(
-        {s, NULL_T, box.NULL, NULL_T, box.NULL, STRING_T, s, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = box.NULL,
+        id_or_null_2 = box.NULL,
+        id_or_null_3 = s,
+        data = s,
+    })
     -- null, str, null
     local s = '109'
-    shard.bar:replace(
-        {s, NULL_T, box.NULL, STRING_T, s, NULL_T, box.NULL, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = box.NULL,
+        id_or_null_2 = s,
+        id_or_null_3 = box.NULL,
+        data = s,
+    })
     local s = '110'
-    shard.bar:replace(
-        {s, NULL_T, box.NULL, STRING_T, s, NULL_T, box.NULL, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = box.NULL,
+        id_or_null_2 = s,
+        id_or_null_3 = box.NULL,
+        data = s,
+    })
     -- str, null, null
     local s = '111'
-    shard.bar:replace(
-        {s, STRING_T, s, NULL_T, box.NULL, NULL_T, box.NULL, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = s,
+        id_or_null_2 = box.NULL,
+        id_or_null_3 = box.NULL,
+        data = s,
+    })
     local s = '112'
-    shard.bar:replace(
-        {s, STRING_T, s, NULL_T, box.NULL, NULL_T, box.NULL, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = s,
+        id_or_null_2 = box.NULL,
+        id_or_null_3 = box.NULL,
+        data = s,
+    })
     -- null, null, null
     local s = '113'
-    shard.bar:replace(
-        {s, NULL_T, box.NULL, NULL_T, box.NULL, NULL_T, box.NULL, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = box.NULL,
+        id_or_null_2 = box.NULL,
+        id_or_null_3 = box.NULL,
+        data = s,
+    })
     local s = '114'
-    shard.bar:replace(
-        {s, NULL_T, box.NULL, NULL_T, box.NULL, NULL_T, box.NULL, s})
+    test_utils.replace_object(virtbox, meta, 'bar', {
+        id = s,
+        id_or_null_1 = box.NULL,
+        id_or_null_2 = box.NULL,
+        id_or_null_3 = box.NULL,
+        data = s,
+    })
 end
 
 function nullable_index_testdata.drop_spaces()

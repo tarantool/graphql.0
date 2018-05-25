@@ -151,41 +151,88 @@ function common_testdata.init_spaces()
     end)
 end
 
-function common_testdata.fill_test_data(shard)
-    local shard = shard or box.space
+function common_testdata.fill_test_data(virtbox, meta)
+    test_utils.replace_object(virtbox, meta, 'user_collection', {
+        user_id = 'user_id_1',
+        first_name = 'Ivan',
+        middle_name = 'Ivanovich',
+        last_name = 'Ivanov',
+    }, {
+        1827767717,
+    })
+    test_utils.replace_object(virtbox, meta, 'user_collection', {
+        user_id = 'user_id_2',
+        first_name = 'Vasiliy',
+        middle_name = box.NULL,
+        last_name = 'Pupkin',
+    }, {
+        1827767717,
+    })
 
-    local NULL_T = 0
-    local STRING_T = 1
-
-    shard.user_collection:replace(
-        {1827767717, 'user_id_1', 'Ivan', STRING_T, 'Ivanovich', 'Ivanov'})
-    shard.user_collection:replace(
-        {1827767717, 'user_id_2', 'Vasiliy', NULL_T, box.NULL, 'Pupkin'})
-    shard.order_collection:replace(
-        {'order_id_1', 'user_id_1', 'first order of Ivan', 0, 0, true})
-    shard.order_collection:replace(
-        {'order_id_2', 'user_id_1', 'second order of Ivan', 0, 0, false})
-    shard.order_collection:replace(
-        {'order_id_3', 'user_id_2', 'first order of Vasiliy', 0, 0, true})
+    test_utils.replace_object(virtbox, meta, 'order_collection', {
+        order_id = 'order_id_1',
+        user_id = 'user_id_1',
+        description = 'first order of Ivan',
+        price = 0,
+        discount = 0,
+        in_stock = true,
+    })
+    test_utils.replace_object(virtbox, meta, 'order_collection', {
+        order_id = 'order_id_2',
+        user_id = 'user_id_1',
+        description = 'second order of Ivan',
+        price = 0,
+        discount = 0,
+        in_stock = false,
+    })
+    test_utils.replace_object(virtbox, meta, 'order_collection', {
+        order_id = 'order_id_3',
+        user_id = 'user_id_2',
+        description = 'first order of Vasiliy',
+        price = 0,
+        discount = 0,
+        in_stock = true,
+    })
 
     for i = 3, 100 do
         local s = tostring(i)
-        shard.user_collection:replace(
-            {1827767717, 'user_id_' .. s, 'first name ' .. s, NULL_T, box.NULL,
-            'last name ' .. s})
+        test_utils.replace_object(virtbox, meta, 'user_collection', {
+            user_id = 'user_id_' .. s,
+            first_name = 'first name ' .. s,
+            middle_name = box.NULL,
+            last_name = 'last name ' .. s,
+        }, {
+            1827767717,
+        })
         for j = (4 + (i - 3) * 40), (4 + (i - 2) * 40) - 1 do
             local t = tostring(j)
-            shard.order_collection:replace({
-                'order_id_' .. t, 'user_id_' .. s, 'order of user ' .. s,
-                i + j / 3, i + j / 3, j % 2 == 1,
+            test_utils.replace_object(virtbox, meta, 'order_collection', {
+                order_id = 'order_id_' .. t,
+                user_id = 'user_id_' .. s,
+                description = 'order of user ' .. s,
+                price = i + j / 3,
+                discount = i + j / 3,
+                in_stock = j % 2 == 1,
             })
         end
     end
 
-    shard.user_collection:replace(
-        {1827767717, 'user_id_101', 'Иван', STRING_T, 'Иванович', 'Иванов'})
-    shard.order_collection:replace(
-        {'order_id_3924', 'user_id_101', 'Покупка 3924', 0, 0, true})
+    test_utils.replace_object(virtbox, meta, 'user_collection', {
+        user_id = 'user_id_101',
+        first_name = 'Иван',
+        middle_name = 'Иванович',
+        last_name = 'Иванов',
+    }, {
+        1827767717,
+    })
+    test_utils.replace_object(virtbox, meta, 'order_collection', {
+        order_id = 'order_id_3924',
+        user_id = 'user_id_101',
+        description = 'Покупка 3924',
+        price = 0,
+        discount = 0,
+        in_stock = true,
+    })
 end
 
 function common_testdata.drop_spaces()

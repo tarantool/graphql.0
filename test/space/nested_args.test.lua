@@ -11,6 +11,7 @@ local tap = require('tap')
 local yaml = require('yaml')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
+local test_utils = require('test.utils')
 local common_testdata = require('test.testdata.common_testdata')
 local emails_testdata = require('test.testdata.nullable_1_1_conn_testdata')
 
@@ -23,12 +24,16 @@ common_testdata.init_spaces()
 emails_testdata.init_spaces()
 
 -- upload test data
-common_testdata.fill_test_data()
-emails_testdata.fill_test_data()
+local common_meta = common_testdata.meta or common_testdata.get_test_metadata()
+local emails_meta = emails_testdata.meta or emails_testdata.get_test_metadata()
+common_testdata.fill_test_data(box.space, common_meta)
+emails_testdata.fill_test_data(box.space, emails_meta)
+
+local avro_version = test_utils.major_avro_schema_version()
 
 local LOCALPART_FN = 1
 local DOMAIN_FN = 2
-local BODY_FN = 7
+local BODY_FN = avro_version == 3 and 5 or 7
 
 for _, tuple in box.space.email:pairs() do
     local body = tuple[BODY_FN]

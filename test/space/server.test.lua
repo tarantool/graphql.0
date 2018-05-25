@@ -18,7 +18,8 @@ box.cfg{background = false}
 testdata.init_spaces()
 
 -- upload test data
-testdata.fill_test_data()
+local meta = testdata.meta or testdata.get_test_metadata()
+testdata.fill_test_data(box.space, meta)
 
 -- acquire metadata
 local metadata = testdata.get_test_metadata()

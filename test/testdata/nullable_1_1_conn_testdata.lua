@@ -102,15 +102,12 @@ function nullable_1_1_conn_testdata.get_test_metadata()
     }
 end
 
-function nullable_1_1_conn_testdata.init_spaces()
+function nullable_1_1_conn_testdata.init_spaces(avro_version)
     -- email fields
     local LOCALPART_FN = 1
     local DOMAIN_FN = 2
-    local IN_REPLY_TO_LOCALPART_BRANCH_FN = 3 -- luacheck: ignore
-    local IN_REPLY_TO_LOCALPART_FN = 4
-    local IN_REPLY_TO_DOMAIN_BRANCH_FN = 5 -- luacheck: ignore
-    local IN_REPLY_TO_DOMAIN_FN = 6
-    local BODY_FN = 7 -- luacheck: ignore
+    local IN_REPLY_TO_LOCALPART_FN = avro_version == 3 and 3 or 4
+    local IN_REPLY_TO_DOMAIN_FN = avro_version == 3 and 4 or 6
 
     box.once('init_spaces_nullable_1_1_conn', function()
         box.schema.create_space('email')
@@ -157,7 +154,7 @@ end
         |  e   f g      m     |
         +---------------------+
 ]]--
-function nullable_1_1_conn_testdata.fill_test_data(virtbox)
+function nullable_1_1_conn_testdata.fill_test_data(virtbox, meta)
     local virtbox = virtbox or box.space
 
     local prng = gen_prng(PRNG_SEED)
@@ -208,18 +205,6 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox)
         }
     }
 
-    local function union_branch_of(value)
-        local NULL_T = 0
-        local STRING_T = 1
-
-        if value == nil then
-            return NULL_T
-        elseif type(value) == 'string' then
-            return STRING_T
-        end
-        error('value must be nil or a string, got ' .. type(value))
-    end
-
     -- `in_reply_to` is optional parameter with the following format:
     --
     -- ```
@@ -236,14 +221,12 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox)
             local localpart = email_node.email.localpart
             local domain = email_node.email.domain
 
-            virtbox.email:replace({
-                localpart,
-                domain,
-                union_branch_of(irt_localpart),
-                irt_localpart,
-                union_branch_of(irt_domain),
-                irt_domain,
-                email_node.email.body,
+            test_utils.replace_object(virtbox, meta, 'email', {
+                localpart = localpart,
+                domain = domain,
+                in_reply_to_localpart = irt_localpart,
+                in_reply_to_domain = irt_domain,
+                body = email_node.email.body,
             })
             add_emails(email_node.successors or {}, {
                 localpart = localpart,
@@ -258,24 +241,20 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox)
     -- FULL MATCH constraints
     local domain = DOMAIN
     local localpart = prng:next_string(16):hex()
-    virtbox.email:replace({
-        localpart,
-        domain,
-        union_branch_of(box.NULL),
-        box.NULL,
-        union_branch_of(domain),
-        domain,
-        'x',
+    test_utils.replace_object(virtbox, meta, 'email', {
+        localpart = localpart,
+        domain = domain,
+        in_reply_to_localpart = box.NULL,
+        in_reply_to_domain = domain,
+        body = 'x',
     })
     local localpart = prng:next_string(16):hex()
-    virtbox.email:replace({
-        localpart,
-        domain,
-        union_branch_of(localpart),
-        localpart,
-        union_branch_of(box.NULL),
-        box.NULL,
-        'y',
+    test_utils.replace_object(virtbox, meta, 'email', {
+        localpart = localpart,
+        domain = domain,
+        in_reply_to_localpart = localpart,
+        in_reply_to_domain = box.NULL,
+        body = 'y',
     })
 end
 

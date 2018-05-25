@@ -110,13 +110,17 @@ local function run_conf(conf_name, opts)
 
     local test_run = opts.test_run
     local init_function = opts.init_function
+    local init_function_params = opts.init_function_params or {}
     local cleanup_function = opts.cleanup_function
+    local cleanup_function_params = opts.cleanup_function_params or {}
     local workload = opts.workload
     local servers = opts.servers or servers -- prefer opts.servers
     local use_tcp = opts.use_tcp or false
 
     assert(init_function ~= nil)
+    assert(type(init_function_params) == 'table')
     assert(cleanup_function ~= nil)
+    assert(type(cleanup_function_params) == 'table')
     assert(workload ~= nil)
     assert(use_tcp ~= nil)
     if conf_type == 'shard' then
@@ -127,9 +131,9 @@ local function run_conf(conf_name, opts)
     local result
 
     if conf_type == 'space' then
-        init_function()
+        init_function(unpack(init_function_params))
         result = workload(conf_name, nil)
-        cleanup_function()
+        cleanup_function(unpack(cleanup_function_params))
     elseif conf_type == 'shard' then
         -- convert functions to string, so, that it can be executed on shards
         local init_script = string.dump(init_function)
@@ -139,14 +143,14 @@ local function run_conf(conf_name, opts)
 
         for_each_server(shard, function(uri)
             local c = net_box.connect(uri)
-            c:eval(init_script)
+            c:eval(init_script, init_function_params)
         end)
 
         result = workload(conf_name, shard)
 
         for_each_server(shard, function(uri)
             local c = net_box.connect(uri)
-            c:eval(cleanup_script)
+            c:eval(cleanup_script, cleanup_function_params)
         end)
 
         shard_cleanup(test_run, servers)
