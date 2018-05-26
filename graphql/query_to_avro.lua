@@ -5,10 +5,10 @@
 --- * The best way to use this module is to just call `avro_schema` method on
 ---   compiled query object.
 
-local json = require('json')
 local path = "graphql.core"
 local introspection = require(path .. '.introspection')
 local query_util = require(path .. '.query_util')
+local avro_helpers = require('graphql.avro_helpers')
 
 -- module functions
 local query_to_avro = {}
@@ -25,59 +25,13 @@ local gql_scalar_to_avro_index = {
     Float = "double",
     Boolean = "boolean"
 }
+
 local function gql_scalar_to_avro(fieldType)
     assert(fieldType.__type == "Scalar", "GraphQL scalar field expected")
     assert(fieldType.name ~= "Map", "Map type is not supported")
     local result = gql_scalar_to_avro_index[fieldType.name]
     assert(result ~= nil, "Unexpected scalar type: " .. fieldType.name)
     return result
-end
-
---- The function converts avro type to the corresponding nullable type in
---- place and returns the result.
----
---- We make changes in place in case of table input (`avro`) because of
---- performance reasons, but we returns the result because an input (`avro`)
---- can be a string. Strings in Lua are immutable.
----
---- In the current tarantool/avro-schema implementation we simply add '*' to
---- the end of a type name.
----
---- If the type is already nullable the function leaves it as if
---- `opts.raise_on_nullable` is false or omitted. If `opts.raise_on_nullable`
---- is true the function will raise an error.
----
---- @tparam table avro avro schema node to be converted to nullable one
----
---- @tparam[opt] table opts the following options:
----
---- * `raise_on_nullable` (boolean) raise an error on nullable type
----
---- @result `result` (string or table) nullable avro type
-local function make_avro_type_nullable(avro, opts)
-    assert(avro ~= nil, "avro must not be nil")
-    local opts = opts or {}
-    assert(type(opts) == 'table',
-        'opts must be nil or a table, got ' .. type(opts))
-    local raise_on_nullable = opts.raise_on_nullable or false
-    assert(type(raise_on_nullable) == 'boolean',
-        'opts.raise_on_nullable must be nil or a boolean, got ' ..
-        type(raise_on_nullable))
-
-    local value_type = type(avro)
-
-    if value_type == "string" then
-        local is_nullable = avro:endswith("*")
-        if raise_on_nullable and is_nullable then
-            error('expected non-null type, got the nullable one: ' ..
-                json.encode(avro))
-        end
-        return is_nullable and avro or (avro .. '*')
-    elseif value_type == "table" then
-        return make_avro_type_nullable(avro.type, opts)
-    end
-
-    error("avro should be a string or a table, got " .. value_type)
 end
 
 --- Convert GraphQL type to avro-schema with selecting fields.
@@ -123,7 +77,9 @@ local function gql_type_to_avro(fieldType, subSelections, context)
     end
 
     if not isNonNull then
-        result = make_avro_type_nullable(result, {raise_on_nullable = true})
+        result = avro_helpers.make_avro_type_nullable(result, {
+            raise_on_nullable = true,
+        })
     end
     return result
 end

@@ -14,7 +14,7 @@ local testdata = require('test.testdata.common_testdata')
 
 local function run_queries(gql_wrapper)
     local test = tap.test('pcre')
-    test:plan(3)
+    test:plan(4)
 
     local query_1 = [[
         query users($offset: String, $first_name_re: String,
@@ -95,6 +95,33 @@ local function run_queries(gql_wrapper)
     ]]):strip())
 
     test:is_deeply(result_1_3, exp_result_1_3, '1_3')
+
+    -- }}}
+
+    -- {{{ regexp match with immediate arguments
+
+    local query_1i = [[
+        query users {
+            user_collection(pcre: {
+                first_name: "(?i)^i",
+                middle_name: "ich$",
+            }) {
+                first_name
+                middle_name
+                last_name
+            }
+        }
+    ]]
+
+    local gql_query_1i = utils.show_trace(function()
+        return gql_wrapper:compile(query_1i)
+    end)
+
+    local result_1i_1 = utils.show_trace(function()
+        return gql_query_1i:execute({})
+    end)
+
+    test:is_deeply(result_1i_1, exp_result_1_1, '1i_1')
 
     -- }}}
 

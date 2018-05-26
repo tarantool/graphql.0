@@ -15,6 +15,7 @@ if rex == nil then
     -- fallback to libpcre
     rex, is_pcre2 = utils.optional_require('rex_pcre'), false
 end
+local avro_helpers = require('graphql.avro_helpers')
 
 -- XXX: consider using [1] when it will be mature enough;
 -- look into [2] for the status.
@@ -1215,7 +1216,10 @@ local function get_pcre_argument_type(self, collection_name)
 
     for _, field in ipairs(schema.fields) do
         if field.type == 'string' or field.type == 'string*' then
-            string_fields[#string_fields + 1] = table.copy(field)
+            local field = table.copy(field)
+            field.type = avro_helpers.make_avro_type_nullable(
+                field.type, {raise_on_nullable = false})
+            table.insert(string_fields, field)
         end
     end
 
