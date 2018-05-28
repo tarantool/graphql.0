@@ -1458,6 +1458,10 @@ end
 ---        ...
 ---    }
 local function extra_args(self, collection_name)
+    if not self.settings.enable_mutations then
+        return {}, {}
+    end
+
     local collection = self.collections[collection_name]
     local schema_name = collection.schema_name
 
@@ -1519,29 +1523,23 @@ end
 --- Provided `funcs` argument determines certain functions for retrieving
 --- tuples.
 ---
---- @tparam table opts `schemas`, `collections`, `service_fields`, `indexes` and
---- `collection_use_tomap` ({[collection_name] = whether objects in collection
---- collection_name intended to be unflattened using tuple:tomap({names_only = true})
---- method instead of compiled_avro_schema.unflatten(tuple), ...})
---- to give the data accessor all needed meta-information re data; the format is
---- shown below; additional attributes `resulting_object_cnt_max` and
---- `fetched_object_cnt_max` are optional positive numbers which help to control
---- query behaviour in case it requires more resources than expected _(default
---- value is 10,000)_; `timeout_ms` _(default is 1000)_
+--- @tparam table opts set of options:
 ---
---- @tparam table funcs set of functions:
----
---- * `is_collection_exists`,
---- * `get_index`,
---- * `get_primary_index`,
---- * `unflatten_tuple`,
---- * `flatten_object`,
---- * `insert_tuple`.
----
---- They allows this abstract data accessor behaves in the certain way (say,
---- like space data accessor or shard data accessor); consider the
---- `accessor_space` and the `accessor_shard` modules documentation for these
---- functions description.
+--- * `schemas`,
+--- * `collections`,
+--- * `service_fields`,
+--- * `indexes`,
+--- * `collection_use_tomap`: ({[collection_name] = whether objects in
+---    collection `collection_name` intended to be unflattened using
+---    `tuple:tomap({names_only = true}` method instead of
+---    `compiled_avro_schema.unflatten(tuple), ...}`),
+--- * `resulting_object_cnt_max` and `fetched_object_cnt_max` are optional
+---   positive numbers which help to control query behaviour in case it
+---   requires more resources than expected _(default value is 10,000 for
+---   both)_,
+--- * `timeout_ms` _(default is 1000)_,
+--- * `enable_mutations`: boolean flag _(default is `false` for avro-schema-2*
+---    and `true` for avro-schema-3*)_.
 ---
 --- For examples of `opts.schemas` and `opts.collections` consider the
 --- @{tarantool_graphql.new} function description.
@@ -1568,6 +1566,20 @@ end
 ---         ...
 ---     }
 ---
+--- @tparam table funcs set of functions:
+---
+--- * `is_collection_exists`,
+--- * `get_index`,
+--- * `get_primary_index`,
+--- * `unflatten_tuple`,
+--- * `flatten_object`,
+--- * `insert_tuple`.
+---
+--- They allows this abstract data accessor behaves in the certain way (say,
+--- like space data accessor or shard data accessor); consider the
+--- `accessor_space` and the `accessor_shard` modules documentation for these
+--- functions description.
+---
 --- @treturn table data accessor instance, a table with the two methods
 --- (`select` and `arguments`) as described in the @{tarantool_graphql.new}
 --- function description.
@@ -1587,6 +1599,14 @@ function accessor_general.new(opts, funcs)
                                    DEF_FETCHED_OBJECT_CNT_MAX
     -- TODO: move this setting to `tgql.compile` after #59
     local timeout_ms = opts.timeout_ms or DEF_TIMEOUT_MS
+    -- Mutations are disabled for avro-schema-2*, because it can work
+    -- incorrectly for schemas with nullable types.
+    local enable_mutations
+    if opts.enable_mutations == nil then
+        enable_mutations = avro_helpers.major_avro_schema_version() == 3
+    else
+        enable_mutations = opts.enable_mutations
+    end
 
     assert(type(schemas) == 'table',
         'schemas must be a table, got ' .. type(schemas))
@@ -1608,6 +1628,7 @@ function accessor_general.new(opts, funcs)
     assert(timeout_ms <= TIMEOUT_INFINITY,
         ('timeouts more then graphql.TIMEOUT_INFINITY (%s) ' ..
         'do not supported'):format(tostring(TIMEOUT_INFINITY)))
+    check(enable_mutations, 'enable_mutations', 'boolean')
 
     local models, service_fields_defaults = compile_schemas(schemas,
         service_fields)
@@ -1637,7 +1658,8 @@ function accessor_general.new(opts, funcs)
         settings = {
             resulting_object_cnt_max = resulting_object_cnt_max,
             fetched_object_cnt_max = fetched_object_cnt_max,
-            timeout_ms = timeout_ms
+            timeout_ms = timeout_ms,
+            enable_mutations = enable_mutations,
         }
     }, {
         __index = {

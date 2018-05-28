@@ -1675,6 +1675,7 @@ local function create_default_accessor(cfg)
             resulting_object_cnt_max = cfg.resulting_object_cnt_max,
             fetched_object_cnt_max = cfg.fetched_object_cnt_max,
             timeout_ms = cfg.timeout_ms,
+            enable_mutations = cfg.enable_mutations,
         }, cfg.accessor_funcs)
     end
 
@@ -1688,6 +1689,7 @@ local function create_default_accessor(cfg)
             resulting_object_cnt_max = cfg.resulting_object_cnt_max,
             fetched_object_cnt_max = cfg.fetched_object_cnt_max,
             timeout_ms = cfg.timeout_ms,
+            enable_mutations = cfg.enable_mutations,
         }, cfg.accessor_funcs)
     end
 end

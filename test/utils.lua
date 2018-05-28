@@ -64,6 +64,10 @@ local function get_model(meta, collection_name)
     return model
 end
 
+function utils.clear_models_cache()
+    models_cache = nil
+end
+
 function utils.flatten_object(meta, collection_name, object,
         service_field_values)
     local model = get_model(meta, collection_name)
@@ -121,6 +125,9 @@ end
 function utils.run_testdata(testdata, opts)
     local opts = opts or {}
     local run_queries = opts.run_queries or testdata.run_queries
+    -- custom workload for, say, test different options on several graphql
+    -- instances
+    local workload = opts.workload or nil
 
     -- allow to run under tarantool on 'space' configuration w/o test-run
     local conf_name = test_run and test_run:get_cfg('conf') or 'space'
@@ -130,14 +137,18 @@ function utils.run_testdata(testdata, opts)
         init_function = testdata.init_spaces,
         init_function_params = {utils.major_avro_schema_version()},
         cleanup_function = testdata.drop_spaces,
-        workload = function(_, shard)
-            local virtbox = shard or box.space
-            local meta = testdata.meta or testdata.get_test_metadata()
-            testdata.fill_test_data(virtbox, meta)
-            local gql_wrapper = utils.graphql_from_testdata(testdata, shard,
-                opts.graphql_opts)
-            run_queries(gql_wrapper, virtbox, meta)
-            models_cache = nil -- clear models cache
+        workload = function(conf_name, shard)
+            if workload then
+                workload(conf_name, shard)
+            else
+                local virtbox = shard or box.space
+                local meta = testdata.meta or testdata.get_test_metadata()
+                testdata.fill_test_data(virtbox, meta)
+                local gql_wrapper = utils.graphql_from_testdata(testdata, shard,
+                    opts.graphql_opts)
+                run_queries(gql_wrapper, virtbox, meta)
+            end
+            utils.clear_models_cache()
         end,
         servers = {'shard1', 'shard2', 'shard3', 'shard4'},
         use_tcp = false,

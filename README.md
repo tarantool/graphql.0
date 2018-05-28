@@ -126,6 +126,11 @@ local result = compiled_query:execute(variables)
 
 ### Mutations
 
+Mutations are disabled for avro-schema-2\*, because it can work incorrectly for
+schemas with nullable types (ones whose marked with asterisk). Mutations still
+can be enabled with the `enable_mutations = true` option, but use it with
+caution. Don't enable this option with schemas involve nullable types.
+
 #### Insert
 
 Example with an object passed from a variable:

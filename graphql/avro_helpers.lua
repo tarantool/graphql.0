@@ -1,6 +1,7 @@
 --- The module us collection of helpers to simplify avro-schema related tasks.
 
 local json = require('json')
+local avro_schema = require('avro_schema')
 
 local avro_helpers = {}
 
@@ -69,6 +70,17 @@ function avro_helpers.make_avro_type_nullable(avro, opts)
     end
 
     error("avro should be a string or a table, got " .. value_type)
+end
+
+--- Determines major version of the avro-schema module in use.
+---
+--- @treturn number 2 or 3
+function avro_helpers.major_avro_schema_version()
+    local ok, handle = avro_schema.create('boolean')
+    assert(ok, tostring(handle))
+    local ok, model = avro_schema.compile(handle)
+    assert(ok, tostring(model))
+    return model.get_types == nil and 2 or 3
 end
 
 return avro_helpers
