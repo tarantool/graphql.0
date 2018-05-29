@@ -54,3 +54,7 @@ apidoc:
 .PHONY: serve-apidoc
 serve-apidoc: apidoc
 	$(WWW_BROWSER) ./doc/apidoc/index.html
+
+.PHONY: demo
+demo:
+	./demo/demo.lua $(TESTDATA)
