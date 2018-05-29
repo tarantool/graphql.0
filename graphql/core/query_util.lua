@@ -69,8 +69,7 @@ function query_util.collectFields(objectType, selections, visitedFragments, resu
     if selection.kind == 'field' then
       if shouldIncludeNode(selection, context) then
         local name = query_util.getFieldResponseKey(selection)
-        result[name] = result[name] or {}
-        table.insert(result[name], selection)
+        table.insert(result, {name = name, selection = selection})
       end
     elseif selection.kind == 'inlineFragment' then
       if shouldIncludeNode(selection, context) and doesFragmentApply(selection, objectType, context) then

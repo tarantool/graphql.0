@@ -58,6 +58,10 @@ fields:
       fields:
       - name: user_id
         type: string
+      - name: favorite_food
+        type:
+          type: array
+          items: string
       - name: user_balances
         type:
           type: array
@@ -68,10 +72,6 @@ fields:
               type: int
             name: balance
             namespace: Query.user_collection
-      - name: favorite_food
-        type:
-          type: array
-          items: string
       name: user_collection
       namespace: Query
 ]]
@@ -96,7 +96,7 @@ user_collection:
 ]]
 result_expected = yaml.decode(result_expected)
 local result = gql_query:execute(variables)
-test:is_deeply(result, result_expected, 'graphql qury exec result')
+test:is_deeply(result, result_expected, 'graphql query exec result')
 local ok, ash, r, fs, _
 ok, ash = avro.create(avros)
 assert(ok)

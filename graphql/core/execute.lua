@@ -114,11 +114,15 @@ local function getFieldEntry(objectType, object, fields, context)
 end
 
 evaluateSelections = function(objectType, object, selections, context)
-  local groupedFieldSet = query_util.collectFields(objectType, selections, {}, {}, context)
-
-  return util.map(groupedFieldSet, function(fields)
-    return getFieldEntry(objectType, object, fields, context)
-  end)
+  local result = {}
+  local fields = query_util.collectFields(objectType, selections, {}, {}, context)
+  for _, field in ipairs(fields) do
+    assert(result[field.name] == nil,
+      'two selections into the one field: ' .. field.name)
+    result[field.name] = getFieldEntry(objectType, object, {field.selection},
+      context)
+  end
+  return result
 end
 
 return function(schema, tree, rootValue, variables, operationName)
