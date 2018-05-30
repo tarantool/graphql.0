@@ -43,7 +43,16 @@ function common_testdata.get_test_metadata()
                 { "name": "description", "type": "string" },
                 { "name": "price", "type": "double" },
                 { "name": "discount", "type": "float" },
-                { "name": "in_stock", "type": "boolean" }
+                { "name": "in_stock", "type": "boolean", "default": true }
+            ]
+        },
+        "order_metainfo": {
+            "type": "record",
+            "name": "order_metainfo",
+            "fields": [
+                { "name": "metainfo", "type": "string" },
+                { "name": "order_metainfo_id", "type": "string" },
+                { "name": "order_id", "type": "string" }
             ]
         }
     }]])
@@ -74,8 +83,24 @@ function common_testdata.get_test_metadata()
                         { "source_field": "user_id", "destination_field": "user_id" }
                     ],
                     "index_name": "user_id_index"
+                },
+                {
+                    "type": "1:1",
+                    "name": "order_metainfo_connection",
+                    "destination_collection":  "order_metainfo_collection",
+                    "parts": [
+                        {
+                            "source_field": "order_id",
+                            "destination_field": "order_id"
+                        }
+                    ],
+                    "index_name": "order_id_index"
                 }
             ]
+        },
+        "order_metainfo_collection": {
+            "schema_name": "order_metainfo",
+            "connections": []
         }
     }]])
 
@@ -84,6 +109,7 @@ function common_testdata.get_test_metadata()
             {name = 'expires_on', type = 'long', default = 0},
         },
         order = {},
+        order_metainfo = {},
     }
 
     local indexes = {
@@ -112,6 +138,22 @@ function common_testdata.get_test_metadata()
                 primary = false,
             },
         },
+        order_metainfo_collection = {
+            order_metainfo_id_index = {
+                service_fields = {},
+                fields = {'order_metainfo_id'},
+                index_type = 'tree',
+                unique = true,
+                primary = true,
+            },
+            order_id_index = {
+                service_fields = {},
+                fields = {'order_id'},
+                index_type = 'tree',
+                unique = true,
+                primary = false,
+            }
+        }
     }
 
     return {
@@ -130,6 +172,10 @@ function common_testdata.init_spaces()
     local O_ORDER_ID_FN = 1
     local O_USER_ID_FN = 2
 
+    -- order_metainfo_collection fields
+    local M_ORDER_METAINFO_ID_FN = 2
+    local M_ORDER_ID_FN = 3
+
     box.once('test_space_init_spaces', function()
         box.schema.create_space('user_collection')
         box.space.user_collection:create_index('user_id_index',
@@ -146,6 +192,18 @@ function common_testdata.init_spaces()
         box.space.order_collection:create_index('user_id_index',
             {type = 'tree', unique = false, parts = {
                 O_USER_ID_FN, 'string'
+            }}
+        )
+        box.schema.create_space('order_metainfo_collection')
+        box.space.order_metainfo_collection:create_index(
+            'order_metainfo_id_index',
+            {type = 'tree', parts = {
+                M_ORDER_METAINFO_ID_FN, 'string'
+            }}
+        )
+        box.space.order_metainfo_collection:create_index('order_id_index',
+            {type = 'tree', parts = {
+                M_ORDER_ID_FN, 'string'
             }}
         )
     end)
@@ -233,12 +291,22 @@ function common_testdata.fill_test_data(virtbox, meta)
         discount = 0,
         in_stock = true,
     })
+
+    for i = 1, 3924 do
+        local s = tostring(i)
+        test_utils.replace_object(virtbox, meta, 'order_metainfo_collection', {
+            metainfo = 'order metainfo ' .. s,
+            order_metainfo_id = 'order_metainfo_id_' .. s,
+            order_id = 'order_id_' .. s,
+        })
+    end
 end
 
 function common_testdata.drop_spaces()
     box.space._schema:delete('oncetest_space_init_spaces')
     box.space.user_collection:drop()
     box.space.order_collection:drop()
+    box.space.order_metainfo_collection:drop()
 end
 
 function common_testdata.run_queries(gql_wrapper)

@@ -115,7 +115,7 @@ end
 ---
 --- @treturn table `result` is the corresponding Avro schema
 object_to_avro = function(object_type, selections, context)
-    local groupedFieldSet = query_util.collectFields(object_type, selections,
+    local fields = query_util.collectFields(object_type, selections,
         {}, {}, context)
     local result = {
         type = 'record',
@@ -126,8 +126,9 @@ object_to_avro = function(object_type, selections, context)
         result.namespace = table.concat(context.namespace_parts, ".")
     end
     table.insert(context.namespace_parts, result.name)
-    for _, fields in pairs(groupedFieldSet) do
-        local avro_field = field_to_avro(object_type, fields, context)
+    for _, field in pairs(fields) do
+        local avro_field = field_to_avro(object_type, {field.selection},
+            context)
         table.insert(result.fields, avro_field)
     end
     context.namespace_parts[#context.namespace_parts] = nil

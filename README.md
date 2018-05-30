@@ -124,7 +124,225 @@ local compiled_query = graphql_lib.compile(query)
 local result = compiled_query:execute(variables)
 ```
 
-# GraphiQL
+### Mutations
+
+Mutations are disabled for avro-schema-2\*, because it can work incorrectly for
+schemas with nullable types (ones whose marked with asterisk). Mutations still
+can be enabled with the `enable_mutations = true` option, but use it with
+caution. Don't enable this option with schemas involve nullable types.
+
+#### Mutations with space accessor
+
+TBD: Describe which changes are transactional and which views are guaranteed to
+be consistent.
+
+#### Mutations with shard accessor
+
+Mutations are disabled in the resharding state of a shard cluster.
+
+There are three types of modifications: insert, update and delete. Several
+modifications are allowed in an one GraphQL request, but they will be processed
+in non-transactional way.
+
+In the case of shard accessor the following constraints can guarantee that data
+will be changed in atomic way or, in other words, in an one shard request (but
+foregoing and upcoming selects can see other data):
+
+* One insert / update / delete argument over the entire GraphQL request.
+* For update / delete: either the argument is for 1:1 connection or `limit: 1`
+  is used for a collection (a topmost field) or 1:N connection (a nested
+  field).
+* No update of a first field of a **tuple** (shard key is calculated by it). It
+  is the first field of upmost record in the schema for a collection in case
+  when there are no service fields. If there are service fields, the first
+  field of a tuple cannot be changed by a mutation GraphQL request.
+
+Data can be changed between shard requests which are part of the one GraphQL
+request, so the result can observe inconsistent state. We'll don't show all
+possible cases, but give an idea what going on in the following paragraph.
+
+Filters are applied for an object(s) (several requests in case of filters by
+connections, one request otherwise), then each object updated/deleted by its
+primary key (one request per object), then all connected objects are resolved
+in the same way.
+
+#### Insert
+
+Example with an object passed from a variable:
+
+```
+mutation insert_user_and_order($user: user_collection_insert,
+        $order: order_collection_insert) {
+    user_collection(insert: $user) {
+        user_id
+        first_name
+        last_name
+    }
+    order_collection(insert: $order) {
+        order_id
+        description
+        in_stock
+    }
+}
+```
+
+Example with immediate argument for an object:
+
+```
+mutation insert_user_and_order {
+    user_collection(insert: {
+        user_id: "user_id_new_1"
+        first_name: "Peter"
+        last_name: "Petrov"
+    }) {
+        user_id
+        first_name
+        last_name
+    }
+    order_collection(insert: {
+        order_id: "order_id_new_1"
+        user_id: "user_id_new_1"
+        description: "Peter's order"
+        price: 0.0
+        discount: 0.0
+        # in_stock: true should be set as default value
+    }) {
+        order_id
+        description
+        in_stock
+    }
+}
+```
+
+Consider the following details:
+
+* `${collection_name}_insert` is the name of the type whose value intended to
+  pass to the `insert` argument. This type / argument requires a user to set
+  all fields of an inserting object.
+* Inserting cannot be used on connection fields, it is allowed only for
+  top-level fields (named as well as collections).
+* It is forbidden to use `insert` argument with any other argument.
+* A mutation with an `insert` argument always return the object that was just
+  inserted.
+* Of course `insert` argument is forbidden in `query` requests.
+
+#### Update
+
+Example with an update statement passed from a variable. Note that here we
+update an object given by a connection (inside an one of nested fields of a
+request):
+
+```
+mutation update_user_and_order(
+    $user_id: String
+    $order_id: String
+    $xuser: user_collection_update
+    $xorder: order_collection_update
+) {
+    # update nested user
+    order_collection(order_id: $order_id) {
+        order_id
+        description
+        user_connection(update: $xuser) {
+            user_id
+            first_name
+            last_name
+        }
+    }
+    # update nested order (only the first, because of limit)
+    user_collection(user_id: $user_id) {
+        user_id
+        first_name
+        last_name
+        order_connection(limit: 1, update: $xorder) {
+            order_id
+            description
+            in_stock
+        }
+    }
+}
+```
+
+Example with immediate argument for an update statement:
+
+```
+mutation update_user_and_order {
+    user_collection(user_id: "user_id_1", update: {
+        first_name: "Peter"
+        last_name: "Petrov"
+    }) {
+        user_id
+        first_name
+        last_name
+    }
+    order_collection(order_id: "order_id_1", update: {
+        description: "Peter's order"
+        price: 0.0
+        discount: 0.0
+        in_stock: false
+    }) {
+        order_id
+        description
+        in_stock
+    }
+}
+```
+
+Consider the following details:
+
+* `${collection_name}_update` is the name of the type whose value intended to
+  pass to the `update` argument. This type / argument requires a user to set
+  subset of fields of an updating object except primary key parts.
+* A mutation with an `update` argument always return the updated object.
+* The `update` argument is forbidden with `insert` or `delete` arguments.
+* The `update` argument is forbidden in `query` requests.
+* Objects are selected by filters first, then updated using a statement in the
+  `update` argument, then connected objects are selected.
+* The `limit` and `offset` arguments applied before update, so a user can use
+  `limit: 1` to update only first match.
+* Objects traversed in deep-first up-first order as it written in a mutation
+  request. So an `update` argument potentially changes those fields that are
+  follows the updated object in this order.
+* Filters by connected objects are performed before update. Resulting connected
+  objects given after the update (it is matter when a field(s) of the parent
+  objects by whose the connection is made is subject to change).
+
+#### Delete
+
+Example:
+
+```
+mutation delete_user_and_order(
+    $user_id: String,
+    $order_id: String,
+) {
+    user_collection(user_id: $user_id, delete: true) {
+        user_id
+        first_name
+        last_name
+    }
+    order_collection(order_id: $order_id, delete: true) {
+        order_id
+        description
+        in_stock
+    }
+}
+```
+
+Consider the following details:
+
+* There are no special type name for a `delete` argument, it is just Boolean.
+* A mutation with a `delete: true` argument always return the deleted object.
+* The `delete` argument is forbidden with `insert` or `update` arguments.
+* The `delete` argument is forbidden in `query` requests.
+* The same fields traversal order and 'select -> change -> select connected'
+  order of operations for an one field are applied likewise for the `update`
+  argument.
+* The `limit` argument can be used to define how many objects are subject to
+  deletion and `offset` can help with adjusting start point of multi-object
+  delete operation.
+
+## GraphiQL
 ```
 local graphql = require('graphql').new({
     schemas = schemas,

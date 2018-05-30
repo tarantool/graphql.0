@@ -55,19 +55,19 @@ fields:
     items:
       type: record
       fields:
-      - name: p2
-        type: string
-      - name: p1
-        type: string
       - name: uid
         type: long
+      - name: p1
+        type: string
+      - name: p2
+        type: string
       - name: nested
         type:
           type: record
           fields:
-          - name: y
-            type: long
           - name: x
+            type: long
+          - name: y
             type: long
           name: nested
           namespace: Query.user
@@ -94,7 +94,7 @@ user:
 ]]
 result_expected = yaml.decode(result_expected)
 local result = gql_query:execute(variables)
-test:is_deeply(result, result_expected, 'graphql qury exec result')
+test:is_deeply(result, result_expected, 'graphql query exec result')
 local ok, ash, r, fs, _
 ok, ash = avro.create(avros)
 assert(ok)

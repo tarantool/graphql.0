@@ -2,7 +2,10 @@
 --- (@{accessor_general}) behaves as space accessor and provides the
 --- `accessor_space.new` function to create a new space data accessor instance.
 
+local utils = require('graphql.utils')
 local accessor_general = require('graphql.accessor_general')
+
+local check = utils.check
 
 local accessor_space = {}
 
@@ -27,20 +30,108 @@ end
 --- @tparam string collection_name
 --- @tparam cdata/table tuple
 --- @tparam table opts
---- @tparam table opts
 --- * `use_tomap` (boolean, default: false; whether objects in collection
---- collection_name intended to be unflattened using tuple:tomap({names_only = true})
---- method instead of compiled_avro_schema.unflatten(tuple)
+---   collection_name intended to be unflattened using
+---   `tuple:tomap({names_only = true})` method instead of
+---   `compiled_avro_schema.unflatten(tuple)`
 --- @tparam function default unflatten action, call it in the following way:
 ---
----
----     return default(collection_name, tuple)
+---     return default(collection_name, tuple, opts)
 ---
 local function unflatten_tuple(collection_name, tuple, opts, default)
+    local opts = opts or {}
+    check(opts, 'opts', 'table')
     if opts.use_tomap then
         return tuple:tomap({ names_only = true })
     end
-    return default(collection_name, tuple)
+    return default(collection_name, tuple, opts)
+end
+
+--- Convert an object to a tuple.
+---
+--- @tparam string collection_name
+--- @tparam table obj
+--- @tparam table opts
+--- * `service_fields_defaults` (list (Lua table), default: empty list; list of
+---   values to set service fields)
+--- @tparam function default flatten action, call it in the following way:
+---
+---    return default(collection_name, obj, opts)
+---
+--- @treturn cdata/table `tuple`
+local function flatten_object(collection_name, obj, opts, default)
+    local opts = opts or {}
+    check(opts, 'opts', 'table')
+    local service_fields_defaults = opts.service_fields_defaults or {}
+    check(service_fields_defaults, 'service_fields_defaults', 'table')
+    return default(collection_name, obj, opts)
+end
+
+--- Generate update statements for tarantool from xflatten input.
+---
+--- @tparam string collection_name
+--- @tparam table xobject xflatten input
+--- @tparam table opts
+--- * `service_fields_defaults` (list (Lua table), default: empty list; list of
+---   values to set service fields)
+--- @tparam function default xflatten action, call it in the following way:
+---
+---    return default(collection_name, xobject, opts)
+---
+--- @treturn cdata/table `tuple`
+local function xflatten(collection_name, xobject, opts, default)
+    local opts = opts or {}
+    check(opts, 'opts', 'table')
+    local service_fields_defaults = opts.service_fields_defaults or {}
+    check(service_fields_defaults, 'service_fields_defaults', 'table')
+    return default(collection_name, xobject, opts)
+end
+
+--- Insert a tuple into a collection.
+---
+--- @tparam string collection_name
+---
+--- @tparam cdata/table tuple
+---
+--- @treturn cdata/table `tuple`
+local function insert_tuple(collection_name, tuple)
+    return box.space[collection_name]:insert(tuple)
+end
+
+--- Update a tuple with an update statements.
+---
+--- @tparam string collection_name
+---
+--- @param key primary key
+---
+--- @tparam table statements
+---
+--- @tparam table opts
+---
+--- * tuple (ignored in accessor_space)
+---
+--- @treturn cdata/table `tuple`
+local function update_tuple(collection_name, key, statements, opts)
+    local opts = opts or {}
+    check(opts, 'opts', 'table')
+    return box.space[collection_name]:update(key, statements)
+end
+
+--- Delete tuple by a primary key.
+---
+--- @tparam string collection_name
+---
+--- @param key primary key
+---
+--- @tparam table opts
+---
+--- * tuple (ignored in accessor_space)
+---
+--- @treturn cdata tuple
+local function delete_tuple(collection_name, key, opts)
+    local opts = opts or {}
+    check(opts, 'opts', 'table')
+    return box.space[collection_name]:delete(key)
 end
 
 --- Create a new space data accessor instance.
@@ -62,6 +153,11 @@ function accessor_space.new(opts, funcs)
         get_index = funcs.get_index or get_index,
         get_primary_index = funcs.get_primary_index or get_primary_index,
         unflatten_tuple = funcs.unflatten_tuple or unflatten_tuple,
+        flatten_object = funcs.flatten_object or flatten_object,
+        xflatten = funcs.xflatten or xflatten,
+        insert_tuple = funcs.insert_tuple or insert_tuple,
+        update_tuple = funcs.update_tuple or update_tuple,
+        delete_tuple = funcs.delete_tuple or delete_tuple,
     }
 
     return accessor_general.new(opts, res_funcs)

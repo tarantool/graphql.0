@@ -73,7 +73,6 @@ local query = [[
             }
         }
     }
-
 ]]
 local expected_avro_schema = [[
 type: record
@@ -85,14 +84,24 @@ fields:
     items:
       type: record
       fields:
+      - name: id
+        type: int
+      - name: last_name
+        type: string
+      - name: first_name
+        type: string
       - name: order_connection
         type:
           type: array
           items:
             type: record
             fields:
+            - name: id
+              type: int
             - name: user_id
               type: int
+            - name: description
+              type: string
             - name: order__order_item
               type:
                 type: array
@@ -107,30 +116,20 @@ fields:
                     type:
                       type: record
                       fields:
+                      - name: id
+                        type: int
+                      - name: name
+                        type: string
                       - name: description
                         type: string
                       - name: price
                         type: string
-                      - name: name
-                        type: string
-                      - name: id
-                        type: int
                       name: item_collection
                       namespace: Query.user_collection.order_collection.order_item_collection
                   name: order_item_collection
                   namespace: Query.user_collection.order_collection
-            - name: description
-              type: string
-            - name: id
-              type: int
             name: order_collection
             namespace: Query.user_collection
-      - name: last_name
-        type: string
-      - name: first_name
-        type: string
-      - name: id
-        type: int
       name: user_collection
       namespace: Query
 - name: order_collection
@@ -139,16 +138,28 @@ fields:
     items:
       type: record
       fields:
+      - name: id
+        type: int
+      - name: description
+        type: string
       - name: user_connection
         type:
           type: record
           fields:
+          - name: id
+            type: int
+          - name: first_name
+            type: string
+          - name: last_name
+            type: string
           - name: order_connection
             type:
               type: array
               items:
                 type: record
                 fields:
+                - name: id
+                  type: int
                 - name: order__order_item
                   type:
                     type: array
@@ -167,22 +178,10 @@ fields:
                           namespace: Query.order_collection.user_collection.order_collection.order_item_collection
                       name: order_item_collection
                       namespace: Query.order_collection.user_collection.order_collection
-                - name: id
-                  type: int
                 name: order_collection
                 namespace: Query.order_collection.user_collection
-          - name: last_name
-            type: string
-          - name: first_name
-            type: string
-          - name: id
-            type: int
           name: user_collection
           namespace: Query.order_collection
-      - name: id
-        type: int
-      - name: description
-        type: string
       name: order_collection
       namespace: Query
 
@@ -249,7 +248,7 @@ order_collection:
 ]]
 result_expected = yaml.decode(result_expected)
 local result = gql_query:execute(variables)
-test:is_deeply(result, result_expected, 'graphql qury exec result')
+test:is_deeply(result, result_expected, 'graphql query exec result')
 local ok, ash, r, fs, _
 ok, ash = avro.create(avros)
 assert(ok)

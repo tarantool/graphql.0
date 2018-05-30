@@ -54,14 +54,14 @@ fields:
     items:
       type: record
       fields:
+      - name: id
+        type: string
       - name: id_or_null_1
-        type: string*
-      - name: id_or_null_3
         type: string*
       - name: id_or_null_2
         type: string*
-      - name: id
-        type: string
+      - name: id_or_null_3
+        type: string*
       name: bar
       namespace: Query
 ]]
