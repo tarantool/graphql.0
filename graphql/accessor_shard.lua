@@ -470,6 +470,7 @@ function accessor_shard.new(opts, funcs)
         xflatten = funcs.xflatten or xflatten,
         insert_tuple = funcs.insert_tuple or insert_tuple,
         update_tuple = funcs.update_tuple or update_tuple,
+        delete_tuple = funcs.delete_tuple or delete_tuple,
     }
 
     return accessor_general.new(opts, res_funcs)

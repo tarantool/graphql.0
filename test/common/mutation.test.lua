@@ -57,6 +57,19 @@ local function replace_tuple(virtbox, collection_name, key, tuple)
     end
 end
 
+-- replace back tuples & check
+local function replace_user_and_order_back(test, virtbox, user_id, order_id,
+        orig_user_tuple, orig_order_tuple)
+    replace_tuple(virtbox, 'user_collection', {user_id}, orig_user_tuple)
+    local tuple = get_tuple(virtbox, 'user_collection', {user_id})
+    test:is_deeply(tuple:totable(), orig_user_tuple:totable(),
+        'tuple was replaced back')
+    replace_tuple(virtbox, 'order_collection', {order_id}, orig_order_tuple)
+    local tuple = get_tuple(virtbox, 'order_collection', {order_id})
+    test:is_deeply(tuple:totable(), orig_order_tuple:totable(),
+        'tuple was replaced back')
+end
+
 local function check_insert(test, gql_wrapper, virtbox, mutation_insert,
         exp_result_insert, opts)
     local opts = opts or {}
@@ -186,23 +199,58 @@ local function check_update(test, gql_wrapper, virtbox, mutation_update,
         test:is_deeply(tuple:totable(), exp_tuple, 'updated tuple is correct')
 
         -- replace back updated tuples & check
-        replace_tuple(virtbox, 'user_collection', {user_id},
-            orig_user_tuple)
+        replace_user_and_order_back(test, virtbox, user_id, order_id,
+            orig_user_tuple, orig_order_tuple)
+
+        assert(test:check(), 'check plan')
+    end)
+end
+
+local function check_delete(test, gql_wrapper, virtbox, mutation_delete,
+        exp_result_delete, opts)
+    local opts = opts or {}
+    local dont_pass_variables = opts.dont_pass_variables or false
+
+    utils.show_trace(function()
+        test:plan(5)
+        local user_id = 'user_id_1'
+        local order_id = 'order_id_1'
+        local variables_delete = {
+            user_id = user_id,
+            order_id = order_id,
+        }
+
+        -- save original tuples
+        local orig_user_tuple = get_tuple(virtbox, 'user_collection', {user_id})
+        local orig_order_tuple = get_tuple(virtbox, 'order_collection',
+            {order_id})
+
+        local gql_mutation_delete = gql_wrapper:compile(mutation_delete)
+
+        -- check mutation result from graphql
+        local result = gql_mutation_delete:execute(dont_pass_variables and {} or
+            variables_delete)
+        test:is_deeply(result, exp_result_delete, 'delete result')
+
+        -- check the user was deleted
         local tuple = get_tuple(virtbox, 'user_collection', {user_id})
-        test:is_deeply(tuple:totable(), orig_user_tuple:totable(),
-            'updated tuple was replaced back')
-        replace_tuple(virtbox, 'order_collection', {order_id},
-            orig_order_tuple)
+        test:ok(tuple == nil, 'tuple was deleted')
+
+        -- check the order was deleted
         local tuple = get_tuple(virtbox, 'order_collection', {order_id})
-        test:is_deeply(tuple:totable(), orig_order_tuple:totable(),
-            'updated tuple was replaced back')
+        test:ok(tuple == nil, 'tuple was deleted')
+
+        -- replace back deleted tuples & check
+        replace_user_and_order_back(test, virtbox, user_id, order_id,
+            orig_user_tuple, orig_order_tuple)
+
         assert(test:check(), 'check plan')
     end)
 end
 
 local function run_queries(gql_wrapper, virtbox, meta)
     local test = tap.test('mutation')
-    test:plan(15)
+    test:plan(19)
 
     -- {{{ insert
 
@@ -303,7 +351,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
 
     -- test "insert" argument is forbidden with object arguments
     local mutation_insert_3i = [[
-        mutation insert_user_and_order {
+        mutation insert_user {
             user_collection(user_id: "some_id", insert: {
                 user_id: "user_id_new_1"
                 first_name: "Peter"
@@ -324,7 +372,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
 
     -- test "insert" argument is forbidden with list arguments
     local mutation_insert_4i = [[
-        mutation insert_user_and_order {
+        mutation insert_user {
             user_collection(limit: 1, insert: {
                 user_id: "user_id_new_1"
                 first_name: "Peter"
@@ -342,6 +390,27 @@ local function run_queries(gql_wrapper, virtbox, meta)
     local err_exp = '"insert" must be the only argument when it is present'
     test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
         '"insert" argument is forbidden with other filters (list arguments)')
+
+    -- test "insert" argument is forbidden with other extra argument
+    local mutation_insert_5i = [[
+        mutation insert_user {
+            user_collection(delete: true, insert: {
+                user_id: "user_id_new_1"
+                first_name: "Peter"
+                last_name: "Petrov"
+            }) {
+                user_id
+                first_name
+                last_name
+            }
+        }
+    ]]
+    local gql_mutation_insert_5i = gql_wrapper:compile(mutation_insert_5i)
+    local ok, err = pcall(gql_mutation_insert_5i.execute,
+        gql_mutation_insert_5i, {})
+    local err_exp = '"insert" must be the only argument when it is present'
+    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+        '"insert" argument is forbidden with other filters (extra arguments)')
 
     -- XXX: test inserting an object into a collection with subrecords
 
@@ -781,7 +850,119 @@ local function run_queries(gql_wrapper, virtbox, meta)
 
     -- }}}
 
-    -- {{{ XXX: delete
+    -- {{{ delete
+
+    -- two deletes on top-level
+    local mutation_delete_1 = [[
+        mutation delete_user_and_order(
+            $user_id: String,
+            $order_id: String,
+        ) {
+            user_collection(user_id: $user_id, delete: true) {
+                user_id
+                first_name
+                last_name
+            }
+            order_collection(order_id: $order_id, delete: true) {
+                order_id
+                description
+                in_stock
+            }
+        }
+    ]]
+
+    local exp_result_delete_1 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_1
+          first_name: Ivan
+          last_name: Ivanov
+        order_collection:
+        - order_id: order_id_1
+          description: first order of Ivan
+          in_stock: true
+    ]]):strip())
+
+    check_delete(test:test('delete_1'), gql_wrapper, virtbox, mutation_delete_1,
+        exp_result_delete_1)
+
+    -- two nested dependent deletes
+    local mutation_delete_2 = [[
+        mutation delete_user_and_order {
+            user_collection(user_id: "user_id_1") {
+                user_id
+                first_name
+                last_name
+                order_connection(limit: 1, delete: true) {
+                    order_id
+                    description
+                }
+            }
+            order_collection(order_id: "order_id_2") {
+                order_id
+                description
+                in_stock
+                user_connection(delete: true) {
+                    user_id
+                    first_name
+                    last_name
+                    order_connection(limit: 1) {
+                        order_id
+                        description
+                    }
+                }
+            }
+        }
+    ]]
+
+    local exp_result_delete_2 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_1
+          first_name: Ivan
+          last_name: Ivanov
+          order_connection:
+            - order_id: order_id_1
+              description: first order of Ivan
+        order_collection:
+        - order_id: order_id_2
+          description: second order of Ivan
+          in_stock: false
+          user_connection:
+            user_id: user_id_1
+            first_name: Ivan
+            last_name: Ivanov
+            order_connection:
+              - order_id: order_id_2
+                description: second order of Ivan
+    ]]):strip())
+
+    check_delete(test:test('delete_2'), gql_wrapper, virtbox, mutation_delete_2,
+        exp_result_delete_2, {dont_pass_variables = true})
+
+    -- test "delete" argument is forbidden in a query
+    local query_delete = [[
+        query delete_user_and_order(
+            $user_id: String,
+            $order_id: String,
+        ) {
+            user_collection(user_id: $user_id, delete: true) {
+                user_id
+                first_name
+                last_name
+            }
+            order_collection(order_id: $order_id, delete: true) {
+                order_id
+                description
+                in_stock
+            }
+        }
+    ]]
+    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_delete)
+    local err_exp = 'Non-existent argument "delete"'
+    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+        '"delete" argument is forbidden in a query')
+
     -- }}}
 
     assert(test:check(), 'check plan')

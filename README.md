@@ -294,6 +294,7 @@ Consider the following details:
   pass to the `update` argument. This type / argument requires a user to set
   subset of fields of an updating object except primary key parts.
 * A mutation with an `update` argument always return the updated object.
+* The `update` argument is forbidden with `insert` or `delete` arguments.
 * The `update` argument is forbidden in `query` requests.
 * Objects are selected by filters first, then updated using a statement in the
   `update` argument, then connected objects are selected.
@@ -308,7 +309,38 @@ Consider the following details:
 
 #### Delete
 
-TBD
+Example:
+
+```
+mutation delete_user_and_order(
+    $user_id: String,
+    $order_id: String,
+) {
+    user_collection(user_id: $user_id, delete: true) {
+        user_id
+        first_name
+        last_name
+    }
+    order_collection(order_id: $order_id, delete: true) {
+        order_id
+        description
+        in_stock
+    }
+}
+```
+
+Consider the following details:
+
+* There are no special type name for a `delete` argument, it is just Boolean.
+* A mutation with a `delete: true` argument always return the deleted object.
+* The `delete` argument is forbidden with `insert` or `update` arguments.
+* The `delete` argument is forbidden in `query` requests.
+* The same fields traversal order and 'select -> change -> select connected'
+  order of operations for an one field are applied likewise for the `update`
+  argument.
+* The `limit` argument can be used to define how many objects are subject to
+  deletion and `offset` can help with adjusting start point of multi-object
+  delete operation.
 
 ## GraphiQL
 ```

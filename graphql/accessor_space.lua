@@ -117,6 +117,23 @@ local function update_tuple(collection_name, key, statements, opts)
     return box.space[collection_name]:update(key, statements)
 end
 
+--- Delete tuple by a primary key.
+---
+--- @tparam string collection_name
+---
+--- @param key primary key
+---
+--- @tparam table opts
+---
+--- * tuple (ignored in accessor_space)
+---
+--- @treturn cdata tuple
+local function delete_tuple(collection_name, key, opts)
+    local opts = opts or {}
+    check(opts, 'opts', 'table')
+    return box.space[collection_name]:delete(key)
+end
+
 --- Create a new space data accessor instance.
 function accessor_space.new(opts, funcs)
     local funcs = funcs or {}
@@ -140,6 +157,7 @@ function accessor_space.new(opts, funcs)
         xflatten = funcs.xflatten or xflatten,
         insert_tuple = funcs.insert_tuple or insert_tuple,
         update_tuple = funcs.update_tuple or update_tuple,
+        delete_tuple = funcs.delete_tuple or delete_tuple,
     }
 
     return accessor_general.new(opts, res_funcs)

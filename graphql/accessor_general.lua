@@ -950,6 +950,65 @@ local function process_tuple(state, tuple, opts)
     return true
 end
 
+--- Get schema name by a collection name.
+---
+--- @tparam table self data accessor instance
+---
+--- @tparam string collection_name
+---
+--- @treturn string `schema_name`
+local function get_schema_name(self, collection_name)
+    local collection = self.collections[collection_name]
+    assert(collection ~= nil,
+        ('cannot find the collection "%s"'):format(collection_name))
+    local schema_name = collection.schema_name
+    assert(type(schema_name) == 'string',
+        'schema_name must be a string, got ' .. type(schema_name))
+    return schema_name
+end
+
+--- Call one of accessor function: `update_tuple` or `delete_tuple` for each
+--- selected object.
+---
+--- @tparam table self data accessor instance
+---
+--- @tparam string collection_name
+---
+--- @tparam string schema_name
+---
+--- @tparam table selected objects to perform the operation
+---
+--- @tparam string operation 'update_tuple' or 'delete_tuple'
+---
+--- @param[opt] ... parameters to pass to the function
+---
+--- @treturn table `new_objects` list of returned objects (in the order of the
+--- `selected` parameter)
+local function perform_primary_key_operation(self, collection_name, schema_name,
+        selected, operation, ...)
+    check(operation, 'operation', 'string')
+
+    local _, primary_index_meta = get_primary_index_meta(self, collection_name)
+
+    local new_objects = {}
+
+    for _, object in ipairs(selected) do
+        local key = {}
+        for _, field_name in ipairs(primary_index_meta.fields) do
+            table.insert(key, object[field_name])
+        end
+        -- XXX: we can pass a tuple corresponding the object to update_tuple /
+        -- delete_tuple to save one get operation
+        local new_tuple = self.funcs[operation](collection_name, key, ...)
+        local new_object = self.funcs.unflatten_tuple(collection_name,
+            new_tuple, {use_tomap = self.collection_use_tomap[collection_name]},
+            self.default_unflatten_tuple[schema_name])
+        table.insert(new_objects, new_object)
+    end
+
+    return new_objects
+end
+
 --- The function is core of this module and implements logic of fetching and
 --- filtering requested objects.
 ---
@@ -1117,17 +1176,13 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     local err_msg = '"insert" must be the only argument when it is present'
     assert(next(filter) == nil, err_msg)
     assert(next(args) == nil, err_msg)
+    assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
     check(from, 'from', 'table')
     -- allow only top level collection
     check(from.collection_name, 'from.collection_name', 'nil')
 
     -- convert object -> tuple (set default values from a schema)
-    local collection = self.collections[collection_name]
-    assert(collection ~= nil,
-        ('cannot find the collection "%s"'):format(collection_name))
-    local schema_name = collection.schema_name
-    assert(type(schema_name) == 'string',
-        'schema_name must be a string, got ' .. type(schema_name))
+    local schema_name = get_schema_name(self, collection_name)
     local default_flatten_object = self.default_flatten_object[schema_name]
     assert(default_flatten_object ~= nil,
         ('cannot find default_flatten_object ' ..
@@ -1164,42 +1219,44 @@ local function update_internal(self, collection_name, extra, selected)
     local xobject = extra.extra_args.update
     if xobject == nil then return nil end
 
-    -- convert xobject -> update statements
-    local collection = self.collections[collection_name]
-    assert(collection ~= nil,
-        ('cannot find the collection "%s"'):format(collection_name))
-    local schema_name = collection.schema_name
-    assert(type(schema_name) == 'string',
-        'schema_name must be a string, got ' .. type(schema_name))
+    local err_msg = '"update" must not be passed with "insert" or "delete" ' ..
+        'arguments'
+    assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
 
+    -- convert xobject -> update statements
+    local schema_name = get_schema_name(self, collection_name)
     local default_xflatten = self.default_xflatten[schema_name]
     assert(default_xflatten ~= nil,
         ('cannot find default_xflatten ' ..
         'for collection "%s"'):format(collection_name))
-
     local statements = self.funcs.xflatten(collection_name, xobject, {
         service_fields_defaults =
             self.service_fields_defaults[schema_name],
     }, default_xflatten)
 
-    local _, primary_index_meta = get_primary_index_meta(self, collection_name)
-    local new_objects = {}
-    for _, object in ipairs(selected) do
-        local key = {}
-        for _, field_name in ipairs(primary_index_meta.fields) do
-            table.insert(key, object[field_name])
-        end
-        -- XXX: we can pass a tuple corresponding the object to update_tuple to
-        -- save one get operation
-        local new_tuple = self.funcs.update_tuple(collection_name, key,
-            statements)
-        local new_object = self.funcs.unflatten_tuple(collection_name,
-            new_tuple, {use_tomap = self.collection_use_tomap[collection_name]},
-            self.default_unflatten_tuple[schema_name])
-        table.insert(new_objects, new_object)
-    end
+    return perform_primary_key_operation(self, collection_name, schema_name,
+        selected, 'update_tuple', statements)
+end
 
-    return new_objects
+--- Delete an object.
+---
+--- Parameters are the same as for @{select_update}.
+---
+--- @tparam table extra `extra.extra_args.delete` is used
+---
+--- @treturn table `new_objects` list of deleted objects (in the order of the
+--- `selected` parameter)
+local function delete_internal(self, collection_name, extra, selected)
+    if not extra.extra_args.delete then return nil end
+
+    local err_msg = '"delete" must not be passed with "insert" or "update" ' ..
+        'arguments'
+    assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
+
+    local schema_name = get_schema_name(self, collection_name)
+
+    return perform_primary_key_operation(self, collection_name, schema_name,
+        selected, 'delete_tuple')
 end
 
 --- Set of asserts to check the `funcs` argument of the @{accessor_general.new}
@@ -1234,6 +1291,9 @@ local function validate_funcs(funcs)
     assert(type(funcs.update_tuple) == 'function',
         'funcs.update_tuple must be a function, got ' ..
         type(funcs.update_tuple))
+    assert(type(funcs.delete_tuple) == 'function',
+        'funcs.delete_tuple must be a function, got ' ..
+        type(funcs.delete_tuple))
 end
 
 --- This function is called on first select related to a query. Its purpose is
@@ -1684,6 +1744,10 @@ function accessor_general.new(opts, funcs)
                 local updated = update_internal(self, collection_name, extra,
                     selected)
                 if updated ~= nil then return updated end
+
+                local deleted = delete_internal(self, collection_name, extra,
+                    selected)
+                if deleted ~= nil then return deleted end
 
                 return selected
             end,
