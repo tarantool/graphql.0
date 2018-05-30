@@ -131,6 +131,41 @@ schemas with nullable types (ones whose marked with asterisk). Mutations still
 can be enabled with the `enable_mutations = true` option, but use it with
 caution. Don't enable this option with schemas involve nullable types.
 
+#### Mutations with space accessor
+
+TBD: Describe which changes are transactional and which views are guaranteed to
+be consistent.
+
+#### Mutations with shard accessor
+
+Mutations are disabled in the resharding state of a shard cluster.
+
+There are three types of modifications: insert, update and delete. Several
+modifications are allowed in an one GraphQL request, but they will be processed
+in non-transactional way.
+
+In the case of shard accessor the following constraints can guarantee that data
+will be changed in atomic way or, in other words, in an one shard request (but
+foregoing and upcoming selects can see other data):
+
+* One insert / update / delete argument over the entire GraphQL request.
+* For update / delete: either the argument is for 1:1 connection or `limit: 1`
+  is used for a collection (a topmost field) or 1:N connection (a nested
+  field).
+* No update of a first field of a **tuple** (shard key is calculated by it). It
+  is the first field of upmost record in the schema for a collection in case
+  when there are no service fields. If there are service fields, the first
+  field of a tuple cannot be changed by a mutation GraphQL request.
+
+Data can be changed between shard requests which are part of the one GraphQL
+request, so the result can observe inconsistent state. We'll don't show all
+possible cases, but give an idea what going on in the following paragraph.
+
+Filters are applied for an object(s) (several requests in case of filters by
+connections, one request otherwise), then each object updated/deleted by its
+primary key (one request per object), then all connected objects are resolved
+in the same way.
+
 #### Insert
 
 Example with an object passed from a variable:
