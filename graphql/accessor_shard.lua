@@ -23,6 +23,20 @@ local function shard_check_error(func_name, result, err)
     error(('%s: %s'):format(func_name, json.encode(err)))
 end
 
+-- Should work for shard-1.2 and shard-2.1 both.
+local function shard_check_status(func_name)
+    if box.space._shard == nil then return end
+
+    local mode = box.space._shard:get({'RESHARDING_STATE'})
+    local resharding_is_in_progress = mode ~= nil and #mode >= 2 and
+        type(mode[2]) == 'number' and mode[2] > 0
+    if resharding_is_in_progress then
+        error(('%s: shard cluster is in the resharding state, ' ..
+            'modification requests are temporary forbidden'):format(
+            func_name))
+    end
+end
+
 --- Determines whether certain fields of two tables are the same.
 ---
 --- Table fields of t1 and t2 are compared recursively by all its fields.
@@ -283,6 +297,9 @@ end
 --- @treturn cdata/table `tuple`
 local function insert_tuple(collection_name, tuple)
     local func_name = 'accessor_shard.insert_tuple'
+
+    shard_check_status(func_name)
+
     local result, err = shard:insert(collection_name, tuple)
     shard_check_error(func_name, result, err)
 
@@ -337,6 +354,7 @@ local function space_operation(collection_name, nodes, operation, ...)
 end
 
 --- Delete tuple by a primary key.
+---
 --- @tparam string collection_name
 ---
 --- @param key primary key
@@ -347,6 +365,14 @@ end
 ---
 --- @treturn cdata tuple
 local function delete_tuple(collection_name, key, opts)
+    local func_name = 'accessor_shard.delete_tuple'
+
+    local opts = opts or {}
+    check(opts, 'opts', 'table')
+    check(opts.tuple, 'opts.tuple', 'nil', 'cdata', 'table')
+
+    shard_check_status(func_name)
+
     local tuple = opts.tuple or get_tuple(collection_name, key)
     local nodes = shard.shard(tuple[SHARD_KEY_FIELD_NO])
     local tuple = space_operation(collection_name, nodes, 'delete', key)
@@ -372,9 +398,13 @@ end
 ---
 --- @treturn cdata/table `tuple`
 local function update_tuple(collection_name, key, statements, opts)
+    local func_name = 'accessor_shard.update_tuple'
+
     local opts = opts or {}
     check(opts, 'opts', 'table')
     check(opts.tuple, 'opts.tuple', 'nil', 'cdata', 'table')
+
+    shard_check_status(func_name)
 
     local is_shard_key_to_be_updated = false
     for _, statement in ipairs(statements) do
