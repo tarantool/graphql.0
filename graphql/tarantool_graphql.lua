@@ -156,44 +156,6 @@ local function raw_gql_type(gql_class)
     return gql_class
 end
 
-local types_long = types.scalar({
-    name = 'Long',
-    description = 'Long is non-bounded integral type',
-    serialize = function(value) return tonumber(value) end,
-    parseValue = function(value) return tonumber(value) end,
-    parseLiteral = function(node)
-        -- 'int' is name of the immediate value type
-        if node.kind == 'int' then
-            return tonumber(node.value)
-        end
-    end
-})
-
-local types_double = types.scalar({
-    name = 'Double',
-    serialize = tonumber,
-    parseValue = tonumber,
-    parseLiteral = function(node)
-        -- 'float' and 'int' are names of immediate value types
-        if node.kind == 'float' or node.kind == 'int' then
-            return tonumber(node.value)
-        end
-    end
-})
-
-local types_map = types.scalar({
-    name = 'Map',
-    description = 'Map is a dictionary with string keys and values of ' ..
-        'arbitrary but same among all values type',
-    serialize = function(value) return value end,
-    parseValue = function(value) return value end,
-    parseLiteral = function(node)
-        if node.kind == 'Map' then
-            return node.value
-        end
-    end
-})
-
 local function convert_scalar_type(avro_schema, opts)
     local opts = opts or {}
     assert(type(opts) == 'table', 'opts must be nil or table, got ' ..
@@ -205,12 +167,12 @@ local function convert_scalar_type(avro_schema, opts)
     local scalar_types = {
         ['int'] = types.int.nonNull,
         ['int*'] = types.int,
-        ['long'] = types_long.nonNull,
-        ['long*'] = types_long,
+        ['long'] = types.long.nonNull,
+        ['long*'] = types.long,
         ['float'] = types.float.nonNull,
         ['float*'] = types.float,
-        ['double'] = types_double.nonNull,
-        ['double*'] = types_double,
+        ['double'] = types.double.nonNull,
+        ['double*'] = types.double,
         ['boolean'] = types.boolean.nonNull,
         ['boolean*'] = types.boolean,
         ['string'] = types.string.nonNull,
@@ -1274,7 +1236,7 @@ gql_type = function(state, avro_schema, context)
         -- validate avro schema format inside 'values'
         gql_type(state, avro_schema.values, context)
 
-        local gql_map = types_map
+        local gql_map = types.map
         return avro_t == 'map' and types.nonNull(gql_map) or gql_map
     elseif avro_t == 'union' then
         return create_gql_union(state, avro_schema, context)

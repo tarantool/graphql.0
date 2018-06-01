@@ -171,6 +171,19 @@ function types.union(config)
   return instance
 end
 
+types.map = types.scalar({
+  name = 'Map',
+  description = 'Map is a dictionary with string keys and values of ' ..
+    'arbitrary but same among all values type',
+  serialize = function(value) return value end,
+  parseValue = function(value) return value end,
+  parseLiteral = function(node)
+    if node.kind == 'Map' then
+      return node.value
+    end
+  end
+})
+
 function types.inputObject(config)
   assert(type(config.name) == 'string', 'type name must be provided as a string')
 
@@ -215,11 +228,36 @@ types.int = types.scalar({
   end
 })
 
+types.long = types.scalar({
+  name = 'Long',
+  description = 'Long is non-bounded integral type',
+  serialize = function(value) return tonumber(value) end,
+  parseValue = function(value) return tonumber(value) end,
+  parseLiteral = function(node)
+   -- 'int' is name of the immediate value type
+   if node.kind == 'int' then
+     return tonumber(node.value)
+   end
+  end
+})
+
 types.float = types.scalar({
   name = 'Float',
   serialize = tonumber,
   parseValue = tonumber,
   parseLiteral = function(node)
+    if node.kind == 'float' or node.kind == 'int' then
+      return tonumber(node.value)
+    end
+  end
+})
+
+types.double = types.scalar({
+  name = 'Double',
+  serialize = tonumber,
+  parseValue = tonumber,
+  parseLiteral = function(node)
+    -- 'float' and 'int' are names of immediate value types
     if node.kind == 'float' or node.kind == 'int' then
       return tonumber(node.value)
     end
