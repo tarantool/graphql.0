@@ -1709,14 +1709,9 @@ end
 --- The function creates an accessor of desired type with default configuration.
 ---
 --- @tparam table cfg general tarantool_graphql config (contains schemas,
---- collections, service_fields and indexes)
---- @tparam string accessor type of desired accessor (space or shard)
---- @tparam table accessor_funcs set of functions to overwrite accessor
---- inner functions (`is_collection_exists`, `get_index`, `get_primary_index`,
---- `unflatten_tuple`, For more detailed description see @{accessor_general.new})
---- These function allow this abstract data accessor behaves in the certain way.
---- Note that accessor_space and accessor_shard have their own set of these functions
---- and accessorFuncs argument (if passed) will be used to overwrite them
+--- collections, service_fields, indexes and so on)
+---
+--- @treturn table `accessor` created accessor instance
 local function create_default_accessor(cfg)
     check(cfg.accessor, 'cfg.accessor', 'string')
     assert(cfg.accessor == 'space' or cfg.accessor == 'shard',
@@ -1726,32 +1721,24 @@ local function create_default_accessor(cfg)
     check(cfg.collection_use_tomap, 'cfg.collection_use_tomap', 'table', 'nil')
     check(cfg.accessor_funcs, 'cfg.accessor_funcs', 'table', 'nil')
 
+    local accessor_cfg = {
+        schemas = cfg.schemas,
+        collections = cfg.collections,
+        service_fields = cfg.service_fields,
+        indexes = cfg.indexes,
+        collection_use_tomap = cfg.collection_use_tomap,
+        resulting_object_cnt_max = cfg.resulting_object_cnt_max,
+        fetched_object_cnt_max = cfg.fetched_object_cnt_max,
+        timeout_ms = cfg.timeout_ms,
+        enable_mutations = cfg.enable_mutations,
+    }
+
     if cfg.accessor == 'space' then
-        return accessor_space.new({
-            schemas = cfg.schemas,
-            collections = cfg.collections,
-            service_fields = cfg.service_fields,
-            indexes = cfg.indexes,
-            collection_use_tomap = cfg.collection_use_tomap,
-            resulting_object_cnt_max = cfg.resulting_object_cnt_max,
-            fetched_object_cnt_max = cfg.fetched_object_cnt_max,
-            timeout_ms = cfg.timeout_ms,
-            enable_mutations = cfg.enable_mutations,
-        }, cfg.accessor_funcs)
+        return accessor_space.new(accessor_cfg, cfg.accessor_funcs)
     end
 
     if cfg.accessor == 'shard' then
-        return accessor_shard.new({
-            schemas = cfg.schemas,
-            collections = cfg.collections,
-            service_fields = cfg.service_fields,
-            indexes = cfg.indexes,
-            collection_use_tomap = cfg.collection_use_tomap,
-            resulting_object_cnt_max = cfg.resulting_object_cnt_max,
-            fetched_object_cnt_max = cfg.fetched_object_cnt_max,
-            timeout_ms = cfg.timeout_ms,
-            enable_mutations = cfg.enable_mutations,
-        }, cfg.accessor_funcs)
+        return accessor_shard.new(accessor_cfg, cfg.accessor_funcs)
     end
 end
 
