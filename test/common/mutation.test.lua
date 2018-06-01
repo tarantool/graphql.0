@@ -8,7 +8,6 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local tap = require('tap')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local test_utils = require('test.utils')
 local testdata = require('test.testdata.common_testdata')
 
@@ -76,7 +75,7 @@ local function check_insert(test, gql_wrapper, virtbox, mutation_insert,
     local dont_pass_variables = opts.dont_pass_variables or false
     local meta = opts.meta
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         test:plan(7)
         local user_id = 'user_id_new_1'
         local order_id = 'order_id_new_1'
@@ -132,7 +131,7 @@ local function check_update(test, gql_wrapper, virtbox, mutation_update,
     local extra_xorder = opts.extra_xorder or {}
     local extra_xuser = opts.extra_xuser or {}
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         test:plan(7)
         local user_id = 'user_id_1'
         local order_id = 'order_id_1'
@@ -211,7 +210,7 @@ local function check_delete(test, gql_wrapper, virtbox, mutation_delete,
     local opts = opts or {}
     local dont_pass_variables = opts.dont_pass_variables or false
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         test:plan(5)
         local user_id = 'user_id_1'
         local order_id = 'order_id_1'

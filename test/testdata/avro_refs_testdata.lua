@@ -7,7 +7,6 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local test_utils = require('test.utils')
 
 local testdata = {}
@@ -209,18 +208,18 @@ function testdata.run_queries(gql_wrapper)
     ]]
     local query_1_p = query_1:gsub('foo', 'foo_2')
 
-    local gql_query_1 = utils.show_trace(function()
+    local gql_query_1 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1)
     end)
-    local gql_query_1_p = utils.show_trace(function()
+    local gql_query_1_p = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1_p)
     end)
 
     local variables_1_1 = {id = 1}
-    local result_1_1 = utils.show_trace(function()
+    local result_1_1 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1_1)
     end)
-    local result_1_1_p = utils.show_trace(function()
+    local result_1_1_p = test_utils.show_trace(function()
         return gql_query_1_p:execute(variables_1_1)
     end)
 
@@ -253,10 +252,10 @@ function testdata.run_queries(gql_wrapper)
     test:is_deeply(result_1_1_p, exp_result_1_1_p, '1_1_p')
 
     local variables_1_2 = {id = 2}
-    local result_1_2 = utils.show_trace(function()
+    local result_1_2 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1_2)
     end)
-    local result_1_2_p = utils.show_trace(function()
+    local result_1_2_p = test_utils.show_trace(function()
         return gql_query_1_p:execute(variables_1_2)
     end)
 

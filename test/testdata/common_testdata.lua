@@ -1,7 +1,6 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local test_utils = require('test.utils')
 
 local common_testdata = {}
@@ -340,7 +339,7 @@ function common_testdata.run_queries(gql_wrapper)
 
     local variables_1 = {order_id = 'order_id_1'}
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local gql_query_1 = gql_wrapper:compile(query_1)
         local result = gql_query_1:execute(variables_1)
         test:is_deeply(result, exp_result_1, '1')
@@ -360,7 +359,7 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local gql_query_1n = gql_wrapper:compile(query_1n)
         local result = gql_query_1n:execute(variables_1)
         test:is_deeply(result, exp_result_1, '1n')
@@ -380,7 +379,7 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local gql_query_1inn = gql_wrapper:compile(query_1inn)
         local result = gql_query_1inn:execute({})
         test:is_deeply(result, exp_result_1, '1inn')
@@ -427,7 +426,7 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1t = utils.show_trace(function()
+    local gql_query_1t = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1t)
     end)
 
@@ -443,7 +442,7 @@ function common_testdata.run_queries(gql_wrapper)
     test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
         'wrong operation name should give an error')
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local result = gql_query_1t:execute({}, 'user_by_order')
         test:is_deeply(result, exp_result_1, 'execute an operation by name')
     end)
@@ -463,7 +462,7 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_2 = utils.show_trace(function()
+    local gql_query_2 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_2)
     end)
 
@@ -480,7 +479,7 @@ function common_testdata.run_queries(gql_wrapper)
             description: second order of Ivan
     ]]):strip())
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_2_1 = {user_id = 'user_id_1'}
         local result = gql_query_2:execute(variables_2_1)
         test:is_deeply(result, exp_result_2_1, '2_1')
@@ -515,7 +514,7 @@ function common_testdata.run_queries(gql_wrapper)
             description: order of user 42
     ]]):strip())
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_2_2 = {
             user_id = 'user_id_42',
             limit = 10,
@@ -538,7 +537,7 @@ function common_testdata.run_queries(gql_wrapper)
             description: order of user 42
     ]]):strip())
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_2_3 = {
             user_id = 'user_id_42',
             limit = 10,
@@ -559,7 +558,7 @@ function common_testdata.run_queries(gql_wrapper)
             description: order of user 42
     ]]):strip())
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_2_4 = {
             first_name = 'first name 42',
             limit = 3,
@@ -659,7 +658,7 @@ function common_testdata.run_queries(gql_wrapper)
     ]]):strip())
 
     -- no limit, no offset
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_2_5 = {user_id = 'user_id_42'}
         local result = gql_query_2:execute(variables_2_5)
         test:is_deeply(result, exp_result_2_5, '2_5')
@@ -710,7 +709,7 @@ function common_testdata.run_queries(gql_wrapper)
           first_name: first name 62
     ]]):strip())
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_3 = {
             limit = 10,
             offset = 'user_id_53', -- 50th (alphabetical sort)
@@ -737,7 +736,7 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_4 = utils.show_trace(function()
+    local gql_query_4 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_4)
     end)
 
@@ -753,7 +752,7 @@ function common_testdata.run_queries(gql_wrapper)
     ]]):strip())
 
     -- should match 1 order
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_4_1 = {
             first_name = 'Ivan',
             description = 'first order of Ivan',
@@ -772,7 +771,7 @@ function common_testdata.run_queries(gql_wrapper)
     ]]):strip())
 
     -- should match no orders
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_4_2 = {
             first_name = 'Ivan',
             description = 'non-existent order',
@@ -798,7 +797,7 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_5 = utils.show_trace(function()
+    local gql_query_5 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_5)
     end)
 
@@ -814,7 +813,7 @@ function common_testdata.run_queries(gql_wrapper)
     ]]):strip())
 
     -- should match 1 user
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_5_1 = {
             first_name = 'Ivan',
             description = 'first order of Ivan',
@@ -829,7 +828,7 @@ function common_testdata.run_queries(gql_wrapper)
     ]]):strip())
 
     -- should match no users (or give an error?)
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_5_2 = {
             first_name = 'non-existent user',
             description = 'first order of Ivan',
@@ -880,13 +879,13 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_6 = utils.show_trace(function()
+    local gql_query_6 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_6)
     end)
-    local gql_query_6_i_true = utils.show_trace(function()
+    local gql_query_6_i_true = test_utils.show_trace(function()
         return gql_wrapper:compile(query_6_i_true)
     end)
-    local gql_query_6_i_false = utils.show_trace(function()
+    local gql_query_6_i_false = test_utils.show_trace(function()
         return gql_wrapper:compile(query_6_i_false)
     end)
 
@@ -945,7 +944,7 @@ function common_testdata.run_queries(gql_wrapper)
           discount: 363.33334350586
     ]]):strip())
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local variables_6_1 = {limit = 10}
         local result = gql_query_6:execute(variables_6_1)
         local exp_result_6_1 = deeply_number_tostring(exp_result_6_1)
@@ -1008,7 +1007,7 @@ function common_testdata.run_queries(gql_wrapper)
           discount: 366.33334350586
     ]]):strip())
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local exp_result_6_2 = deeply_number_tostring(exp_result_6_2)
 
         local variables_6_2 = {limit = 10, in_stock = true}
@@ -1077,7 +1076,7 @@ function common_testdata.run_queries(gql_wrapper)
           discount: 366
     ]]):strip())
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         local exp_result_6_3 = deeply_number_tostring(exp_result_6_3)
 
         local variables_6_3 = {limit = 10, in_stock = false}

@@ -8,7 +8,6 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local test_utils = require('test.utils')
 
 local nullable_1_1_conn_testdata = {}
@@ -286,11 +285,11 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_downside = utils.show_trace(function()
+    local gql_query_downside = test_utils.show_trace(function()
         return gql_wrapper:compile(query_downside)
     end)
 
-    local result = utils.show_trace(function()
+    local result = test_utils.show_trace(function()
         local variables_downside_a = {body = 'a'}
         return gql_query_downside:execute(variables_downside_a)
     end)
@@ -316,7 +315,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
 
     test:is_deeply(result, exp_result, 'downside_a')
 
-    local result = utils.show_trace(function()
+    local result = test_utils.show_trace(function()
         local variables_downside_h = {body = 'h'}
         return gql_query_downside:execute(variables_downside_h)
     end)
@@ -358,7 +357,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
 
     local gql_query_upside = gql_wrapper:compile(query_upside)
 
-    local result = utils.show_trace(function()
+    local result = test_utils.show_trace(function()
         local variables_upside = {body = 'f'}
         return gql_query_upside:execute(variables_upside)
     end)

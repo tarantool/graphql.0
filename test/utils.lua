@@ -6,6 +6,7 @@ local fio = require('fio')
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../?.lua' .. ';' .. package.path
 
+local log = require('log')
 local avro_schema = require('avro_schema')
 local graphql = require('graphql')
 local multirunner = require('test.common.multirunner')
@@ -153,6 +154,19 @@ function utils.run_testdata(testdata, opts)
         servers = {'shard1', 'shard2', 'shard3', 'shard4'},
         use_tcp = false,
     })
+end
+
+--- Log an error and the corresponding backtrace in case of the `func` function
+--- call raises the error.
+function utils.show_trace(func, ...)
+    local args = {...}
+    return select(2, xpcall(
+        function() return func(unpack(args)) end,
+        function(err)
+            log.info('ERROR: ' .. tostring(err))
+            log.info(debug.traceback())
+        end
+    ))
 end
 
 return utils

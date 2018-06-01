@@ -1,7 +1,7 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
+local test_utils = require('test.utils')
 
 local multihead_conn_testdata = {}
 
@@ -359,12 +359,12 @@ function multihead_conn_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1 = utils.show_trace(function()
+    local gql_query_1 = test_utils.show_trace(function()
         return gql_wrapper:compile(query)
     end)
 
     local variables_1_1 = {hero_id = 'hero_id_1'}
-    local result_1_1 = utils.show_trace(function()
+    local result_1_1 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1_1)
     end)
     local exp_result_1_1 = yaml.decode(([[
@@ -387,7 +387,7 @@ function multihead_conn_testdata.run_queries(gql_wrapper)
     test:is_deeply(result_1_1, exp_result_1_1, '1_1')
 
     local variables_1_2 = {hero_id = 'hero_id_2'}
-    local result_1_2 = utils.show_trace(function()
+    local result_1_2 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1_2)
     end)
     local exp_result_1_2 = yaml.decode(([[

@@ -5,7 +5,6 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local test_utils = require('test.utils')
 
 local testdata = {}
@@ -107,7 +106,7 @@ function testdata.run_queries(gql_wrapper)
     ]]
 
     local variables_1 = {uid = 5}
-    local result_1 = utils.show_trace(function()
+    local result_1 = test_utils.show_trace(function()
         local gql_query_1 = gql_wrapper:compile(query_1)
         return gql_query_1:execute(variables_1)
     end)
@@ -142,7 +141,7 @@ function testdata.run_queries(gql_wrapper)
     ]]
 
     local variables_2 = {x = 1005}
-    local result_2 = utils.show_trace(function()
+    local result_2 = test_utils.show_trace(function()
         local gql_query_2 = gql_wrapper:compile(query_2)
         return gql_query_2:execute(variables_2)
     end)

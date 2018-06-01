@@ -1,7 +1,6 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local test_utils = require('test.utils')
 
 local compound_index_testdata = {}
@@ -205,11 +204,11 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1 = utils.show_trace(function()
+    local gql_query_1 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1)
     end)
 
-    local result_1_1 = utils.show_trace(function()
+    local result_1_1 = test_utils.show_trace(function()
         local variables_1_1 = {user_str = 'user_str_b', user_num = 12}
         return gql_query_1:execute(variables_1_1)
     end)
@@ -228,7 +227,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
     -- }}}
     -- {{{ get a top-level object by a full compound primary key plus filter
 
-    local result_1_2 = utils.show_trace(function()
+    local result_1_2 = test_utils.show_trace(function()
         local variables_1_2 = {
             user_str = 'user_str_b',
             user_num = 12,
@@ -248,7 +247,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
     -- {{{ select top-level objects by a partial compound primary key (or maybe
     -- use fullscan)
 
-    local result_1_3 = utils.show_trace(function()
+    local result_1_3 = test_utils.show_trace(function()
         local variables_1_3 = {user_num = 12}
         return gql_query_1:execute(variables_1_3)
     end)
@@ -280,7 +279,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
 
     test:is_deeply(result_1_3, exp_result_1_3, '1_3')
 
-    local result_1_4 = utils.show_trace(function()
+    local result_1_4 = test_utils.show_trace(function()
         local variables_1_4 = {user_str = 'user_str_b'}
         return gql_query_1:execute(variables_1_4)
     end)
@@ -376,7 +375,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
     -- {{{ select top-level objects by a partial compound primary key plus
     -- filter (or maybe use fullscan)
 
-    local result_1_5 = utils.show_trace(function()
+    local result_1_5 = test_utils.show_trace(function()
         local variables_1_5 = {
             user_num = 12,
             first_name = 'non-existent'
@@ -391,7 +390,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
 
     test:is_deeply(result_1_5, exp_result_1_5, '1_5')
 
-    local result_1_6 = utils.show_trace(function()
+    local result_1_6 = test_utils.show_trace(function()
         local variables_1_6 = {
             user_str = 'user_str_b',
             first_name = 'non-existent'
@@ -425,11 +424,11 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_2 = utils.show_trace(function()
+    local gql_query_2 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_2)
     end)
 
-    local result_2_1 = utils.show_trace(function()
+    local result_2_1 = test_utils.show_trace(function()
         local variables_2_1 = {user_str = 'user_str_b', user_num = 12}
         return gql_query_2:execute(variables_2_1)
     end)
@@ -479,7 +478,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
     -- }}}
     -- {{{ select objects by a connection by a full compound index plus filter
 
-    local result_2_2 = utils.show_trace(function()
+    local result_2_2 = test_utils.show_trace(function()
         local variables_2_2 = {
             user_str = 'user_str_b',
             user_num = 12,
@@ -519,7 +518,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local result_3 = utils.show_trace(function()
+    local result_3 = test_utils.show_trace(function()
         local gql_query_3 = gql_wrapper:compile(query_3)
         local variables_3 = {user_str = 'user_str_b', user_num = 12}
         return gql_query_3:execute(variables_3)
@@ -1158,11 +1157,11 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_4 = utils.show_trace(function()
+    local gql_query_4 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_4)
     end)
 
-    local result_4_1 = utils.show_trace(function()
+    local result_4_1 = test_utils.show_trace(function()
         local variables_4_1 = {
             limit = 10,
             offset = {
@@ -1264,11 +1263,11 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_5 = utils.show_trace(function()
+    local gql_query_5 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_5)
     end)
 
-    local result_5_1 = utils.show_trace(function()
+    local result_5_1 = test_utils.show_trace(function()
         local variables_5_1 = {
             user_str = 'user_str_b',
             user_num = 12,
@@ -1347,7 +1346,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local result_6 = utils.show_trace(function()
+    local result_6 = test_utils.show_trace(function()
         local gql_query_6 = gql_wrapper:compile(query_6)
         local variables_6 = {
             limit = 10,

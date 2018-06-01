@@ -6,7 +6,6 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local test_utils = require('test.utils')
 
 local nullable_index_testdata = {}
@@ -346,12 +345,12 @@ function nullable_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_2 = utils.show_trace(function()
+    local gql_query_2 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_2)
     end)
 
     -- fullscan; expected to see objects with ID > 100
-    local result = utils.show_trace(function()
+    local result = test_utils.show_trace(function()
         local variables_2_1 = {}
         return gql_query_2:execute(variables_2_1)
     end)
@@ -418,7 +417,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
     test:is_deeply(result, exp_result, '2_1')
 
     -- lookup by the unique index; expected to see only the object with ID 42
-    local result = utils.show_trace(function()
+    local result = test_utils.show_trace(function()
         local variables_2_2 = {
             id_or_null_1 = '42',
             id_or_null_2 = '42',
@@ -437,7 +436,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
 
     -- lookup by the non-unique index; expected to see only the object with ID
     -- 42
-    local result = utils.show_trace(function()
+    local result = test_utils.show_trace(function()
         local variables_2_3 = {
             id_or_null_2 = '42',
             id_or_null_3 = '42',
@@ -472,12 +471,12 @@ function nullable_index_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_3 = utils.show_trace(function()
+    local gql_query_3 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_3)
     end)
 
     local variables_3_1 = {id = '42'}
-    local result_3_1 = utils.show_trace(function()
+    local result_3_1 = test_utils.show_trace(function()
         return gql_query_3:execute(variables_3_1)
     end)
     local exp_result_3_1 = yaml.decode(([[
@@ -492,7 +491,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
     test:is_deeply(result_3_1, exp_result_3_1, '3_1')
 
     local variables_3_2 = {id = '103'}
-    local result_3_2 = utils.show_trace(function()
+    local result_3_2 = test_utils.show_trace(function()
         return gql_query_3:execute(variables_3_2)
     end)
     local exp_result_3_2 = yaml.decode(([[

@@ -4,19 +4,6 @@ local log = require('log')
 
 local utils = {}
 
---- Log an error and the corresponding backtrace in case of the `func` function
---- call raises the error.
-function utils.show_trace(func, ...)
-    local args = {...}
-    return select(2, xpcall(
-        function() return func(unpack(args)) end,
-        function(err)
-            log.info('ERROR: ' .. tostring(err))
-            log.info(debug.traceback())
-        end
-    ))
-end
-
 --- Recursively checks whether `sub` fields values are match `t` ones.
 function utils.is_subtable(t, sub)
     for k, v in pairs(sub) do

@@ -8,7 +8,6 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local tap = require('tap')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local test_utils = require('test.utils')
 local testdata = require('test.testdata.common_testdata')
 
@@ -28,7 +27,7 @@ local function run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1 = utils.show_trace(function()
+    local gql_query_1 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1)
     end)
 
@@ -39,7 +38,7 @@ local function run_queries(gql_wrapper)
         middle_name_re = 'ich$',
     }
 
-    local result_1_1 = utils.show_trace(function()
+    local result_1_1 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1_1)
     end)
 
@@ -61,7 +60,7 @@ local function run_queries(gql_wrapper)
         first_name_re = '^V',
     }
 
-    local result_1_2 = utils.show_trace(function()
+    local result_1_2 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1_2)
     end)
 
@@ -82,7 +81,7 @@ local function run_queries(gql_wrapper)
         middle_name_re = 'ич$',
     }
 
-    local result_1_3 = utils.show_trace(function()
+    local result_1_3 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1_3)
     end)
 
@@ -113,11 +112,11 @@ local function run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1i = utils.show_trace(function()
+    local gql_query_1i = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1i)
     end)
 
-    local result_1i_1 = utils.show_trace(function()
+    local result_1i_1 = test_utils.show_trace(function()
         return gql_query_1i:execute({})
     end)
 
