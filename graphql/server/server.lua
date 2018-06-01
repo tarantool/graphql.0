@@ -26,6 +26,8 @@ local function static_handler(req)
 
     if path == '/' then
         path = fio.pathjoin('graphiql', 'index.html')
+    else
+        path = fio.pathjoin('graphiql', path)
     end
 
     local lib_dir = utils.script_path()
