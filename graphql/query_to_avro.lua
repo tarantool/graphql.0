@@ -135,18 +135,22 @@ object_to_avro = function(object_type, selections, context)
     return result
 end
 
---- Create an Avro schema for a given query.
+--- Create an Avro schema for a given query / operation.
 ---
---- @tparam table query object which avro schema should be created for
+--- @tparam table qstate compiled query for which the avro schema should be
+--- created
 ---
---- @treturn table `avro_schema` avro schema for any `query:execute()` result
-function query_to_avro.convert(query)
-    assert(type(query) == "table",
-        ('query should be a table, got: %s; ' ..
+--- @tparam[opt] string operation_name optional operation name
+---
+--- @treturn table `avro_schema` avro schema for any
+--- `qstate:execute(..., operation_name)` result
+function query_to_avro.convert(qstate, operation_name)
+    assert(type(qstate) == "table",
+        ('qstate should be a table, got: %s; ' ..
         'hint: use ":" instead of "."'):format(type(table)))
-    local state = query.state
-    local context = query_util.buildContext(state.schema, query.ast, {}, {},
-        query.operation_name)
+    local state = qstate.state
+    local context = query_util.buildContext(state.schema, qstate.ast, {}, {},
+        operation_name)
     -- The variable is necessary to avoid fullname interferention.
     -- Each nested Avro record creates it's namespace.
     context.namespace_parts = {}

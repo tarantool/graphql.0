@@ -107,7 +107,14 @@ function server.init(graphql, host, port)
             }
         end
 
-        local ok, result = pcall(compiled_query.execute, compiled_query, variables)
+        local operation_name = parsed.operationName
+        -- box.NULL -> nil
+        if operation_name == nil then
+            operation_name = nil
+        end
+
+        local ok, result = pcall(compiled_query.execute, compiled_query,
+            variables, operation_name)
         if not ok then
             return {
                 status = 200,
