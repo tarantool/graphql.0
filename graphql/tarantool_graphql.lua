@@ -1617,64 +1617,67 @@ local function parse_cfg(cfg)
     return state
 end
 
---- The function just makes some reasonable assertions on input
---- and then call graphql-lua execute.
-local function gql_execute(qstate, variables)
+--- Execute an operation from compiled query.
+---
+--- @tparam qstate compiled query
+---
+--- @tparam variables variables to pass to the query
+---
+--- @tparam[opt] string operation_name optional operation name
+---
+--- @treturn table result of the operation
+local function gql_execute(qstate, variables, operation_name)
     assert(qstate.state)
     local state = qstate.state
     assert(state.schema)
 
-    assert(type(variables) == 'table', 'variables must be table, got ' ..
-        type(variables))
+    check(variables, 'variables', 'table')
+    check(operation_name, 'operation_name', 'string', 'nil')
 
     local root_value = {}
-    local operation_name = qstate.operation_name
-    assert(type(operation_name) == 'string',
-        'operation_name must be a string, got ' .. type(operation_name))
 
     return execute(state.schema, qstate.ast, root_value, variables,
         operation_name)
 end
 
-local function compile_and_execute(state, query, variables)
+--- Compile a query and execute an operation.
+---
+--- See @{gql_compile} and @{gql_execute} for parameters description.
+---
+--- @treturn table result of the operation
+local function compile_and_execute(state, query, variables, operation_name)
     assert(type(state) == 'table', 'use :gql_execute(...) instead of ' ..
         '.execute(...)')
+    assert(state.schema ~= nil, 'have not compiled schema')
     check(query, 'query', 'string')
     check(variables, 'variables', 'table', 'nil')
+    check(operation_name, 'operation_name', 'string', 'nil')
+
     local compiled_query = state:compile(query)
-    return compiled_query:execute(variables)
+    return compiled_query:execute(variables, operation_name)
 end
 
---- The function parses a query string, validate the resulting query
---- against the GraphQL schema and provides an object with the function to
---- execute the query with specific variables values.
+--- Parse GraphQL query string, validate against the GraphQL schema and
+--- provide an object with the function to execute an operation from the
+--- request with specific variables values.
 ---
---- @tparam table state current state of graphql, including
---- schemas, collections and accessor
---- @tparam string query query string
+--- @tparam table state a tarantool_graphql instance
+---
+--- @tparam string query text of a GraphQL query
+---
+--- @treturn table compiled query with `execute` and `avro_schema` functions
 local function gql_compile(state, query)
     assert(type(state) == 'table' and type(query) == 'string',
         'use :validate(...) instead of .validate(...)')
     assert(state.schema ~= nil, 'have not compiled schema')
+    check(query, 'query', 'string')
 
     local ast = parse(query)
-
-    local operation_name
-    for _, definition in pairs(ast.definitions) do
-        if definition.kind == 'operation' then
-            operation_name = definition.name.value
-        end
-    end
-
-    assert(operation_name, "there is no 'operation' in query " ..
-        "definitions:\n" .. yaml.encode(ast))
-
     validate(state.schema, ast)
 
     local qstate = {
         state = state,
         ast = ast,
-        operation_name = operation_name,
     }
 
     local gql_query = setmetatable(qstate, {
@@ -1719,11 +1722,11 @@ function tarantool_graphql.compile(query)
     return default_instance:compile(query)
 end
 
-function tarantool_graphql.execute(query, variables)
+function tarantool_graphql.execute(query, variables, operation_name)
     if default_instance == nil then
         default_instance = tarantool_graphql.new()
     end
-    return default_instance:execute(query, variables)
+    return default_instance:execute(query, variables, operation_name)
 end
 
 function tarantool_graphql.start_server()

@@ -311,7 +311,7 @@ end
 
 function common_testdata.run_queries(gql_wrapper)
     local test = tap.test('common')
-    test:plan(18)
+    test:plan(24)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -338,11 +338,114 @@ function common_testdata.run_queries(gql_wrapper)
             first_name: Ivan
     ]]):strip())
 
+    local variables_1 = {order_id = 'order_id_1'}
+
     utils.show_trace(function()
-        local variables_1 = {order_id = 'order_id_1'}
         local gql_query_1 = gql_wrapper:compile(query_1)
         local result = gql_query_1:execute(variables_1)
         test:is_deeply(result, exp_result_1, '1')
+    end)
+
+    local query_1n = [[
+        query($order_id: String) {
+            order_collection(order_id: $order_id) {
+                order_id
+                description
+                user_connection {
+                    user_id
+                    last_name
+                    first_name
+                }
+            }
+        }
+    ]]
+
+    utils.show_trace(function()
+        local gql_query_1n = gql_wrapper:compile(query_1n)
+        local result = gql_query_1n:execute(variables_1)
+        test:is_deeply(result, exp_result_1, '1n')
+    end)
+
+    local query_1inn = [[
+        {
+            order_collection(order_id: "order_id_1") {
+                order_id
+                description
+                user_connection {
+                    user_id
+                    last_name
+                    first_name
+                }
+            }
+        }
+    ]]
+
+    utils.show_trace(function()
+        local gql_query_1inn = gql_wrapper:compile(query_1inn)
+        local result = gql_query_1inn:execute({})
+        test:is_deeply(result, exp_result_1, '1inn')
+    end)
+
+    local query_1tn = [[
+        query get_order {
+            order_collection(order_id: "order_id_1") {
+                order_id
+                description
+            }
+        }
+        query {
+            order_collection(order_id: "order_id_1") {
+                order_id
+                description
+            }
+        }
+    ]]
+
+    local err_exp = 'Cannot have more than one operation when using ' ..
+        'anonymous operations'
+    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_1tn)
+    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+        'unnamed query should be a single one')
+
+    local query_1t = [[
+        query user_by_order {
+            order_collection(order_id: "order_id_1") {
+                order_id
+                description
+                user_connection {
+                    user_id
+                    last_name
+                    first_name
+                }
+            }
+        }
+        query get_order {
+            order_collection(order_id: "order_id_1") {
+                order_id
+                description
+            }
+        }
+    ]]
+
+    local gql_query_1t = utils.show_trace(function()
+        return gql_wrapper:compile(query_1t)
+    end)
+
+    local err_exp = 'Operation name must be specified if more than one ' ..
+        'operation exists.'
+    local ok, err = pcall(gql_query_1t.execute, gql_query_1t, {})
+    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+        'non-determined query name should give an error')
+
+    local err_exp = 'Unknown operation "non_existent_operation"'
+    local ok, err = pcall(gql_query_1t.execute, gql_query_1t, {},
+        'non_existent_operation')
+    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+        'wrong operation name should give an error')
+
+    utils.show_trace(function()
+        local result = gql_query_1t:execute({}, 'user_by_order')
+        test:is_deeply(result, exp_result_1, 'execute an operation by name')
     end)
 
     local query_2 = [[
