@@ -1,7 +1,7 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 
 local array_testdata = {}
 

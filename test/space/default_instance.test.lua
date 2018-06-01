@@ -5,7 +5,7 @@ local yaml = require('yaml')
 local json = require('json')
 local fio = require('fio')
 local http = require('http.client').new()
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path

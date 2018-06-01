@@ -10,17 +10,17 @@ local log = require('log')
 local avro_schema = require('avro_schema')
 local graphql = require('graphql')
 local multirunner = require('test.common.multirunner')
-local graphql_utils = require('graphql.utils')
-local test_run = graphql_utils.optional_require('test_run')
+local utils = require('graphql.utils')
+local test_run = utils.optional_require('test_run')
 test_run = test_run and test_run.new()
 
-local utils = {}
+local test_utils = {}
 
 -- module-local variables
 local models_cache
 
 -- simplified version of the same named function from accessor_general.lua
-function utils.compile_schemas(schemas, service_fields)
+function test_utils.compile_schemas(schemas, service_fields)
     local service_fields_types = {}
     for name, service_fields_list in pairs(service_fields) do
         local sf_types = {}
@@ -49,7 +49,7 @@ local function get_model(meta, collection_name)
     local schema_name = meta.collections[collection_name].schema_name
     assert(schema_name ~= nil)
     if models_cache == nil then
-        models_cache = utils.compile_schemas(meta.schemas,
+        models_cache = test_utils.compile_schemas(meta.schemas,
             meta.service_fields)
     end
     local model = models_cache[schema_name]
@@ -57,7 +57,7 @@ local function get_model(meta, collection_name)
     -- same-named schemas within the one test; the result will be incorrect in
     -- the case.
     if model == nil then
-        models_cache = utils.compile_schemas(meta.schemas,
+        models_cache = test_utils.compile_schemas(meta.schemas,
             meta.service_fields)
         model = models_cache[schema_name]
     end
@@ -65,11 +65,11 @@ local function get_model(meta, collection_name)
     return model
 end
 
-function utils.clear_models_cache()
+function test_utils.clear_models_cache()
     models_cache = nil
 end
 
-function utils.flatten_object(meta, collection_name, object,
+function test_utils.flatten_object(meta, collection_name, object,
         service_field_values)
     local model = get_model(meta, collection_name)
     local ok, tuple = model.flatten(object, unpack(service_field_values or {}))
@@ -77,21 +77,21 @@ function utils.flatten_object(meta, collection_name, object,
     return tuple
 end
 
-function utils.unflatten_tuple(meta, collection_name, tuple)
+function test_utils.unflatten_tuple(meta, collection_name, tuple)
     local model = get_model(meta, collection_name)
     local ok, object = model.unflatten(tuple)
     assert(ok, tostring(object))
     return object
 end
 
-function utils.replace_object(virtbox, meta, collection_name, object,
+function test_utils.replace_object(virtbox, meta, collection_name, object,
         service_field_values)
-    local tuple = utils.flatten_object(meta, collection_name, object,
+    local tuple = test_utils.flatten_object(meta, collection_name, object,
         service_field_values)
     virtbox[collection_name]:replace(tuple)
 end
 
-function utils.major_avro_schema_version()
+function test_utils.major_avro_schema_version()
     local ok, handle = avro_schema.create('boolean')
     assert(ok)
     local ok, model = avro_schema.compile(handle)
@@ -100,12 +100,12 @@ function utils.major_avro_schema_version()
 end
 
 -- return an error w/o file name and line number
-function utils.strip_error(err)
+function test_utils.strip_error(err)
     local res = tostring(err):gsub('^.-:.-: (.*)$', '%1')
     return res
 end
 
-function utils.graphql_from_testdata(testdata, shard, graphql_opts)
+function test_utils.graphql_from_testdata(testdata, shard, graphql_opts)
     local graphql_opts = graphql_opts or {}
     local meta = testdata.meta or testdata.get_test_metadata()
 
@@ -117,13 +117,13 @@ function utils.graphql_from_testdata(testdata, shard, graphql_opts)
         accessor = shard and 'shard' or 'space',
     }
 
-    local gql_wrapper = graphql.new(graphql_utils.merge_tables(
+    local gql_wrapper = graphql.new(utils.merge_tables(
         default_graphql_opts, graphql_opts))
 
     return gql_wrapper
 end
 
-function utils.run_testdata(testdata, opts)
+function test_utils.run_testdata(testdata, opts)
     local opts = opts or {}
     local run_queries = opts.run_queries or testdata.run_queries
     -- custom workload for, say, test different options on several graphql
@@ -136,7 +136,7 @@ function utils.run_testdata(testdata, opts)
     multirunner.run_conf(conf_name, {
         test_run = test_run,
         init_function = testdata.init_spaces,
-        init_function_params = {utils.major_avro_schema_version()},
+        init_function_params = {test_utils.major_avro_schema_version()},
         cleanup_function = testdata.drop_spaces,
         workload = function(conf_name, shard)
             if workload then
@@ -145,11 +145,11 @@ function utils.run_testdata(testdata, opts)
                 local virtbox = shard or box.space
                 local meta = testdata.meta or testdata.get_test_metadata()
                 testdata.fill_test_data(virtbox, meta)
-                local gql_wrapper = utils.graphql_from_testdata(testdata, shard,
-                    opts.graphql_opts)
+                local gql_wrapper = test_utils.graphql_from_testdata(testdata,
+                    shard, opts.graphql_opts)
                 run_queries(gql_wrapper, virtbox, meta)
             end
-            utils.clear_models_cache()
+            test_utils.clear_models_cache()
         end,
         servers = {'shard1', 'shard2', 'shard3', 'shard4'},
         use_tcp = false,
@@ -158,7 +158,7 @@ end
 
 --- Log an error and the corresponding backtrace in case of the `func` function
 --- call raises the error.
-function utils.show_trace(func, ...)
+function test_utils.show_trace(func, ...)
     local args = {...}
     return select(2, xpcall(
         function() return func(unpack(args)) end,
@@ -169,4 +169,4 @@ function utils.show_trace(func, ...)
     ))
 end
 
-return utils
+return test_utils

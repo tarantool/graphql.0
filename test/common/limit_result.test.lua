@@ -7,7 +7,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 local tap = require('tap')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.user_order_item_testdata')
 
 local function run_queries(gql_wrapper)

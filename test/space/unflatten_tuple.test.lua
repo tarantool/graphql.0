@@ -11,7 +11,7 @@ local tap = require('tap')
 local yaml = require('yaml')
 local avro = require('avro_schema')
 local graphql = require('graphql')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
 
 -- init box, upload test data and acquire metadata

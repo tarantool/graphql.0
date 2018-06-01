@@ -6,7 +6,7 @@ local fio = require('fio')
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
-local utils = require('test.utils')
+local utils = require('test.test_utils')
 local testdata = require('test.testdata.union_testdata')
 
 box.cfg({})

@@ -8,7 +8,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local tap = require('tap')
 local yaml = require('yaml')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
 
 box.cfg({})

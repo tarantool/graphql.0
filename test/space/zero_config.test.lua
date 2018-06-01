@@ -3,7 +3,7 @@
 local tap = require('tap')
 local yaml = require('yaml')
 local graphql = require('graphql')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 
 local function init_spaces()
     local U_USER_ID_FN = 1

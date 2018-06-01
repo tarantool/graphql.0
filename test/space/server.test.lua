@@ -10,7 +10,7 @@ local yaml = require('yaml')
 local json = require('json')
 local http = require('http.client').new()
 local graphql = require('graphql')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
 
 box.cfg{background = false}

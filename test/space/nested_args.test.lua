@@ -10,7 +10,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 local tap = require('tap')
 local yaml = require('yaml')
 local graphql = require('graphql')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 local common_testdata = require('test.testdata.common_testdata')
 local emails_testdata = require('test.testdata.nullable_1_1_conn_testdata')
 

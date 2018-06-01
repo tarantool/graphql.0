@@ -10,7 +10,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 local tap = require('tap')
 local graphql = require('graphql')
 local testdata = require('test.testdata.compound_index_testdata')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 
 -- init box, upload test data and acquire metadata
 -- -----------------------------------------------
