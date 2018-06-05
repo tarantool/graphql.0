@@ -200,4 +200,13 @@ function utils.value_in(value, array)
     return false
 end
 
+function utils.optional_require_rex()
+    local rex, is_pcre2 = utils.optional_require('rex_pcre2'), true
+    if rex == nil then
+        -- fallback to libpcre
+        rex, is_pcre2 = utils.optional_require('rex_pcre'), false
+    end
+    return rex, is_pcre2
+end
+
 return utils

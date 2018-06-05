@@ -1,7 +1,10 @@
---- The module us collection of helpers to simplify avro-schema related tasks.
+--- The module is collection of helpers to simplify avro-schema related tasks.
 
 local json = require('json')
 local avro_schema = require('avro_schema')
+
+local utils = require('graphql.utils')
+local check = utils.check
 
 local avro_helpers = {}
 
@@ -81,6 +84,83 @@ function avro_helpers.major_avro_schema_version()
     local ok, model = avro_schema.compile(handle)
     assert(ok, tostring(model))
     return model.get_types == nil and 2 or 3
+end
+
+function avro_helpers.is_scalar_type(avro_schema_type)
+    check(avro_schema_type, 'avro_schema_type', 'string')
+
+    local scalar_types = {
+        ['int'] = true,
+        ['int*'] = true,
+        ['long'] = true,
+        ['long*'] = true,
+        ['float'] = true,
+        ['float*'] = true,
+        ['double'] = true,
+        ['double*'] = true,
+        ['boolean'] = true,
+        ['boolean*'] = true,
+        ['string'] = true,
+        ['string*'] = true,
+        ['null'] = true,
+    }
+
+    return scalar_types[avro_schema_type] or false
+end
+
+function avro_helpers.is_comparable_scalar_type(avro_schema_type)
+    check(avro_schema_type, 'avro_schema_type', 'string')
+
+    local scalar_types = {
+        ['int'] = true,
+        ['int*'] = true,
+        ['long'] = true,
+        ['long*'] = true,
+        ['boolean'] = true,
+        ['boolean*'] = true,
+        ['string'] = true,
+        ['string*'] = true,
+        ['null'] = true,
+    }
+
+    return scalar_types[avro_schema_type] or false
+end
+
+function avro_helpers.is_compound_type(avro_schema_type)
+    check(avro_schema_type, 'avro_schema_type', 'string')
+
+    local compound_types = {
+        ['record'] = true,
+        ['record*'] = true,
+        ['array'] = true,
+        ['array*'] = true,
+        ['map'] = true,
+        ['map*'] = true,
+    }
+
+    return compound_types[avro_schema_type] or false
+end
+
+function avro_helpers.avro_type(avro_schema, opts)
+    local opts = opts or {}
+    local allow_references = opts.allow_references or false
+
+    if type(avro_schema) == 'table' then
+        if utils.is_array(avro_schema) then
+            return 'union'
+        elseif avro_helpers.is_compound_type(avro_schema.type) then
+            return avro_schema.type
+        elseif allow_references then
+            return avro_schema
+        end
+    elseif type(avro_schema) == 'string' then
+        if avro_helpers.is_scalar_type(avro_schema) then
+            return avro_schema
+        elseif allow_references then
+            return avro_schema
+        end
+    end
+    error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
 end
 
 return avro_helpers
