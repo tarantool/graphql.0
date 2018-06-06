@@ -7,6 +7,7 @@ local avro_helpers = require('graphql.avro_helpers')
 local core_types_helpers = require('graphql.convert_schema.core_types_helpers')
 local scalar_types = require('graphql.convert_schema.scalar_types')
 local resolve = require('graphql.convert_schema.resolve')
+local helpers = require('graphql.convert_schema.helpers')
 
 local utils = require('graphql.utils')
 local check = utils.check
@@ -20,9 +21,9 @@ local types = {}
 ---
 --- @tparam table fields fields part from an avro-schema
 ---
---- @tparam table context as described in @{types.gql_type}; not used here
+--- @tparam table context as described in @{types.convert}; not used here
 --- explicitly, but `path` and `field_name` are *updated* and the `context` is
---- passed deeper within the @{types.gql_type} call
+--- passed deeper within the @{types.convert} call
 ---
 --- @treturn table `res` -- map with type names as keys and graphql types as
 --- values
@@ -37,7 +38,7 @@ local function convert_record_fields(state, fields, context)
         context.field_name = field.name
         res[field.name] = {
             name = field.name,
-            kind = types.gql_type(state, field.type, context),
+            kind = types.convert(state, field.type, {context = context}),
         }
         table.remove(context.path, #context.path)
         context.field_name = nil
@@ -84,7 +85,8 @@ end
 --- actual type table)
 --- @treturn table GraphQL Object type representing 'boxed' collection
 --- @treturn string name of the single field in the box GraphQL Object
-local function box_collection_type(type_to_box, connection_type, type_to_box_name)
+local function box_collection_type(type_to_box, connection_type,
+        type_to_box_name)
     check(type_to_box, 'type_to_box', 'table')
     check(connection_type, 'connection_type', 'string')
     check(type_to_box_name, 'type_to_box_name', 'string')
@@ -105,8 +107,16 @@ local function box_collection_type(type_to_box, connection_type, type_to_box_nam
         error('unknown connection type: ' .. tostring(connection_type))
     end
 
+    -- box_type_name seen in 'on' clause, so we cannot use full name here.
+    -- XXX: Ideally we should deduplicate it using defined names set (graphql
+    --      schema / db_schema local) and autorenaming with ..._2, ..._3.
     local field_name = type_to_box_name
-    local box_field = {[field_name] = {name = field_name, kind = type_to_box}}
+    local box_field = {
+        [field_name] = {
+            name = field_name,
+            kind = type_to_box,
+        }
+    }
     local box_type = core_types.object({
         name = box_type_name,
         description = box_type_description,
@@ -120,14 +130,13 @@ end
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.nullable_collection_types (those are gql types)
---- @tparam table avro_schema input avro-schema
---- @tparam[opt] table collection table with schema_name, connections fields
---- described a collection (e.g. tarantool's spaces)
 ---
---- @tparam table state for for collection types
---- @tparam table connection simple connection to create field on
+--- @tparam table connection simple connection to create field
+---
 --- @tparam table collection_name name of the collection which has given
 --- connection
+---
+--- @treturn table generated field
 local function convert_simple_connection(state, connection, collection_name)
     local c = connection
 
@@ -240,11 +249,18 @@ end
 --- provides the needed format.
 ---
 --- @tparam table state for collection types
---- @tparam table connection multi-head connection to create GraphQL Union on
+---
+--- @tparam table connection multi-head connection to create field
+---
 --- @tparam table collection_name name of the collection which has given
 --- connection
---- @treturn table GraphQL Union type
-local function convert_multihead_connection(state, connection, collection_name)
+---
+--- @tparam table context avro-schema parsing context as described in
+--- @{types.convert}
+---
+--- @treturn table generated field
+local function convert_multihead_connection(state, connection, collection_name,
+        context)
     local c = connection
     local union_types = {}
     local var_num_to_box_field_name = {}
@@ -275,7 +291,7 @@ local function convert_multihead_connection(state, connection, collection_name)
     local field = {
         name = c.name,
         kind = core_types.union({
-            name = c.name,
+            name = helpers.full_name(c.name, context),
             types = union_types,
         }),
         arguments = nil, -- see Border cases/Unions at the top of
@@ -289,47 +305,65 @@ end
 ---
 --- @tparam table state for read state.accessor and previously filled
 --- state.types (state.types are gql types)
---- @tparam table connection connection to create field on
+---
+--- @tparam table connection connection to create field
+---
 --- @tparam table collection_name name of the collection which have given
 --- connection
---- @treturn table simple and union connection depending on the type of
---- input connection
-local convert_connection_to_field = function(state, connection, collection_name)
-    assert(type(connection.type) == 'string',
-        'connection.type must be a string, got ' .. type(connection.type))
+---
+--- @tparam table context avro-schema parsing context as described in
+--- @{types.convert}
+---
+--- @treturn table generated field
+local convert_connection_to_field = function(state, connection, collection_name,
+        context)
+    check(connection.type, 'connection.type', 'string')
     assert(connection.type == '1:1' or connection.type == '1:1*' or
         connection.type == '1:N', 'connection.type must be 1:1, 1:1* or 1:N, '..
         'got ' .. connection.type)
-    assert(type(connection.name) == 'string',
-        'connection.name must be a string, got ' .. type(connection.name))
+    check(connection.name, 'connection.name', 'string')
     assert(connection.destination_collection or connection.variants,
         'connection must either destination_collection or variants field')
+    check(context, 'context', 'table')
 
     if connection.destination_collection then
         return convert_simple_connection(state, connection, collection_name)
     end
 
     if connection.variants then
-        return convert_multihead_connection(state, connection, collection_name)
+        return convert_multihead_connection(state, connection, collection_name,
+            context)
     end
 end
 
 --- The function 'boxes' given GraphQL type into GraphQL Object 'box' type.
 ---
 --- @tparam table type_to_box GraphQL type to be boxed
+---
 --- @tparam string box_field_name name of the single box field
+---
+--- @tparam table context avro-schema parsing context as described in
+--- @{types.convert}
+---
 --- @treturn table GraphQL Object
-local function box_type(type_to_box, box_field_name)
+local function box_type(type_to_box, box_field_name, context)
     check(type_to_box, 'type_to_box', 'table')
     check(box_field_name, 'box_field_name', 'string')
 
     local gql_true_type = core_types_helpers.nullable(type_to_box)
 
+    -- We cannot use full name for a GraphQL union variant ('boxed type'),
+    -- because it is seen by a user in 'on' clause. See also the comment in
+    -- box_collection_type().
     local box_name = gql_true_type.name or gql_true_type.__type
-    box_name = box_name .. '_box'
+    box_name = helpers.base_name(box_name .. '_box')
 
-    local box_fields = {[box_field_name] = {name = box_field_name,
-        kind = type_to_box }}
+    local box_fields = {
+        [box_field_name] = {
+            name = box_field_name,
+            kind = type_to_box,
+        }
+    }
 
     return core_types.object({
         name = box_name,
@@ -340,12 +374,12 @@ end
 
 --- The functions creates table of GraphQL types from avro-schema union type.
 ---
---- @tparam table avro-schema
+--- @tparam table avro_schema
 ---
 --- @tparam table state tarantool_graphql instance
 ---
---- @tparam table context as described in @{types.gql_type}; not used here
---- explicitly, but passed deeper within the @{types.gql_type} call
+--- @tparam table context as described in @{types.convert}; not used here
+--- explicitly, but passed deeper within the @{types.convert} call
 ---
 --- @treturn table union_types
 ---
@@ -367,9 +401,11 @@ local function create_union_types(avro_schema, state, context)
         if type == 'null' then
             is_nullable = true
         else
-            local variant_type = types.gql_type(state, type, context)
+            local variant_type = types.convert(state, type,
+                {context = context})
             local box_field_name = type.name or avro_helpers.avro_type(type)
-            union_types[#union_types + 1] = box_type(variant_type, box_field_name)
+            union_types[#union_types + 1] = box_type(variant_type,
+                box_field_name, context)
             local determinant = type.name or type.type or type
             determinant_to_type[determinant] = union_types[#union_types]
         end
@@ -431,7 +467,7 @@ end
 --- GraphQL Object is concatenation of record's name and '_box'. This Object
 --- has only one field. The name of this field is record's name. The type of this
 --- field is GraphQL Object generated from avro record schema in a usual way
---- (see @{types.gql_type})
+--- (see @{types.convert})
 ---
 ---     { "type": "record", "name": "Foo", "fields":[
 ---         { "name": "foo1", "type": "string" },
@@ -455,11 +491,11 @@ end
 ---
 --- @tparam table avro_schema avro-schema union type
 ---
---- @tparam table context as described in @{types.gql_type}; only
+--- @tparam table context as described in @{types.convert}; only
 --- `context.field_name` is used here (as the name of the generated GraphQL
 --- union); `path` is *updated* (with the field name) and the `context` is
 --- passed deeper within the @{create_union_types} call (which calls
---- @{types.gql_type} inside)
+--- @{types.convert} inside)
 ---
 --- @treturn table GraphQL Union type. Consider the following example:
 ---
@@ -539,7 +575,7 @@ local function create_gql_union(state, avro_schema, context)
 
     local union_type = core_types.union({
         types = union_types,
-        name = union_name,
+        name = helpers.full_name(union_name, context),
         resolveType = function(result)
             for determinant, type in pairs(determinant_to_type) do
                 if result[determinant] ~= nil then
@@ -568,96 +604,90 @@ end
 ---
 --- @tparam table avro_schema input avro-schema
 ---
---- @tparam table context current context of parsing the avro_schema, consists
---- the following fields:
+--- @tparam[opt] table opts the following options:
 ---
---- * `collection` (table; optional) is a table with `schema_name` and
----   `connections` fields describes a collection (e.g. local tarantool spaces
----   or sharded spaces)
+--- * `collection` (table; optional) when passed it will be used to generate
+---   fields for connections
 ---
---- * `collection_name` (string; optional) name of the collection
+--- * `type_name` (string; optional) when passed it will be used to generate
+---    name of the GraphQL type instead of one from avro_schema (considered
+---    only for record / record*)
 ---
---- * `definitions` (table) map from currently parsed avro-schema names to
----   generated GraphQL types; it allows reusing the same types w/o creation a
----   new same-named type, that considered as an error by graphql-lua when
----   creating type map for introspection
+--- * context (table; optional) current context of parsing the avro_schema,
+---   consists the following fields:
 ---
---- * `field_name` (string; optional) it is only for an union generation,
----   because avro-schema union has no name in it and specific name is
----   necessary for GraphQL union
+---   - `field_name` (string; optional) it is only for an union generation,
+---     because avro-schema union has no name in it and specific name is
+---     necessary for GraphQL union
 ---
---- * `path` (table) path to our position in avro-schema tree; it is used now
----   only to determine whether we are on the upmost level or on a nested one
+---   - `path` (table) path to our position in avro-schema tree; used in
+---      GraphQL types names generation
 ---
---- If collection is passed connections from the collection will be taken into
---- account to automatically generate corresponding decucible fields.
----
---- If collection_name is passed it will be used as the resulting graphql type
---- name instead of the avro-schema name.
----
---- XXX As it is not clear now what to do with complex types inside arrays
---- (just pass to results or allow to use filters), only scalar arrays
---- is allowed for now. Note: map is considered scalar.
-function types.gql_type(state, avro_schema, context)
+--- Note: map is considered scalar. This means that particular fields cannot be
+--- requested using GraphQL, only the entire map or nothing.
+function types.convert(state, avro_schema, opts)
     check(state, 'state', 'table')
-    assert(avro_schema ~= nil, 'avro_schema must not be nil')
+    check(avro_schema, 'avro_schema', 'table', 'string')
+    check(opts, 'opts', 'table', 'nil')
+
+    local opts = opts or {}
+    local collection = opts.collection
+    local type_name = opts.type_name
+    local context = opts.context
+    if context == nil then
+        context = {
+            field_name = nil,
+            path = {},
+        }
+    end
+
+    check(collection, 'collection', 'table', 'nil')
+    check(type_name, 'type_name', 'string', 'nil')
     check(context, 'context', 'table')
 
-    local collection = context.collection
-    local collection_name = context.collection_name
-    local definitions = context.definitions
     local field_name = context.field_name
     local path = context.path
 
-    check(collection, 'collection', 'table', 'nil')
-    check(collection_name, 'collection_name', 'string', 'nil')
     check(field_name, 'field_name', 'string', 'nil')
-    check(definitions, 'definitions', 'table')
     check(path, 'path', 'table')
 
     local accessor = state.accessor
-    assert(accessor ~= nil, 'state.accessor must not be nil')
-    assert(accessor.select ~= nil, 'state.accessor.select must not be nil')
+    check(accessor, 'accessor', 'table')
+    check(accessor.select, 'accessor.select', 'function')
 
-    -- type of the top element in the avro-schema
-    local avro_t = avro_helpers.avro_type(avro_schema,
-        {allow_references = true})
+    local avro_t = avro_helpers.avro_type(avro_schema)
 
     if avro_t == 'record' or avro_t == 'record*' then
-        assert(type(avro_schema.name) == 'string',
-            ('avro_schema.name must be a string, got %s (avro_schema %s)')
-            :format(type(avro_schema.name), json.encode(avro_schema)))
-        assert(type(avro_schema.fields) == 'table',
-            ('avro_schema.fields must be a table, got %s (avro_schema %s)')
-            :format(type(avro_schema.fields), json.encode(avro_schema)))
-
-        local graphql_type_name = next(path) == nil and collection_name or
-            avro_schema.name
-        local def = definitions[graphql_type_name .. (avro_t:endswith('*')
-            and '*' or '')]
-        if def ~= nil then
-            return def
+        if type(avro_schema.name) ~= 'string' then -- avoid extra json.encode()
+            assert(type(avro_schema.name) == 'string',
+                ('avro_schema.name must be a string, got %s (avro_schema %s)')
+                :format(type(avro_schema.name), json.encode(avro_schema)))
+        end
+        if type(avro_schema.fields) ~= 'table' then -- avoid extra json.encode()
+            assert(type(avro_schema.fields) == 'table',
+                ('avro_schema.fields must be a table, got %s (avro_schema %s)')
+                :format(type(avro_schema.fields), json.encode(avro_schema)))
         end
 
+        local type_name = type_name or avro_schema.name
+
+        table.insert(context.path, type_name)
         local fields = convert_record_fields(state, avro_schema.fields, context)
+        table.remove(context.path, #context.path)
 
         -- if collection param is passed then go over all connections
         for _, c in ipairs((collection or {}).connections or {}) do
-            fields[c.name] = convert_connection_to_field(state, c, collection_name)
+            fields[c.name] = convert_connection_to_field(state, c,
+                collection.name, context)
         end
 
-        -- create gql type
+        -- create GraphQL type
         local res = core_types.object({
-            name = graphql_type_name,
+            name = helpers.full_name(type_name, context),
             description = 'generated from avro-schema for ' ..
                 avro_schema.name,
             fields = fields,
         })
-        assert(definitions[graphql_type_name] == nil and
-            definitions[graphql_type_name .. '*'] == nil,
-            'multiple definitions of ' .. graphql_type_name)
-        definitions[graphql_type_name] = core_types.nonNull(res)
-        definitions[graphql_type_name .. '*'] = res
         return avro_t == 'record' and core_types.nonNull(res) or res
     elseif avro_t == 'enum' then
         error('enums not implemented yet') -- XXX
@@ -669,9 +699,10 @@ function types.gql_type(state, avro_schema, context)
             'avro_schema.items must be a string or a table, got ' ..
             type(avro_schema.items))
 
-        local gql_items_type = types.gql_type(state, avro_schema.items, context)
-        local gql_array = core_types.list(gql_items_type)
-        return avro_t == 'array' and core_types.nonNull(gql_array) or gql_array
+        local gql_items_type = types.convert(state, avro_schema.items,
+            {context = context})
+        local res = core_types.list(gql_items_type)
+        return avro_t == 'array' and core_types.nonNull(res) or res
     elseif avro_t == 'map' or avro_t == 'map*' then
         assert(avro_schema.values ~= nil,
             'values must not be nil in map avro schema')
@@ -682,19 +713,13 @@ function types.gql_type(state, avro_schema, context)
             json.encode(avro_schema)))
 
         -- validate avro schema format inside 'values'
-        types.gql_type(state, avro_schema.values, context)
+        types.convert(state, avro_schema.values, {context = context})
 
-        local gql_map = core_types.map
-        return avro_t == 'map' and core_types.nonNull(gql_map) or gql_map
+        local res = core_types.map
+        return avro_t == 'map' and core_types.nonNull(res) or res
     elseif avro_t == 'union' then
         return create_gql_union(state, avro_schema, context)
     else
-        if type(avro_schema) == 'string' then
-            if definitions[avro_schema] ~= nil then
-                return definitions[avro_schema]
-            end
-        end
-
         local res = scalar_types.convert(avro_schema, {raise = false})
         if res == nil then
             error('unrecognized avro-schema type: ' ..

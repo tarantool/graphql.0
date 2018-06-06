@@ -28,7 +28,7 @@ local avro_helpers = {}
 ---
 --- * `raise_on_nullable` (boolean) raise an error on nullable type
 ---
---- @result `result` (string or table) nullable avro type
+--- @return `result` (string or table) nullable avro type
 function avro_helpers.make_avro_type_nullable(avro, opts)
     assert(avro ~= nil, "avro must not be nil")
     local opts = opts or {}
@@ -69,7 +69,8 @@ function avro_helpers.make_avro_type_nullable(avro, opts)
         end
         return avro
     elseif value_type == 'table' and #avro == 0 then
-        return avro_helpers.make_avro_type_nullable(avro.type, opts)
+        avro.type = avro_helpers.make_avro_type_nullable(avro.type, opts)
+        return avro
     end
 
     error("avro should be a string or a table, got " .. value_type)
@@ -108,24 +109,6 @@ function avro_helpers.is_scalar_type(avro_schema_type)
     return scalar_types[avro_schema_type] or false
 end
 
-function avro_helpers.is_comparable_scalar_type(avro_schema_type)
-    check(avro_schema_type, 'avro_schema_type', 'string')
-
-    local scalar_types = {
-        ['int'] = true,
-        ['int*'] = true,
-        ['long'] = true,
-        ['long*'] = true,
-        ['boolean'] = true,
-        ['boolean*'] = true,
-        ['string'] = true,
-        ['string*'] = true,
-        ['null'] = true,
-    }
-
-    return scalar_types[avro_schema_type] or false
-end
-
 function avro_helpers.is_compound_type(avro_schema_type)
     check(avro_schema_type, 'avro_schema_type', 'string')
 
@@ -136,30 +119,123 @@ function avro_helpers.is_compound_type(avro_schema_type)
         ['array*'] = true,
         ['map'] = true,
         ['map*'] = true,
+        ['union'] = true,
     }
 
     return compound_types[avro_schema_type] or false
 end
 
+--- Get type of an avro-schema.
+---
+--- @param avro_schema (table or string) input avro-schema
+---
+--- @tparam[opt] table opts the following options:
+---
+--- * allow_references (boolean)
+---
+--- @treturn string `avro_t` type of the avro-schema
+---
+--- @treturn boolean `is_ref` whether the avro-schema is reference to another
+--- avro-schema type
 function avro_helpers.avro_type(avro_schema, opts)
     local opts = opts or {}
     local allow_references = opts.allow_references or false
 
     if type(avro_schema) == 'table' then
         if utils.is_array(avro_schema) then
-            return 'union'
+            return 'union', false
         elseif avro_helpers.is_compound_type(avro_schema.type) then
-            return avro_schema.type
+            return avro_schema.type, false
         elseif allow_references then
-            return avro_schema
+            return avro_schema, true
         end
     elseif type(avro_schema) == 'string' then
         if avro_helpers.is_scalar_type(avro_schema) then
-            return avro_schema
+            return avro_schema, false
         elseif allow_references then
-            return avro_schema
+            return avro_schema, true
         end
     end
+
+    error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
+end
+
+--- Expand avro-schema references.
+---
+--- @param avro_schema (table or string) input avro-schema
+---
+--- @tparam[opt] table opts the following options:
+---
+--- * definitions (table) processed avro-schemas to expand further references
+---
+--- @return generated expanded avro-schema
+function avro_helpers.expand_references(avro_schema, opts)
+    local opts = opts or {}
+    local definitions = opts.definitions or {}
+
+    local avro_t, is_ref = avro_helpers.avro_type(avro_schema,
+        {allow_references = true})
+
+    if is_ref then
+        assert(definitions[avro_t] ~= nil,
+            ('undefined reference: %s'):format(avro_t))
+        return definitions[avro_t]
+    elseif avro_t == 'union' then
+        local res = {}
+        for _, child in ipairs(avro_schema) do
+            table.insert(res, avro_helpers.expand_references(child,
+                {definitions = definitions}))
+        end
+        return res
+    elseif avro_t == 'record' or avro_t == 'record*' then
+        local res = table.copy(avro_schema)
+        res.fields = {}
+
+        local res_nonnull
+        local res_nullable
+        if avro_t == 'record' then
+            res_nonnull = res
+            res_nullable = table.copy(res)
+            res_nullable.type = 'record*'
+            res_nullable.fields = res.fields
+        else
+            res_nonnull = table.copy(res)
+            res_nonnull.type = 'record'
+            res_nonnull.fields = res.fields
+            res_nullable = res
+        end
+
+        -- Saving type before traverse deeper allows to use reference to it
+        -- inside (it is allowed by our avro-schema implementation for nullable
+        -- fields, union, array and map).
+        local name = avro_schema.name
+        assert(definitions[name] == nil and definitions[name .. '*'] == nil,
+            ('multiple definitions of %s'):format(name))
+        definitions[name] = res_nonnull
+        definitions[name .. '*'] = res_nullable
+
+        for _, field in ipairs(avro_schema.fields) do
+            local field = table.copy(field)
+            field.type = avro_helpers.expand_references(field.type,
+                {definitions = definitions})
+            table.insert(res.fields, field)
+        end
+
+        return res
+    elseif avro_t == 'array' or avro_t == 'array*' then
+        local res = table.copy(avro_schema)
+        res.items = avro_helpers.expand_references(avro_schema.items,
+            {definitons = definitions})
+        return res
+    elseif avro_t == 'map' or avro_t == 'map*' then
+        local res = table.copy(avro_schema)
+        res.values = avro_helpers.expand_references(avro_schema.values,
+            {definitons = definitions})
+        return res
+    elseif avro_helpers.is_scalar_type(avro_t) then
+        return avro_schema
+    end
+
     error('unrecognized avro-schema type: ' .. json.encode(avro_schema))
 end
 

@@ -72,6 +72,7 @@ local function run_queries(gql_wrapper)
     local result_1_2 = test_utils.show_trace(function()
         local cfg = gql_wrapper.internal.cfg
         cfg.accessor = nil
+        cfg.e_schemas = nil
         return cfg
     end)
 

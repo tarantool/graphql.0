@@ -148,7 +148,7 @@ end
 --- The function returns formats of all fully defined spaces.
 --- Spaces are taken from the tarantool instance in which
 --- tarantool graphql is launched. For definition of fully
---- defined spaces see @{is_fully_defined}.
+--- defined spaces see `is_fully_defined`.
 ---
 --- @treturn table spaces_formats {[space_name] = {space_format}, ...}
 --- where space_format is {{first_field_format}, {second_field_format}, ...}

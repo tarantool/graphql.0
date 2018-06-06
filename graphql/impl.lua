@@ -24,9 +24,9 @@ local default_instance
 
 --- Execute an operation from compiled query.
 ---
---- @tparam qstate compiled query
+--- @tparam table qstate compiled query
 ---
---- @tparam variables variables to pass to the query
+--- @tparam table variables variables to pass to the query
 ---
 --- @tparam[opt] string operation_name optional operation name
 ---
@@ -253,6 +253,7 @@ end
 --- })
 function impl.new(cfg)
     local cfg = cfg or {}
+    cfg = table.deepcopy(cfg) -- prevent change of user's data
 
     -- auto config case
     if not next(cfg) or utils.has_only(cfg, 'connections') then

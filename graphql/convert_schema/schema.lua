@@ -6,6 +6,7 @@ local core_types_helpers = require('graphql.convert_schema.core_types_helpers')
 local gen_arguments = require('graphql.gen_arguments')
 local arguments = require('graphql.convert_schema.arguments')
 local types = require('graphql.convert_schema.types')
+local avro_helpers = require('graphql.avro_helpers')
 
 local utils = require('graphql.utils')
 local check = utils.check
@@ -18,15 +19,16 @@ local schema = {}
 --- when we'll rewrite argument / InputObject generation in the right way. The
 --- plan is the following:
 ---
---- * Move object_args to accessor_general (or move all *_args function into a
----   separate module); skipping float / double / ... arguments should be done
----   here.
+--- * DONE: Move object_args to accessor_general (or move all *_args function
+---   into a separate module); skipping float / double / ... arguments should
+---   be done here.
 --- * TBD: generate per-connection arguments in avro-schema in some way?
---- * Move avro-schema -> GraphQL arguments translating into its own module.
---- * Support a sub-record arguments and others (union, array, ...).
---- * Generate arguments for cartesian product of {1:1, 1:1*, 1:N, all} x
+--- * DONE: Move avro-schema -> GraphQL arguments translating into its own
+---   module.
+--- * PARTIAL: Support a sub-record arguments and others (union, array, ...).
+--- * TBD: Generate arguments for cartesian product of {1:1, 1:1*, 1:N, all} x
 ---   {query, mutation, all} x {top-level, nested, all} x {collections}.
---- * Use generated arguments in GraphQL types (schema) generation.
+--- * TBD: Use generated arguments in GraphQL types (schema) generation.
 ---
 --- @tparam table state tarantool_graphql instance
 ---
@@ -116,22 +118,17 @@ local function create_root_collection(state)
             fields = {}
         }
         local root_collection = {
-            name = what,
+            name = nil, -- skip are_all_parts_null check, see resolve.lua
             connections = root_connections
         }
-        local context = {
-            collection = root_collection,
-            collection_name = nil,
-            definitions = {},
-            field_name = nil,
-            path = {},
-        }
 
-        -- `gql_type` is designed to create GQL type corresponding to a real
+        -- `convert` is designed to create GQL type corresponding to a real
         -- schema and connections. However it also works with the fake schema.
         -- Query/Mutation type must be the Object, so it cannot be nonNull.
         root_types[what] = core_types_helpers.nullable(
-            types.gql_type(state, root_schema, context))
+            types.convert(state, root_schema, {
+                collection = root_collection,
+            }))
     end
 
     add_extra_arguments(state, root_types)
@@ -241,8 +238,6 @@ function schema.convert(state, cfg)
     state.extra_arguments = utils.gen_booking_table({})
     state.extra_arguments_meta = {}
 
-    local context = {}
-
     local accessor = cfg.accessor
     assert(accessor ~= nil, 'cfg.accessor must not be nil')
     assert(accessor.select ~= nil, 'cfg.accessor.select must not be nil')
@@ -252,13 +247,19 @@ function schema.convert(state, cfg)
     local collections = table.copy(cfg.collections)
     state.collections = collections
 
+    -- add schemas with expanded references
+    cfg.e_schemas = {}
+
     -- Prepare types which represents:
     --  - Avro schemas (collections)
     --  - scalar field arguments (used to filter objects by value stored in it's
     --    field)
     --  - list arguments (offset, limit...)
     for collection_name, collection in pairs(state.collections) do
+        -- add name field into each collection
         collection.name = collection_name
+        check(collection.name, 'collection.name', 'string')
+
         assert(collection.schema_name ~= nil,
             'collection.schema_name must not be nil')
 
@@ -274,23 +275,16 @@ function schema.convert(state, cfg)
             'top-level schema must have record avro type, got ' ..
             tostring(schema.type))
 
-        -- collection, collection_name are local for collection, definitions
-        -- are local for top-level avro-schema
-        if context[schema.name] == nil then
-            context[schema.name] = {
-                -- map from avro-schema names to graphql types
-                definitions = {},
-            }
-        end
-        context[schema.name].collection = collection
-        context[schema.name].collection_name = collection_name
-        context[schema.name].field_name = nil
-        context[schema.name].path = {}
+        -- fill schema with expanded references
+        local e_schema = avro_helpers.expand_references(schema)
+        cfg.e_schemas[collection.schema_name] = e_schema
 
         -- recursively converts all avro types into GraphQL types in the given
         -- schema
-        local collection_type =
-            types.gql_type(state, schema, context[schema.name])
+        local collection_type = types.convert(state, e_schema, {
+            collection = collection,
+            type_name = collection_name,
+        })
         -- we utilize the fact that collection type is always non-null and
         -- don't store this information; see comment above for
         -- `nullable_collection_types` variable definition
@@ -300,18 +294,21 @@ function schema.convert(state, cfg)
             core_types_helpers.nullable(collection_type)
 
         -- prepare arguments' types
-        local object_args = arguments.convert_record_fields(
-            schema.fields, {skip_compound = true})
-        local list_args = arguments.convert_record_fields(
-            gen_arguments.list_args(cfg, collection_name))
+        local object_args_avro = gen_arguments.object_args(cfg, collection_name)
+        local list_args_avro = gen_arguments.list_args(cfg, collection_name)
+        local extra_args_opts = {
+            enable_mutations = accessor.settings.enable_mutations,
+        }
         local extra_args_avro, extra_args_meta = gen_arguments.extra_args(cfg,
-            collection_name, {
-                enable_mutations = accessor.settings.enable_mutations,
-            }
-        )
+            collection_name, extra_args_opts)
         check(extra_args_meta, 'extra_args_meta', 'table')
-        local extra_args = arguments.convert_record_fields(
-            extra_args_avro, {dont_skip = true})
+
+        local object_args = arguments.convert_record_fields(object_args_avro,
+            collection_name)
+        local list_args = arguments.convert_record_fields(list_args_avro,
+            collection_name)
+        local extra_args = arguments.convert_record_fields(extra_args_avro,
+            collection_name)
 
         state.object_arguments[collection_name] = object_args
         state.list_arguments[collection_name] = list_args

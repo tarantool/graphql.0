@@ -94,6 +94,7 @@ local function run_queries(gql_wrapper)
 
     local cfg = gql_wrapper.internal.cfg
     cfg.accessor = nil
+    cfg.e_schemas = nil
     local result_1_2 = cfg
     local exp_result_1_2 = yaml.decode(([[
         ---

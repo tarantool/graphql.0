@@ -13,7 +13,7 @@ local testdata = require('test.testdata.common_testdata')
 
 local function run_queries(gql_wrapper)
     local test = tap.test('pcre')
-    test:plan(4)
+    test:plan(5)
 
     local query_1 = [[
         query users($offset: String, $first_name_re: String,
@@ -121,6 +121,40 @@ local function run_queries(gql_wrapper)
     end)
 
     test:is_deeply(result_1i_1, exp_result_1_1, '1i_1')
+
+    -- }}}
+
+    -- {{{ regexp match by a subrecord field
+
+    local query_2 = [[
+        {
+            order_metainfo_collection(pcre: {
+                store: {
+                    address: {
+                        city: "3000$"
+                    }
+                }
+            }) {
+                order_metainfo_id
+            }
+        }
+    ]]
+
+    local exp_result_2 = yaml.decode(([[
+        ---
+        order_metainfo_collection:
+        - order_metainfo_id: order_metainfo_id_3000
+    ]]):strip())
+
+    local gql_query_2 = test_utils.show_trace(function()
+        return gql_wrapper:compile(query_2)
+    end)
+
+    local result_2 = test_utils.show_trace(function()
+        return gql_query_2:execute({})
+    end)
+
+    test:is_deeply(result_2, exp_result_2, 'regexp match by a subrecord field')
 
     -- }}}
 

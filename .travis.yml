@@ -58,6 +58,8 @@ install:
   - cd ../graphql
   - sudo luarocks install luacheck
   - sudo pip install virtualenv
+  - sudo luarocks install ldoc
 
 script:
+  - make apidoc-lint
   - make test

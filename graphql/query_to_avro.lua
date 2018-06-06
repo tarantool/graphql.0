@@ -9,6 +9,7 @@ local path = "graphql.core"
 local introspection = require(path .. '.introspection')
 local query_util = require(path .. '.query_util')
 local avro_helpers = require('graphql.avro_helpers')
+local convert_schema_helpers = require('graphql.convert_schema.helpers')
 
 -- module functions
 local query_to_avro = {}
@@ -44,7 +45,7 @@ end
 --- @tparam table context current traversal context, here it just falls to the
 --- called functions (internal graphql-lua format)
 ---
---- @tresult table `result` is the resulting avro-schema
+--- @treturn table `result` is the resulting avro-schema
 local function gql_type_to_avro(fieldType, subSelections, context)
     local fieldTypeName = fieldType.__type
     local isNonNull = false
@@ -97,7 +98,7 @@ local function field_to_avro(object_type, fields, context)
     local fieldTypeAvro = gql_type_to_avro(fieldType.kind, subSelections,
         context)
     return {
-        name = fieldName,
+        name = convert_schema_helpers.base_name(fieldName),
         type = fieldTypeAvro,
     }
 end
@@ -119,7 +120,7 @@ object_to_avro = function(object_type, selections, context)
         {}, {}, context)
     local result = {
         type = 'record',
-        name = object_type.name,
+        name = convert_schema_helpers.base_name(object_type.name),
         fields = {}
     }
     if #context.namespace_parts ~= 0 then

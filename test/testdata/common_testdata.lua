@@ -51,7 +51,25 @@ function common_testdata.get_test_metadata()
             "fields": [
                 { "name": "metainfo", "type": "string" },
                 { "name": "order_metainfo_id", "type": "string" },
-                { "name": "order_id", "type": "string" }
+                { "name": "order_id", "type": "string" },
+                { "name": "store", "type": {
+                    "type": "record",
+                    "name": "store",
+                    "fields": [
+                        { "name": "name", "type": "string" },
+                        { "name": "address", "type": {
+                            "type": "record",
+                            "name": "address",
+                            "fields": [
+                                { "name": "street", "type": "string" },
+                                { "name": "city", "type": "string" },
+                                { "name": "state", "type": "string" },
+                                { "name": "zip", "type": "string" }
+                            ]
+                        }},
+                        { "name": "second_address", "type": "address" }
+                    ]
+                }}
             ]
         }
     }]])
@@ -297,6 +315,21 @@ function common_testdata.fill_test_data(virtbox, meta)
             metainfo = 'order metainfo ' .. s,
             order_metainfo_id = 'order_metainfo_id_' .. s,
             order_id = 'order_id_' .. s,
+            store = {
+                name = "store " .. s,
+                address = {
+                    street = "street " .. s,
+                    city = "city " .. s,
+                    state = "state " .. s,
+                    zip = "zip " .. s,
+                },
+                second_address = {
+                    street = "second street " .. s,
+                    city = "second city " .. s,
+                    state = "second state " .. s,
+                    zip = "second zip " .. s,
+                },
+            }
         })
     end
 end

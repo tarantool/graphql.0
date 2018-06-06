@@ -42,4 +42,21 @@ function db_schema_helpers.get_primary_index_meta(db_schema, collection_name)
     return res_index_name, res_index
 end
 
+--- Get schema name by a collection name.
+---
+--- @tparam table db_schema `schemas`, `collections`, `service_fields`,
+--- `indexes`
+---
+--- @tparam string collection_name
+---
+--- @treturn string `schema_name`
+function db_schema_helpers.get_schema_name(db_schema, collection_name)
+    local collection = db_schema.collections[collection_name]
+    assert(collection ~= nil,
+        ('cannot find the collection "%s"'):format(collection_name))
+    local schema_name = collection.schema_name
+    check(schema_name, 'schema_name', 'string')
+    return schema_name
+end
+
 return db_schema_helpers

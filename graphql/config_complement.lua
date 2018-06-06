@@ -203,7 +203,7 @@ end
 --- @tparam table connections cfg.connections - user-defined collections
 --- @tparam table indexes cfg.indexes - {[collection_name] = collection_indexes, ...}
 --- @treturn table `collections` is complemented collections
-local function complement_connections(collections, connections, indexes, schemas)
+local function complement_connections(collections, connections, indexes)
     if connections == nil then
         return collections
     end

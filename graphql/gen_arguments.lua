@@ -1,16 +1,19 @@
 --- Generate avro-schema for arguments by given database schema.
 
+local json = require('json')
 local utils = require('graphql.utils')
 local rex, _ = utils.optional_require_rex()
 local avro_helpers = require('graphql.avro_helpers')
 local db_schema_helpers = require('graphql.db_schema_helpers')
 
+local check = utils.check
+
 local gen_arguments = {}
 
 --- Get an avro-schema for a primary key by a collection name.
 ---
---- @tparam table db_schema `schemas`, `collections`, `service_fields`,
---- `indexes`
+--- @tparam table db_schema `e_schemas`, `schemas`, `collections`,
+--- `service_fields`, `indexes`
 ---
 --- @tparam string collection_name name of a collection
 ---
@@ -24,14 +27,15 @@ local function get_primary_key_type(db_schema, collection_name)
     local _, index_meta = db_schema_helpers.get_primary_index_meta(
         db_schema, collection_name)
 
-    local collection = db_schema.collections[collection_name]
-    local schema = db_schema.schemas[collection.schema_name]
+    local schema_name = db_schema_helpers.get_schema_name(db_schema,
+        collection_name)
+    local e_schema = db_schema.e_schemas[schema_name]
 
     local offset_fields = {}
 
     for _, field_name in ipairs(index_meta.fields) do
         local field_type
-        for _, field in ipairs(schema.fields) do
+        for _, field in ipairs(e_schema.fields) do
             if field.name == field_name then
                 field_type = field.type
             end
@@ -67,63 +71,201 @@ local function get_primary_key_type(db_schema, collection_name)
     return offset_type
 end
 
--- XXX: add string fields of a nested record / 1:1 connection to
--- get_pcre_argument_type
+--- Make schema types deep nullable down to scalar, union, array or map
+--- (matches xflatten input syntax).
+---
+--- @param e_schema (table or string) avro-schema with expanded references
+---
+--- @tparam[opt] function skip_cond
+---
+--- @return transformed avro-schema or nil (when mathed by skip_cond)
+local function recursive_nullable(e_schema, skip_cond)
+    local avro_t = avro_helpers.avro_type(e_schema)
+
+    if skip_cond ~= nil and skip_cond(avro_t) then return nil end
+
+    if avro_helpers.is_scalar_type(avro_t) then
+        return avro_helpers.make_avro_type_nullable(e_schema,
+            {raise_on_nullable = false})
+    elseif avro_t == 'record' or avro_t == 'record*' then
+        local res = table.copy(e_schema)
+        res.type = 'record*' -- make the record nullable
+        res.fields = {}
+
+        for _, field in ipairs(e_schema.fields) do
+            local new_type = recursive_nullable(field.type, skip_cond)
+            if new_type ~= nil then
+                local field = table.copy(field)
+                field.type = new_type
+                table.insert(res.fields, field)
+            end
+        end
+
+        return res
+    elseif avro_t == 'union' or
+            avro_t == 'array' or avro_t == 'array*' or
+            avro_t == 'map' or avro_t == 'map*' then
+        e_schema = table.copy(e_schema)
+        return avro_helpers.make_avro_type_nullable(e_schema,
+            {raise_on_nullable = false})
+    end
+
+    error('unrecognized avro-schema type: ' .. json.encode(e_schema))
+end
+
+--- Whether we can compare the type for equallity.
+---
+--- @tparam string avro_schema_type
+---
+--- @treturn boolean
+local function is_comparable_scalar_type(avro_schema_type)
+    check(avro_schema_type, 'avro_schema_type', 'string')
+
+    local scalar_types = {
+        ['int'] = true,
+        ['int*'] = true,
+        ['long'] = true,
+        ['long*'] = true,
+        ['boolean'] = true,
+        ['boolean*'] = true,
+        ['string'] = true,
+        ['string*'] = true,
+        ['null'] = true,
+    }
+
+    return scalar_types[avro_schema_type] or false
+end
+
+-- XXX: add string fields of 1:1 connection to get_pcre_argument_type
 
 --- Get an avro-schema for a pcre argument by a collection name.
 ---
 --- Note: it is called from `list_args`, so applicable only for lists:
 --- top-level objects and 1:N connections.
 ---
---- @tparam table db_schema `schemas`, `collections`, `service_fields`,
---- `indexes`
+--- @tparam table db_schema `e_schemas`, `schemas`, `collections`,
+--- `service_fields`, `indexes`
 ---
 --- @tparam string collection_name name of a collection
 ---
---- @treturn table `pcre_type` is a record with fields per string/string* field
---- of an object of the collection
+--- @treturn table record with fields per string/string* field of an object
+--- of the collection
 local function get_pcre_argument_type(db_schema, collection_name)
-    local collection = db_schema.collections[collection_name]
-    assert(collection ~= nil, 'cannot found collection ' ..
-        tostring(collection_name))
-    local schema = db_schema.schemas[collection.schema_name]
-    assert(schema ~= nil, 'cannot found schema ' ..
-        tostring(collection.schema_name))
+    local schema_name = db_schema_helpers.get_schema_name(db_schema,
+        collection_name)
+    local e_schema = db_schema.e_schemas[schema_name]
+    assert(e_schema ~= nil, 'cannot find expanded schema ' ..
+        tostring(schema_name))
 
-    assert(schema.type == 'record',
+    assert(e_schema.type == 'record',
         'top-level object expected to be a record, got ' ..
-        tostring(schema.type))
+        tostring(e_schema.type))
 
-    local string_fields = {}
+    local res = recursive_nullable(e_schema, function(avro_t)
+        -- skip non-comparable scalars (float, double), union, array, map
+        local is_non_string_scalar = avro_helpers.is_scalar_type(avro_t) and
+            (avro_t ~= 'string' and avro_t ~= 'string*')
+        local is_non_record_compound = avro_helpers.is_compound_type(avro_t)
+            and (avro_t ~= 'record' and avro_t ~= 'record*')
+        return is_non_string_scalar or is_non_record_compound
 
-    for _, field in ipairs(schema.fields) do
-        if field.type == 'string' or field.type == 'string*' then
+    end)
+    res.name = collection_name .. '_pcre'
+    return res
+end
+
+--- Get avro-schema for update argument.
+---
+--- @tparam table db_schema `e_schemas`, `schemas`, `collections`,
+--- `service_fields`, `indexes`
+---
+--- @tparam string collection_name name of a collection
+---
+--- @treturn table generated avro-schema
+local function get_update_argument_type(db_schema, collection_name)
+    local schema_name = db_schema_helpers.get_schema_name(db_schema,
+        collection_name)
+    local e_schema = db_schema.e_schemas[schema_name]
+    assert(e_schema ~= nil, 'cannot find expanded schema ' ..
+        tostring(schema_name))
+
+    assert(e_schema.type == 'record',
+        'top-level object expected to be a record, got ' ..
+        tostring(e_schema.type))
+
+    local _, primary_index_meta = db_schema_helpers.get_primary_index_meta(
+        db_schema, collection_name)
+
+    local schema_update = {
+        name = collection_name .. '_update',
+        type = 'record*',
+        fields = {},
+    }
+    -- add all fields except ones whose are part of the primary key
+    for _, field in ipairs(e_schema.fields) do
+        assert(field.name ~= nil, 'field.name is nil')
+        local is_field_part_of_primary_key = false
+        for _, pk_field_name in ipairs(primary_index_meta.fields) do
+            if field.name == pk_field_name then
+                is_field_part_of_primary_key = true
+                break
+            end
+        end
+
+        if not is_field_part_of_primary_key then
             local field = table.copy(field)
-            field.type = avro_helpers.make_avro_type_nullable(
-                field.type, {raise_on_nullable = false})
-            table.insert(string_fields, field)
+            field.type = recursive_nullable(field.type)
+            table.insert(schema_update.fields, field)
         end
     end
 
-    local pcre_type = {
-        name = collection_name .. '_pcre',
-        type = 'record',
-        fields = string_fields,
-    }
-    return pcre_type
+    return schema_update
+end
+
+--- List of avro-schema fields to use as arguments of a collection field and a
+--- connection field (with any connection type).
+---
+--- @tparam table db_schema `e_schemas`, `schemas`, `collections`,
+--- `service_fields`, `indexes`
+---
+--- @tparam string collection_name name of collection to create the fields
+---
+--- @treturn table list of avro-schema fields
+function gen_arguments.object_args(db_schema, collection_name)
+    local schema_name = db_schema_helpers.get_schema_name(db_schema,
+        collection_name)
+    local e_schema = db_schema.e_schemas[schema_name]
+    assert(e_schema ~= nil, 'cannot find expanded schema ' ..
+        tostring(schema_name))
+
+    assert(e_schema.type == 'record',
+        'top-level object expected to be a record, got ' ..
+        tostring(e_schema.type))
+
+    local res = recursive_nullable(e_schema, function(avro_t)
+        -- skip non-comparable scalars (float, double), union, array, map
+        local is_non_comparable_scalar = avro_helpers.is_scalar_type(avro_t) and
+            not is_comparable_scalar_type(avro_t)
+        local is_non_record_compound = avro_helpers.is_compound_type(avro_t)
+            and (avro_t ~= 'record' and avro_t ~= 'record*')
+        return is_non_comparable_scalar or is_non_record_compound
+    end)
+    return res.fields
 end
 
 --- List of avro-schema fields to use as arguments of a collection field and
 --- 1:N connection field.
 ---
---- @tparam table db_schema `schemas`, `collections`, `service_fields`,
---- `indexes`
+--- @tparam table db_schema `e_schemas`, `schemas`, `collections`,
+--- `service_fields`, `indexes`
 ---
 --- @tparam string collection_name name of collection to create the fields
 ---
 --- @treturn table list of avro-schema fields
 function gen_arguments.list_args(db_schema, collection_name)
     local offset_type = get_primary_key_type(db_schema, collection_name)
+    offset_type = avro_helpers.make_avro_type_nullable(offset_type,
+        {raise_on_nullable = false})
 
     -- add `pcre` argument only if lrexlib-pcre was found
     local pcre_field
@@ -133,7 +275,7 @@ function gen_arguments.list_args(db_schema, collection_name)
     end
 
     return {
-        {name = 'limit', type = 'int'},
+        {name = 'limit', type = 'int*'},
         {name = 'offset', type = offset_type},
         -- {name = 'filter', type = ...},
         pcre_field,
@@ -145,8 +287,8 @@ end
 ---
 --- Mutation arguments (insert, update, delete) are generated here.
 ---
---- @tparam table db_schema `schemas`, `collections`, `service_fields`,
---- `indexes`
+--- @tparam table db_schema `e_schemas`, `schemas`, `collections`,
+--- `service_fields`, `indexes`
 ---
 --- @tparam string collection_name name of collection to create the fields
 ---
@@ -174,40 +316,16 @@ function gen_arguments.extra_args(db_schema, collection_name, opts)
         return {}, {}
     end
 
-    local collection = db_schema.collections[collection_name]
-    local schema_name = collection.schema_name
+    local schema_name = db_schema_helpers.get_schema_name(db_schema,
+        collection_name)
+    local e_schema = db_schema.e_schemas[schema_name]
 
-    local schema_insert = table.copy(db_schema.schemas[schema_name])
+    local schema_insert = table.copy(e_schema)
     schema_insert.name = collection_name .. '_insert'
+    schema_insert.type = 'record*' -- make the record nullable
 
-    local _, primary_index_meta = db_schema_helpers.get_primary_index_meta(
-        db_schema, collection_name)
-
-    local schema_update = {
-        name = collection_name .. '_update',
-        type = 'record',
-        fields = {},
-    }
-    -- add all fields except ones whose are part of the primary key
-    for _, field in ipairs(db_schema.schemas[schema_name].fields) do
-        assert(field.name ~= nil, 'field.name is nil')
-        local is_field_part_of_primary_key = false
-        for _, pk_field_name in ipairs(primary_index_meta.fields) do
-            if field.name == pk_field_name then
-                is_field_part_of_primary_key = true
-                break
-            end
-        end
-
-        if not is_field_part_of_primary_key then
-            local field = table.copy(field)
-            field.type = avro_helpers.make_avro_type_nullable(
-                field.type)
-            table.insert(schema_update.fields, field)
-        end
-    end
-
-    local schema_delete = 'boolean'
+    local schema_update = get_update_argument_type(db_schema, collection_name)
+    local schema_delete = 'boolean*'
 
     return {
         {name = 'insert', type = schema_insert},

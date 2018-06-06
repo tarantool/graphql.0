@@ -19,3 +19,6 @@ doc/apidoc
 
 # benchmarks results
 bench.*.result.txt
+
+# temporary directory for make apidoc-lint
+doc/apidoc-lint-tmp

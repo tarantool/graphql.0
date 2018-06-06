@@ -81,8 +81,8 @@ metadata.indexes.user_collection.user_str_index = {
 
 local ok, err = pcall(create_gql_wrapper, metadata)
 local err_exp = 'several indexes were marked as primary in the ' ..
-    '"user_collection" collection, at least "user_str_index" and ' ..
-    '"user_str_num_index"'
+    '"user_collection" collection, at least "user_str_num_index" and ' ..
+    '"user_str_index"'
 test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
     'multiple primary indexes')
 

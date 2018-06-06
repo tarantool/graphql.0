@@ -291,7 +291,7 @@ end
 --- (directly or indirectly using the `accessor_space.new` or the
 --- `accessor_shard.new` function); this function uses the
 --- `self.index_cache` prebuild table representing available indexes
-
+---
 --- @tparam string collection_name name of a collection of whose indexes the
 --- function will search through
 ---
@@ -332,7 +332,7 @@ end
 --- `nil`, or contains `value_list` field to pass to a GT (great-then) index,
 --- or contains `filter` field to use in `process_tuple` for find the pivot in
 --- a select result
-local get_index_name = function(self, collection_name, from, filter, args)
+local function get_index_name(self, collection_name, from, filter, args)
     assert(type(self) == 'table',
         'self must be a table, got ' .. type(self))
     assert(type(collection_name) == 'string',
@@ -772,36 +772,42 @@ end
 local function match_using_re(obj, pcre)
     if pcre == nil then return true end
 
+    assert(rex ~= nil, 'we should not pass over :compile() ' ..
+        'with a query contains PCRE matching when there are '..
+        'no lrexlib-pcre (rex_pcre) module present')
+
     for field_name, re in pairs(pcre) do
         -- skip an object with null in a string* field
         if obj[field_name] == nil then
             return false
         end
-        assert(rex ~= nil, 'we should not pass over :compile() ' ..
-            'with a query contains PCRE matching when there are '..
-            'no lrexlib-pcre (rex_pcre) module present')
-        local flags = rex.flags()
-        -- emulate behaviour of (?i) on libpcre (libpcre2 supports it)
-        local cfg = 0
-        if not is_pcre2 then
-            local cnt
-            re, cnt = re:gsub('^%(%?i%)', '')
-            if cnt > 0 then
-                cfg = bit.bor(cfg, flags.CASELESS)
-            end
-        end
-        -- enable UTF-8
-        if is_pcre2 then
-            cfg = bit.bor(cfg, flags.UTF)
-            cfg = bit.bor(cfg, flags.UCP)
+        if type(re) == 'table' then
+            local match = match_using_re(obj[field_name], re)
+            if not match then return false end
         else
-            cfg = bit.bor(cfg, flags.UTF8)
-            cfg = bit.bor(cfg, flags.UCP)
-        end
-        -- XXX: compile re once
-        local re = rex.new(re, cfg)
-        if not re:match(obj[field_name]) then
-            return false
+            local flags = rex.flags()
+            -- emulate behaviour of (?i) on libpcre (libpcre2 supports it)
+            local cfg = 0
+            if not is_pcre2 then
+                local cnt
+                re, cnt = re:gsub('^%(%?i%)', '')
+                if cnt > 0 then
+                    cfg = bit.bor(cfg, flags.CASELESS)
+                end
+            end
+            -- enable UTF-8
+            if is_pcre2 then
+                cfg = bit.bor(cfg, flags.UTF)
+                cfg = bit.bor(cfg, flags.UCP)
+            else
+                cfg = bit.bor(cfg, flags.UTF8)
+                cfg = bit.bor(cfg, flags.UCP)
+            end
+            -- XXX: compile re once
+            local re = rex.new(re, cfg)
+            if not re:match(obj[field_name]) then
+                return false
+            end
         end
     end
 
@@ -906,23 +912,6 @@ local function process_tuple(state, tuple, opts)
         return false
     end
     return true
-end
-
---- Get schema name by a collection name.
----
---- @tparam table self data accessor instance
----
---- @tparam string collection_name
----
---- @treturn string `schema_name`
-local function get_schema_name(self, collection_name)
-    local collection = self.collections[collection_name]
-    assert(collection ~= nil,
-        ('cannot find the collection "%s"'):format(collection_name))
-    local schema_name = collection.schema_name
-    assert(type(schema_name) == 'string',
-        'schema_name must be a string, got ' .. type(schema_name))
-    return schema_name
 end
 
 --- Call one of accessor function: `update_tuple` or `delete_tuple` for each
@@ -1141,7 +1130,7 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     check(from.collection_name, 'from.collection_name', 'nil')
 
     -- convert object -> tuple (set default values from a schema)
-    local schema_name = get_schema_name(self, collection_name)
+    local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
     local default_flatten_object = self.default_flatten_object[schema_name]
     assert(default_flatten_object ~= nil,
         ('cannot find default_flatten_object ' ..
@@ -1183,7 +1172,7 @@ local function update_internal(self, collection_name, extra, selected)
     assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
 
     -- convert xobject -> update statements
-    local schema_name = get_schema_name(self, collection_name)
+    local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
     local default_xflatten = self.default_xflatten[schema_name]
     assert(default_xflatten ~= nil,
         ('cannot find default_xflatten ' ..
@@ -1199,9 +1188,15 @@ end
 
 --- Delete an object.
 ---
---- Parameters are the same as for @{select_internal}.
+--- Corresponding parameters are the same as for @{select_internal}.
+---
+--- @tparam table self
+---
+--- @tparam string collection_name
 ---
 --- @tparam table extra `extra.extra_args.delete` is used
+---
+--- @tparam table selected objects to delete
 ---
 --- @treturn table `new_objects` list of deleted objects (in the order of the
 --- `selected` parameter)
@@ -1212,7 +1207,7 @@ local function delete_internal(self, collection_name, extra, selected)
         'arguments'
     assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
 
-    local schema_name = get_schema_name(self, collection_name)
+    local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
 
     return perform_primary_key_operation(self, collection_name, schema_name,
         selected, 'delete_tuple')

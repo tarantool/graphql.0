@@ -249,7 +249,7 @@ end
 
 local function run_queries(gql_wrapper, virtbox, meta)
     local test = tap.test('mutation')
-    test:plan(19)
+    test:plan(20)
 
     -- {{{ insert
 
@@ -411,7 +411,99 @@ local function run_queries(gql_wrapper, virtbox, meta)
     test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
         '"insert" argument is forbidden with other filters (extra arguments)')
 
-    -- XXX: test inserting an object into a collection with subrecords
+    -- test inserting an object into a collection with subrecords
+    test:test('insert an object with subrecords', function(test)
+        test:plan(5)
+        local mutation_insert = [[
+            mutation insert_order_metainfo {
+                order_metainfo_collection(insert: {
+                    metainfo: "order metainfo 4000"
+                    order_metainfo_id: "order_metainfo_id_4000"
+                    order_id: "order_id_4000"
+                    store: {
+                        name: "store 4000"
+                        address: {
+                            street: "street 4000"
+                            city: "city 4000"
+                            state: "state 4000"
+                            zip: "zip 4000"
+                        }
+                        second_address: {
+                            street: "second street 4000"
+                            city: "second city 4000"
+                            state: "second state 4000"
+                            zip: "second zip 4000"
+                        }
+                    }
+                }) {
+                    metainfo
+                    order_metainfo_id
+                    order_id
+                    store {
+                        name
+                        address {
+                            city
+                        }
+                        second_address {
+                            city
+                        }
+                    }
+                }
+            }
+        ]]
+        local exp_result_insert = yaml.decode(([[
+            ---
+            order_metainfo_collection:
+            - metainfo: order metainfo 4000
+              order_metainfo_id: order_metainfo_id_4000
+              order_id: order_id_4000
+              store:
+                name: store 4000
+                address:
+                  city: city 4000
+                second_address:
+                  city: second city 4000
+        ]]):strip())
+
+        local order_metainfo_id = 'order_metainfo_id_4000'
+
+        -- check the tuple was not inserted before
+        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        test:ok(tuple == nil, 'tuple was not inserted before')
+
+        -- check mutation result
+        local gql_mutation_insert = gql_wrapper:compile(mutation_insert)
+        local result = gql_mutation_insert:execute({})
+        test:is_deeply(result, exp_result_insert, 'insert result')
+
+        -- check inserted tuple
+        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        test:ok(tuple ~= nil, 'inserted tuple exists')
+        local exp_tuple = {
+            "order metainfo 4000",
+            "order_metainfo_id_4000",
+            "order_id_4000",
+            "store 4000",
+            "street 4000",
+            "city 4000",
+            "state 4000",
+            "zip 4000",
+            "second street 4000",
+            "second city 4000",
+            "second state 4000",
+            "second zip 4000",
+        }
+        test:is_deeply(tuple:totable(), exp_tuple, 'inserted tuple is correct')
+
+        -- delete inserted tuple & check
+        delete_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        test:ok(tuple == nil, 'inserted tuple was deleted')
+    end)
 
     -- }}}
 
@@ -734,7 +826,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
         '"update" argument is forbidden in a query')
 
     -- test updating of a field by which a shard key is calculated (it is the
-    -- first field: tuple[1])
+    -- first field: tuple[1]);
+    -- here we also check updating inside subrecords
     test:test('update 1st tuple field', function(test)
         test:plan(5)
         local mutation_update = [[
@@ -743,11 +836,27 @@ local function run_queries(gql_wrapper, virtbox, meta)
                     order_metainfo_id: "order_metainfo_id_1"
                     update: {
                         metainfo: "changed"
+                        store: {
+                            address: {
+                                city: "changed city"
+                            }
+                            second_address: {
+                                city: "second changed city"
+                            }
+                        }
                     }
                 ) {
                     metainfo
                     order_metainfo_id
                     order_id
+                    store {
+                        address {
+                            city
+                        }
+                        second_address {
+                            city
+                        }
+                    }
                 }
             }
         ]]
@@ -757,14 +866,22 @@ local function run_queries(gql_wrapper, virtbox, meta)
             - metainfo: changed
               order_metainfo_id: order_metainfo_id_1
               order_id: order_id_1
+              store:
+                address:
+                  city: changed city
+                second_address:
+                  city: second changed city
         ]]):strip())
 
         -- check the original tuple
         local order_metainfo_id = 'order_metainfo_id_1'
         local orig_tuple = get_tuple(virtbox, 'order_metainfo_collection',
             {order_metainfo_id})
-        local exp_orig_tuple =
-            {'order metainfo 1', order_metainfo_id, 'order_id_1'}
+        local exp_orig_tuple = {
+            'order metainfo 1', order_metainfo_id, 'order_id_1', 'store 1',
+            'street 1', 'city 1', 'state 1', 'zip 1', 'second street 1',
+            'second city 1', 'second state 1', 'second zip 1',
+        }
         test:is_deeply(orig_tuple:totable(), exp_orig_tuple,
             'original tuple is the one that expected')
 
@@ -777,8 +894,10 @@ local function run_queries(gql_wrapper, virtbox, meta)
         local tuple = get_tuple(virtbox, 'order_metainfo_collection',
             {order_metainfo_id})
         test:ok(tuple ~= nil, 'updated tuple exists')
-        local exp_tuple =
-            {'changed', order_metainfo_id, 'order_id_1'}
+        local exp_tuple = table.copy(exp_orig_tuple)
+        exp_tuple[1] = 'changed'
+        exp_tuple[6] = 'changed city'
+        exp_tuple[10] = 'second changed city'
         test:is_deeply(tuple:totable(), exp_tuple, 'updated tuple is correct')
 
         -- replace back updated tuples & check
