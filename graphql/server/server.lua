@@ -1,7 +1,6 @@
 local fio = require('fio')
 local utils = require('graphql.server.utils')
 local json = require('json')
-local check = require('graphql.utils').check
 
 local server = {}
 

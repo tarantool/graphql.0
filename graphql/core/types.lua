@@ -178,10 +178,9 @@ types.map = types.scalar({
   serialize = function(value) return value end,
   parseValue = function(value) return value end,
   parseLiteral = function(node)
-    if node.kind == 'Map' then
-      return node.value
-    end
-  end
+    error('Literal parsing is implemented in util.coerceValue; ' ..
+      'we should not go here')
+  end,
 })
 
 function types.inputObject(config)
@@ -202,6 +201,42 @@ function types.inputObject(config)
     description = config.description,
     fields = fields
   }
+
+  return instance
+end
+
+function types.inputMap(config)
+  local instance = {
+    __type = 'InputMap',
+    name = config.name,
+    serialize = function(value) return value end,
+    parseValue = function(value) return value end,
+    parseLiteral = function(node)
+      error('Literal parsing is implemented in util.coerceValue; ' ..
+        'we should not go here')
+    end,
+    values = config.values,
+  }
+
+  instance.nonNull = types.nonNull(instance)
+
+  return instance
+end
+
+function types.inputUnion(config)
+  local instance = {
+    __type = 'InputUnion',
+    name = config.name,
+    serialize = function(value) return value end,
+    parseValue = function(value) return value end,
+    parseLiteral = function(node)
+      error('Literal parsing is implemented in util.coerceValue; ' ..
+        'we should not go here')
+    end,
+    resolveNodeType = config.resolveNodeType,
+  }
+
+  instance.nonNull = types.nonNull(instance)
 
   return instance
 end

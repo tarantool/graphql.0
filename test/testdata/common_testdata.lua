@@ -67,7 +67,16 @@ function common_testdata.get_test_metadata()
                                 { "name": "zip", "type": "string" }
                             ]
                         }},
-                        { "name": "second_address", "type": "address" }
+                        { "name": "second_address", "type": "address" },
+                        { "name": "external_id", "type": ["int", "string"]},
+                        { "name": "tags", "type": {
+                            "type": "array",
+                            "items": "string"
+                        }},
+                        { "name": "parametrized_tags", "type": {
+                            "type": "map",
+                            "values": "string"
+                        }}
                     ]
                 }}
             ]
@@ -316,18 +325,25 @@ function common_testdata.fill_test_data(virtbox, meta)
             order_metainfo_id = 'order_metainfo_id_' .. s,
             order_id = 'order_id_' .. s,
             store = {
-                name = "store " .. s,
+                name = 'store ' .. s,
                 address = {
-                    street = "street " .. s,
-                    city = "city " .. s,
-                    state = "state " .. s,
-                    zip = "zip " .. s,
+                    street = 'street ' .. s,
+                    city = 'city ' .. s,
+                    state = 'state ' .. s,
+                    zip = 'zip ' .. s,
                 },
                 second_address = {
-                    street = "second street " .. s,
-                    city = "second city " .. s,
-                    state = "second state " .. s,
-                    zip = "second zip " .. s,
+                    street = 'second street ' .. s,
+                    city = 'second city ' .. s,
+                    state = 'second state ' .. s,
+                    zip = 'second zip ' .. s,
+                },
+                external_id = i % 2 == 1 and {int = i} or
+                    {string = 'eid_' .. s},
+                tags = {'fast', 'new'},
+                parametrized_tags = {
+                    size = 'medium',
+                    since = '2018-01-01'
                 },
             }
         })

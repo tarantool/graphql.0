@@ -25,7 +25,7 @@ local schema = {}
 --- * TBD: generate per-connection arguments in avro-schema in some way?
 --- * DONE: Move avro-schema -> GraphQL arguments translating into its own
 ---   module.
---- * PARTIAL: Support a sub-record arguments and others (union, array, ...).
+--- * DONE: Support a sub-record arguments and others (union, array, ...).
 --- * TBD: Generate arguments for cartesian product of {1:1, 1:1*, 1:N, all} x
 ---   {query, mutation, all} x {top-level, nested, all} x {collections}.
 --- * TBD: Use generated arguments in GraphQL types (schema) generation.
