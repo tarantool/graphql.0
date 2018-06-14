@@ -9,6 +9,8 @@ default:
 .PHONY: lint
 lint:
 	luacheck graphql/*.lua \
+		graphql/convert_schema/*.lua \
+		graphql/server/*.lua \
 		test/bench/*.lua \
 		test/space/*.lua \
 		test/testdata/*.lua \
@@ -44,6 +46,12 @@ pure-bench:
 .PHONY: clean
 clean:
 	rm -rf test/var
+
+.PHONY: apidoc-lint
+apidoc-lint:
+	! ldoc -d doc/apidoc-lint-tmp graphql --all -f markdown 2>&1 >/dev/null | \
+		grep -v ': no module() call found; no initial doc comment$$\|: contains no items$$'
+	rm -rf doc/apidoc-lint-tmp
 
 .PHONY: apidoc
 apidoc:

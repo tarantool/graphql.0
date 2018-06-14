@@ -4,19 +4,6 @@ local log = require('log')
 
 local utils = {}
 
---- Log an error and the corresponding backtrace in case of the `func` function
---- call raises the error.
-function utils.show_trace(func, ...)
-    local args = {...}
-    return select(2, xpcall(
-        function() return func(unpack(args)) end,
-        function(err)
-            log.info('ERROR: ' .. tostring(err))
-            log.info(debug.traceback())
-        end
-    ))
-end
-
 --- Recursively checks whether `sub` fields values are match `t` ones.
 function utils.is_subtable(t, sub)
     for k, v in pairs(sub) do
@@ -170,9 +157,17 @@ function utils.do_have_keys(table, keys)
     return true
 end
 
---- Check if passed obj has one of passed types.
---- @tparam table obj to check
---- @tparam {type_1, type_2} ... possible types
+--- Check whether passed value has one of listed types.
+---
+--- @param obj value to check
+---
+--- @tparam string obj_name name of the value to form an error
+---
+--- @tparam string type_1
+--- @tparam[opt] string type_2
+--- @tparam[opt] string type_3
+---
+--- @return nothing
 function utils.check(obj, obj_name, type_1, type_2, type_3)
     if type(obj) == type_1 or type(obj) == type_2 or type(obj) == type_3 then
         return
@@ -211,6 +206,15 @@ function utils.value_in(value, array)
         end
     end
     return false
+end
+
+function utils.optional_require_rex()
+    local rex, is_pcre2 = utils.optional_require('rex_pcre2'), true
+    if rex == nil then
+        -- fallback to libpcre
+        rex, is_pcre2 = utils.optional_require('rex_pcre'), false
+    end
+    return rex, is_pcre2
 end
 
 return utils

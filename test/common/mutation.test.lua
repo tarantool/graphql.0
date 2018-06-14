@@ -8,8 +8,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local tap = require('tap')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
 
 box.cfg({})
@@ -45,15 +44,8 @@ local function replace_tuple(virtbox, collection_name, key, tuple)
     if get_tuple(virtbox, collection_name, key) == nil then
         virtbox[collection_name]:insert(tuple)
     else
-        for _, zone in ipairs(virtbox.shards) do
-            for _, node in ipairs(zone) do
-                virtbox:space_call(collection_name, node, function(space_obj)
-                    if space_obj:get(key) ~= nil then
-                        space_obj:replace(tuple)
-                    end
-                end)
-            end
-        end
+        delete_tuple(virtbox, collection_name, key)
+        virtbox[collection_name]:insert(tuple)
     end
 end
 
@@ -76,7 +68,7 @@ local function check_insert(test, gql_wrapper, virtbox, mutation_insert,
     local dont_pass_variables = opts.dont_pass_variables or false
     local meta = opts.meta
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         test:plan(7)
         local user_id = 'user_id_new_1'
         local order_id = 'order_id_new_1'
@@ -124,6 +116,61 @@ local function check_insert(test, gql_wrapper, virtbox, mutation_insert,
     end)
 end
 
+local function check_insert_order_metainfo(test, gql_wrapper, virtbox,
+        mutation_insert, exp_result_insert, opts)
+    local opts = opts or {}
+    local variables = opts.variables or {}
+
+    test_utils.show_trace(function()
+        test:plan(5)
+
+        local order_metainfo_id = 'order_metainfo_id_4000'
+
+        -- check the tuple was not inserted before
+        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        test:ok(tuple == nil, 'tuple was not inserted before')
+
+        -- check mutation result
+        local gql_mutation_insert = gql_wrapper:compile(mutation_insert)
+        local result = gql_mutation_insert:execute(variables)
+        test:is_deeply(result, exp_result_insert, 'insert result')
+
+        -- check inserted tuple
+        local EXTERNAL_ID_STRING = 1 -- 0 is for int
+        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        test:ok(tuple ~= nil, 'inserted tuple exists')
+        local exp_tuple = {
+            'order metainfo 4000',
+            'order_metainfo_id_4000',
+            'order_id_4000',
+            'store 4000',
+            'street 4000',
+            'city 4000',
+            'state 4000',
+            'zip 4000',
+            'second street 4000',
+            'second city 4000',
+            'second state 4000',
+            'second zip 4000',
+            EXTERNAL_ID_STRING,
+            'eid_4000',
+            {'slow'},
+            {size = 'small'},
+        }
+        test:is_deeply(tuple:totable(), exp_tuple, 'inserted tuple is correct')
+
+        -- delete inserted tuple & check
+        delete_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        test:ok(tuple == nil, 'inserted tuple was deleted')
+        assert(test:check(), 'check plan')
+    end)
+end
+
 local function check_update(test, gql_wrapper, virtbox, mutation_update,
         exp_result_update, opts)
     local opts = opts or {}
@@ -132,7 +179,7 @@ local function check_update(test, gql_wrapper, virtbox, mutation_update,
     local extra_xorder = opts.extra_xorder or {}
     local extra_xuser = opts.extra_xuser or {}
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         test:plan(7)
         local user_id = 'user_id_1'
         local order_id = 'order_id_1'
@@ -206,12 +253,69 @@ local function check_update(test, gql_wrapper, virtbox, mutation_update,
     end)
 end
 
+local function check_update_order_metainfo(test, gql_wrapper, virtbox,
+        mutation_update, exp_result_update, opts)
+    local opts = opts or {}
+    local variables = opts.variables or {}
+
+    test_utils.show_trace(function()
+        test:plan(5)
+
+        -- check the original tuple
+        local EXTERNAL_ID_INT = 0
+        local EXTERNAL_ID_STRING = 1
+        local order_metainfo_id = 'order_metainfo_id_1'
+        local orig_tuple = get_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        local exp_orig_tuple = {
+            'order metainfo 1', order_metainfo_id, 'order_id_1', 'store 1',
+            'street 1', 'city 1', 'state 1', 'zip 1', 'second street 1',
+            'second city 1', 'second state 1', 'second zip 1',
+            EXTERNAL_ID_INT, 1, {'fast', 'new'}, {
+                size = 'medium',
+                since = '2018-01-01',
+            },
+        }
+        test:is_deeply(orig_tuple:totable(), exp_orig_tuple,
+            'original tuple is the one that expected')
+
+        -- check mutation result
+        local gql_mutation_update = gql_wrapper:compile(mutation_update)
+        local result = gql_mutation_update:execute(variables)
+        test:is_deeply(result, exp_result_update, 'update result')
+
+        -- check updated tuple
+        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        test:ok(tuple ~= nil, 'updated tuple exists')
+        local exp_tuple = table.copy(exp_orig_tuple)
+        exp_tuple[1] = 'changed'
+        exp_tuple[6] = 'changed city'
+        exp_tuple[10] = 'second changed city'
+        exp_tuple[13] = EXTERNAL_ID_STRING
+        exp_tuple[14] = 'eid changed'
+        exp_tuple[15] = {'slow'}
+        exp_tuple[16] = {size = 'small'}
+        test:is_deeply(tuple:totable(), exp_tuple, 'updated tuple is correct')
+
+        -- replace back updated tuples & check
+        replace_tuple(virtbox, 'order_metainfo_collection', {order_metainfo_id},
+            orig_tuple)
+        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+            {order_metainfo_id})
+        test:is_deeply(tuple:totable(), orig_tuple:totable(),
+            'updated tuple was replaced back')
+
+        assert(test:check(), 'check plan')
+    end)
+end
+
 local function check_delete(test, gql_wrapper, virtbox, mutation_delete,
         exp_result_delete, opts)
     local opts = opts or {}
     local dont_pass_variables = opts.dont_pass_variables or false
 
-    utils.show_trace(function()
+    test_utils.show_trace(function()
         test:plan(5)
         local user_id = 'user_id_1'
         local order_id = 'order_id_1'
@@ -250,7 +354,7 @@ end
 
 local function run_queries(gql_wrapper, virtbox, meta)
     local test = tap.test('mutation')
-    test:plan(19)
+    test:plan(22)
 
     -- {{{ insert
 
@@ -412,7 +516,149 @@ local function run_queries(gql_wrapper, virtbox, meta)
     test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
         '"insert" argument is forbidden with other filters (extra arguments)')
 
-    -- XXX: test inserting an object into a collection with subrecords
+    -- test inserting an object into a collection with subrecord, union, array
+    -- and map
+    local mutation_insert_6 = [[
+        mutation insert_order_metainfo {
+            order_metainfo_collection(insert: {
+                metainfo: "order metainfo 4000"
+                order_metainfo_id: "order_metainfo_id_4000"
+                order_id: "order_id_4000"
+                store: {
+                    name: "store 4000"
+                    address: {
+                        street: "street 4000"
+                        city: "city 4000"
+                        state: "state 4000"
+                        zip: "zip 4000"
+                    }
+                    second_address: {
+                        street: "second street 4000"
+                        city: "second city 4000"
+                        state: "second state 4000"
+                        zip: "second zip 4000"
+                    }
+                    external_id: {string: "eid_4000"}
+                    tags: ["slow"]
+                    parametrized_tags: {
+                        size: "small"
+                    }
+                }
+            }) {
+                metainfo
+                order_metainfo_id
+                order_id
+                store {
+                    name
+                    address {
+                        city
+                    }
+                    second_address {
+                        city
+                    }
+                    external_id {
+                        ... on String_box {
+                            string
+                        }
+                        ... on Int_box {
+                            int
+                        }
+                    }
+                    tags
+                    parametrized_tags
+                }
+            }
+        }
+    ]]
+
+    local exp_result_insert_6 = yaml.decode(([[
+        ---
+        order_metainfo_collection:
+        - metainfo: order metainfo 4000
+          order_metainfo_id: order_metainfo_id_4000
+          order_id: order_id_4000
+          store:
+            name: store 4000
+            address:
+              city: city 4000
+            second_address:
+              city: second city 4000
+            external_id:
+              string: eid_4000
+            tags:
+            - slow
+            parametrized_tags:
+              size: small
+    ]]):strip())
+
+    check_insert_order_metainfo(test:test(
+        'insert an object with subrecords (immediate argument)'),
+        gql_wrapper, virtbox, mutation_insert_6, exp_result_insert_6)
+
+    -- the same with a variable instead of immediate argument
+    local mutation_insert_6v = [[
+        mutation insert_order_metainfo(
+            $order_metainfo: order_metainfo_collection_insert
+        ) {
+            order_metainfo_collection(insert: $order_metainfo) {
+                metainfo
+                order_metainfo_id
+                order_id
+                store {
+                    name
+                    address {
+                        city
+                    }
+                    second_address {
+                        city
+                    }
+                    external_id {
+                        ... on String_box {
+                            string
+                        }
+                        ... on Int_box {
+                            int
+                        }
+                    }
+                    tags
+                    parametrized_tags
+                }
+            }
+        }
+    ]]
+
+    check_insert_order_metainfo(test:test(
+        'insert an object with subrecords (variable argument)'),
+        gql_wrapper, virtbox, mutation_insert_6v, exp_result_insert_6, {
+            variables = {
+                order_metainfo = {
+                    metainfo = 'order metainfo 4000',
+                    order_metainfo_id = 'order_metainfo_id_4000',
+                    order_id = 'order_id_4000',
+                    store = {
+                        name = 'store 4000',
+                        address = {
+                            street = 'street 4000',
+                            city = 'city 4000',
+                            state = 'state 4000',
+                            zip = 'zip 4000',
+                        },
+                        second_address = {
+                            street = 'second street 4000',
+                            city = 'second city 4000',
+                            state = 'second state 4000',
+                            zip = 'second zip 4000',
+                        },
+                        external_id = {string = 'eid_4000'},
+                        tags = {'slow'},
+                        parametrized_tags = {
+                            size = 'small',
+                        }
+                    }
+                }
+            }
+        }
+    )
 
     -- }}}
 
@@ -735,61 +981,135 @@ local function run_queries(gql_wrapper, virtbox, meta)
         '"update" argument is forbidden in a query')
 
     -- test updating of a field by which a shard key is calculated (it is the
-    -- first field: tuple[1])
-    test:test('update 1st tuple field', function(test)
-        test:plan(5)
-        local mutation_update = [[
-            mutation update_order_metainfo {
-                order_metainfo_collection(
-                    order_metainfo_id: "order_metainfo_id_1"
-                    update: {
-                        metainfo: "changed"
+    -- first field: tuple[1]);
+    -- here we also check updating inside subrecords;
+    -- and also check updating of array, map and union
+    local mutation_update_subrecord = [[
+        mutation update_order_metainfo {
+            order_metainfo_collection(
+                order_metainfo_id: "order_metainfo_id_1"
+                update: {
+                    metainfo: "changed"
+                    store: {
+                        address: {
+                            city: "changed city"
+                        }
+                        second_address: {
+                            city: "second changed city"
+                        }
+                        external_id: {string: "eid changed"}
+                        tags: ["slow"]
+                        parametrized_tags: {
+                            size: "small"
+                        }
                     }
-                ) {
-                    metainfo
-                    order_metainfo_id
-                    order_id
+                }
+            ) {
+                metainfo
+                order_metainfo_id
+                order_id
+                store {
+                    address {
+                        city
+                    }
+                    second_address {
+                        city
+                    }
+                    external_id {
+                        ... on String_box {
+                            string
+                        }
+                        ... on Int_box {
+                            int
+                        }
+                    }
+                    tags
+                    parametrized_tags
                 }
             }
-        ]]
-        local exp_result_update = yaml.decode(([[
-            ---
-            order_metainfo_collection:
-            - metainfo: changed
-              order_metainfo_id: order_metainfo_id_1
-              order_id: order_id_1
-        ]]):strip())
+        }
+    ]]
 
-        -- check the original tuple
-        local order_metainfo_id = 'order_metainfo_id_1'
-        local orig_tuple = get_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
-        local exp_orig_tuple =
-            {'order metainfo 1', order_metainfo_id, 'order_id_1'}
-        test:is_deeply(orig_tuple:totable(), exp_orig_tuple,
-            'original tuple is the one that expected')
+    local exp_result_update_subrecord = yaml.decode(([[
+        ---
+        order_metainfo_collection:
+        - metainfo: changed
+          order_metainfo_id: order_metainfo_id_1
+          order_id: order_id_1
+          store:
+            address:
+              city: changed city
+            second_address:
+              city: second changed city
+            external_id:
+              string: eid changed
+            tags:
+            - slow
+            parametrized_tags:
+              size: small
+    ]]):strip())
 
-        -- check mutation result
-        local gql_mutation_update = gql_wrapper:compile(mutation_update)
-        local result = gql_mutation_update:execute({})
-        test:is_deeply(result, exp_result_update, 'update result')
+    check_update_order_metainfo(
+        test:test('update 1st tuple field (immediate argument)'), gql_wrapper,
+        virtbox, mutation_update_subrecord, exp_result_update_subrecord)
 
-        -- check updated tuple
-        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
-        test:ok(tuple ~= nil, 'updated tuple exists')
-        local exp_tuple =
-            {'changed', order_metainfo_id, 'order_id_1'}
-        test:is_deeply(tuple:totable(), exp_tuple, 'updated tuple is correct')
+    -- the same with a variable argument
+    local mutation_update_subrecord_v = [[
+        mutation update_order_metainfo(
+            $xorder_metainfo: order_metainfo_collection_update
+        ) {
+            order_metainfo_collection(
+                order_metainfo_id: "order_metainfo_id_1"
+                update: $xorder_metainfo
+            ) {
+                metainfo
+                order_metainfo_id
+                order_id
+                store {
+                    address {
+                        city
+                    }
+                    second_address {
+                        city
+                    }
+                    external_id {
+                        ... on String_box {
+                            string
+                        }
+                        ... on Int_box {
+                            int
+                        }
+                    }
+                    tags
+                    parametrized_tags
+                }
+            }
+        }
+    ]]
 
-        -- replace back updated tuples & check
-        replace_tuple(virtbox, 'order_metainfo_collection', {order_metainfo_id},
-            orig_tuple)
-        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
-        test:is_deeply(tuple:totable(), orig_tuple:totable(),
-            'updated tuple was replaced back')
-    end)
+    check_update_order_metainfo(
+        test:test('update 1st tuple field (variable argument)'), gql_wrapper,
+        virtbox, mutation_update_subrecord_v, exp_result_update_subrecord, {
+            variables = {
+                xorder_metainfo = {
+                    metainfo = 'changed',
+                    store = {
+                        address = {
+                            city = 'changed city',
+                        },
+                        second_address = {
+                            city = 'second changed city',
+                        },
+                        external_id = {string = 'eid changed'},
+                        tags = {'slow'},
+                        parametrized_tags = {
+                            size = 'small',
+                        }
+                    }
+                }
+            }
+        }
+    )
 
     -- Test updating of a field of a primary key when:
     -- 1. it is NOT shard key field (tuple[1]);
@@ -845,8 +1165,6 @@ local function run_queries(gql_wrapper, virtbox, meta)
         "'order_id_index' in space 'order_collection'"
     test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
         'updating of a field of a primary key when it is shard key field')
-
-    -- XXX: test updating an object in a collection with subrecords
 
     -- }}}
 

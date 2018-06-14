@@ -10,8 +10,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 local tap = require('tap')
 local yaml = require('yaml')
 local graphql = require('graphql')
-local utils = require('graphql.utils')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 local common_testdata = require('test.testdata.common_testdata')
 local emails_testdata = require('test.testdata.nullable_1_1_conn_testdata')
 
@@ -97,12 +96,12 @@ local function run_common_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1 = utils.show_trace(function()
+    local gql_query_1 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1)
     end)
 
     local variables_1 = {user_id = 'user_id_1'}
-    local result_1 = utils.show_trace(function()
+    local result_1 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1)
     end)
     local exp_result_1 = yaml.decode(([[
@@ -142,12 +141,12 @@ local function run_emails_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_upside = utils.show_trace(function()
+    local gql_query_upside = test_utils.show_trace(function()
         return gql_wrapper:compile(query_upside)
     end)
 
     local variables_upside = {upside_body = 'a'}
-    local result_upside = utils.show_trace(function()
+    local result_upside = test_utils.show_trace(function()
         return gql_query_upside:execute(variables_upside)
     end)
     local exp_result_upside = yaml.decode(([[

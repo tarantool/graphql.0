@@ -1,11 +1,11 @@
 #!/usr/bin/env tarantool
 
 local tap = require('tap')
-local utils = require('graphql.utils')
 local yaml = require('yaml')
 local json = require('json')
 local fio = require('fio')
 local http = require('http.client').new()
+local test_utils = require('test.test_utils')
 
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
@@ -42,7 +42,7 @@ local test = tap.test('default_instance')
 test:plan(5)
 
 -- test require('graphql').compile(query)
-utils.show_trace(function()
+test_utils.show_trace(function()
     local variables_1 = {user_id = 'user_id_1'}
     local compiled_query = gql_lib.compile(query)
     local result = compiled_query:execute(variables_1)
@@ -56,7 +56,7 @@ utils.show_trace(function()
 end)
 
 -- test require('graphql').execute(query)
-utils.show_trace(function()
+test_utils.show_trace(function()
     local variables_2 = {user_id = 'user_id_2'}
     local result = gql_lib.execute(query, variables_2)
     local exp_result = yaml.decode(([[
@@ -69,7 +69,7 @@ utils.show_trace(function()
 end)
 
 -- test server
-utils.show_trace(function()
+test_utils.show_trace(function()
     local res = gql_lib.start_server()
     local exp_res_start = 'The GraphQL server started at http://127.0.0.1:8080'
     test:is(res, exp_res_start, 'start_server')

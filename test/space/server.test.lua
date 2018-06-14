@@ -6,11 +6,11 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 local tap = require('tap')
-local utils = require('graphql.utils')
 local yaml = require('yaml')
 local json = require('json')
 local http = require('http.client').new()
 local graphql = require('graphql')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
 
 box.cfg{background = false}
@@ -48,7 +48,7 @@ local test = tap.test('server')
 test:plan(6)
 
 -- test server
-utils.show_trace(function()
+test_utils.show_trace(function()
     local res = gql_wrapper:start_server()
     local exp_res_start = 'The GraphQL server started at http://127.0.0.1:8080'
     test:is(res, exp_res_start, 'start_server')

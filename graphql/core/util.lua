@@ -70,19 +70,22 @@ function util.coerceValue(node, schemaType, variables)
     end)
   end
 
-  if schemaType.__type == 'InputObject' then
+  local isInputObject = schemaType.__type == 'InputObject'
+  if isInputObject or schemaType.__type == 'InputMap' then
     if node.kind ~= 'inputObject' then
       error('Expected an input object')
     end
 
     local inputObjectValue = {}
     for _, field in pairs(node.values) do
-      if not schemaType.fields[field.name] then
+      if isInputObject and not schemaType.fields[field.name] then
         error('Unknown input object field "' .. field.name .. '"')
       end
 
-      inputObjectValue[field.name] = util.coerceValue(
-        field.value, schemaType.fields[field.name].kind, variables)
+      local child_type = isInputObject and schemaType.fields[field.name].kind or
+        schemaType.values
+      inputObjectValue[field.name] = util.coerceValue(field.value, child_type,
+        variables)
     end
     return inputObjectValue
   end
@@ -105,6 +108,11 @@ function util.coerceValue(node, schemaType, variables)
     end
 
     return schemaType.parseLiteral(node)
+  end
+
+  if schemaType.__type == 'InputUnion' then
+    local child_type = schemaType.resolveNodeType(node)
+    return util.coerceValue(node, child_type, variables)
   end
 end
 

@@ -5,8 +5,7 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 
 local testdata = {}
 
@@ -90,7 +89,7 @@ end
 
 function testdata.run_queries(gql_wrapper)
     local test = tap.test('nested_record')
-    test:plan(1)
+    test:plan(2)
 
     local query_1 = [[
         query getUserByUid($uid: Long) {
@@ -107,7 +106,7 @@ function testdata.run_queries(gql_wrapper)
     ]]
 
     local variables_1 = {uid = 5}
-    local result_1 = utils.show_trace(function()
+    local result_1 = test_utils.show_trace(function()
         local gql_query_1 = gql_wrapper:compile(query_1)
         return gql_query_1:execute(variables_1)
     end)
@@ -125,8 +124,6 @@ function testdata.run_queries(gql_wrapper)
 
     test:is_deeply(result_1, exp_result_1, '1')
 
-    -- XXX: uncomment when arguments for nested records will be supported
-    --[=[
     local query_2 = [[
         query getUserByX($x: Long) {
             user(nested: {x: $x}) {
@@ -142,7 +139,7 @@ function testdata.run_queries(gql_wrapper)
     ]]
 
     local variables_2 = {x = 1005}
-    local result_2 = utils.show_trace(function()
+    local result_2 = test_utils.show_trace(function()
         local gql_query_2 = gql_wrapper:compile(query_2)
         return gql_query_2:execute(variables_2)
     end)
@@ -159,7 +156,6 @@ function testdata.run_queries(gql_wrapper)
     ]]):strip())
 
     test:is_deeply(result_2, exp_result_2, '2')
-    ]=]--
 
     assert(test:check(), 'check plan')
 end

@@ -10,7 +10,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 local tap = require('tap')
 local graphql = require('graphql')
 local testdata = require('test.testdata.compound_index_testdata')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 
 -- init box, upload test data and acquire metadata
 -- -----------------------------------------------
@@ -81,8 +81,8 @@ metadata.indexes.user_collection.user_str_index = {
 
 local ok, err = pcall(create_gql_wrapper, metadata)
 local err_exp = 'several indexes were marked as primary in the ' ..
-    '"user_collection" collection, at least "user_str_index" and ' ..
-    '"user_str_num_index"'
+    '"user_collection" collection, at least "user_str_num_index" and ' ..
+    '"user_str_index"'
 test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
     'multiple primary indexes')
 

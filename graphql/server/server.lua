@@ -1,7 +1,6 @@
 local fio = require('fio')
 local utils = require('graphql.server.utils')
 local json = require('json')
-local check = require('graphql.utils').check
 
 local server = {}
 
@@ -26,6 +25,8 @@ local function static_handler(req)
 
     if path == '/' then
         path = fio.pathjoin('graphiql', 'index.html')
+    else
+        path = fio.pathjoin('graphiql', path)
     end
 
     local lib_dir = utils.script_path()

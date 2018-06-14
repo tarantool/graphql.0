@@ -11,7 +11,7 @@ package.path =
     package.path
 
 local log = require('log')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 
 -- e. g. nullable_1_1_conn
 local testdata_name = arg[1] or 'common'

@@ -2,8 +2,8 @@
 
 local tap = require('tap')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local graphql = require('graphql')
+local test_utils = require('test.test_utils')
 
 local connections = {
     {
@@ -72,12 +72,12 @@ local function run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1 = utils.show_trace(function()
+    local gql_query_1 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1)
     end)
 
     local variables_1_1 = {user_id = 'user_id_1'}
-    local result_1_1 = utils.show_trace(function()
+    local result_1_1 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1_1)
     end)
     local exp_result_1_1 = yaml.decode(([[
@@ -94,6 +94,7 @@ local function run_queries(gql_wrapper)
 
     local cfg = gql_wrapper.internal.cfg
     cfg.accessor = nil
+    cfg.e_schemas = nil
     local result_1_2 = cfg
     local exp_result_1_2 = yaml.decode(([[
         ---
@@ -176,7 +177,7 @@ local function run_queries(gql_wrapper)
     assert(test:check(), 'check plan')
 end
 
-utils.show_trace(function()
+test_utils.show_trace(function()
     box.cfg { background = false }
     init_spaces()
     fill_test_data()

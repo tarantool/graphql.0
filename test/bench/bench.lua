@@ -15,7 +15,7 @@ local digest = require('digest')
 local multirunner = require('test.common.multirunner')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
-local test_utils = require('test.utils')
+local test_utils = require('test.test_utils')
 local test_run = utils.optional_require('test_run')
 test_run = test_run and test_run.new()
 

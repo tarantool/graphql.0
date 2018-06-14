@@ -11,7 +11,7 @@ local tap = require('tap')
 local yaml = require('yaml')
 local avro = require('avro_schema')
 local graphql = require('graphql')
-local utils = require('graphql.utils')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
 
 -- init box, upload test data and acquire metadata
@@ -109,7 +109,7 @@ local function run_queries(gql_wrapper)
             first_name: Ivan$
     ]]):strip())
 
-    local result = utils.show_trace(function()
+    local result = test_utils.show_trace(function()
         local variables_1 = {order_id = 'order_id_1'}
         local gql_query_1 = gql_wrapper:compile(query_1)
         return gql_query_1:execute(variables_1)

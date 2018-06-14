@@ -10,12 +10,9 @@ local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 local clock = require('clock')
 local bit = require('bit')
-local rex, is_pcre2 = utils.optional_require('rex_pcre2'), true
-if rex == nil then
-    -- fallback to libpcre
-    rex, is_pcre2 = utils.optional_require('rex_pcre'), false
-end
+local rex, is_pcre2 = utils.optional_require_rex()
 local avro_helpers = require('graphql.avro_helpers')
+local db_schema_helpers = require('graphql.db_schema_helpers')
 
 local check = utils.check
 
@@ -44,7 +41,7 @@ accessor_general.TIMEOUT_INFINITY = TIMEOUT_INFINITY
 --- Validate and compile set of avro schemas (with respect to service fields).
 ---
 --- @tparam table schemas map where keys are string names and values are
----               avro schemas; consider an example in @{tarantool_graphql.new}
+---               avro schemas; consider an example in @{impl.new}
 ---               function description.
 --- @tparam table service_fields map where keys are string names of avro
 ---               schemas (from `schemas` argument) and values are service
@@ -107,46 +104,6 @@ local function compile_schemas(schemas, service_fields)
         models[name] = model
     end
     return models, service_fields_defaults
-end
-
---- Get user-provided meta-information about the primary index of given
---- collection.
----
---- @tparam table self the data accessor
----
---- @tparam string collection_name the name of collection to find the primary
---- index
----
---- @treturn string `index_name`
---- @treturn table `index` (meta-information, not the index itself)
-local function get_primary_index_meta(self, collection_name)
-    assert(type(self) == 'table',
-        'self must be a table, got ' .. type(self))
-    assert(type(collection_name) == 'string',
-        'collection_name must be a string, got ' ..
-        type(collection_name))
-
-    local indexes = self.indexes[collection_name]
-
-    local res_index_name
-
-    for index_name, index in pairs(indexes) do
-        if res_index_name == nil and index.primary then
-            res_index_name = index_name
-        elseif res_index_name ~= nil and index.primary then
-            error(('several indexes were marked as primary in ' ..
-                'the "%s" collection, at least "%s" and "%s"'):format(
-                collection_name, res_index_name, index_name))
-        end
-    end
-
-    if res_index_name == nil then
-        error(('cannot find primary index for collection "%s"'):format(
-            collection_name))
-    end
-
-    local res_index = indexes[res_index_name]
-    return res_index_name, res_index
 end
 
 --- Get a key to lookup index by `lookup_index_name` (part of `index_cache`).
@@ -312,7 +269,7 @@ end
 
 --- Validate `from` parameter of accessor_instance:select().
 ---
---- @tparam table from see @{tarantool_graphql.new}
+--- @tparam table from see @{impl.new}
 ---
 --- Raises an error when the validation fails.
 ---
@@ -334,7 +291,7 @@ end
 --- (directly or indirectly using the `accessor_space.new` or the
 --- `accessor_shard.new` function); this function uses the
 --- `self.index_cache` prebuild table representing available indexes
-
+---
 --- @tparam string collection_name name of a collection of whose indexes the
 --- function will search through
 ---
@@ -353,7 +310,7 @@ end
 --- lookup needed index, values forms the `value_list` return value
 ---
 --- @tparam table args the `args` argument from the `self:select()` function,
---- it is the `list_args_instance` variable in terms of the `tarantool_graphql`
+--- it is the `list_args_instance` variable in terms of the `convert_schema`
 --- module; here we using only `args.offset` value
 ---
 --- @treturn boolean `full_match` is whether passing `value_list` to the index
@@ -375,7 +332,7 @@ end
 --- `nil`, or contains `value_list` field to pass to a GT (great-then) index,
 --- or contains `filter` field to use in `process_tuple` for find the pivot in
 --- a select result
-local get_index_name = function(self, collection_name, from, filter, args)
+local function get_index_name(self, collection_name, from, filter, args)
     assert(type(self) == 'table',
         'self must be a table, got ' .. type(self))
     assert(type(collection_name) == 'string',
@@ -419,7 +376,8 @@ local get_index_name = function(self, collection_name, from, filter, args)
 
         local pivot
         if args.offset ~= nil then
-            local _, index_meta = get_primary_index_meta(self, collection_name)
+            local _, index_meta = db_schema_helpers.get_primary_index_meta(self,
+                collection_name)
             local pivot_filter
             if #index_meta.fields == 1 then
                 -- we use simple type in case of scalar offset
@@ -444,8 +402,8 @@ local get_index_name = function(self, collection_name, from, filter, args)
     -- corresponding offset in `pivot.value_list`, then the result will be
     -- postprocessed using `new_filter`, if necessary.
     if args.offset ~= nil then
-        local index_name, index_meta = get_primary_index_meta(self,
-            collection_name)
+        local index_name, index_meta = db_schema_helpers.get_primary_index_meta(
+            self, collection_name)
         local full_match
         local pivot_value_list
         local new_filter = filter
@@ -741,8 +699,8 @@ end
 --- to validate
 ---
 --- @tparam table schemas map from schema names to schemas as defined in the
---- @{tarantool_graphql.new} function; this is for validate collection against
---- certain set of schemas (no 'dangling' schema names in collections)
+--- @{impl.new} function; this is for validate collection against certain set
+--- of schemas (no 'dangling' schema names in collections)
 ---
 --- @return nil
 local function validate_collections(collections, schemas)
@@ -814,36 +772,42 @@ end
 local function match_using_re(obj, pcre)
     if pcre == nil then return true end
 
+    assert(rex ~= nil, 'we should not pass over :compile() ' ..
+        'with a query contains PCRE matching when there are '..
+        'no lrexlib-pcre (rex_pcre) module present')
+
     for field_name, re in pairs(pcre) do
         -- skip an object with null in a string* field
         if obj[field_name] == nil then
             return false
         end
-        assert(rex ~= nil, 'we should not pass over :compile() ' ..
-            'with a query contains PCRE matching when there are '..
-            'no lrexlib-pcre (rex_pcre) module present')
-        local flags = rex.flags()
-        -- emulate behaviour of (?i) on libpcre (libpcre2 supports it)
-        local cfg = 0
-        if not is_pcre2 then
-            local cnt
-            re, cnt = re:gsub('^%(%?i%)', '')
-            if cnt > 0 then
-                cfg = bit.bor(cfg, flags.CASELESS)
-            end
-        end
-        -- enable UTF-8
-        if is_pcre2 then
-            cfg = bit.bor(cfg, flags.UTF)
-            cfg = bit.bor(cfg, flags.UCP)
+        if type(re) == 'table' then
+            local match = match_using_re(obj[field_name], re)
+            if not match then return false end
         else
-            cfg = bit.bor(cfg, flags.UTF8)
-            cfg = bit.bor(cfg, flags.UCP)
-        end
-        -- XXX: compile re once
-        local re = rex.new(re, cfg)
-        if not re:match(obj[field_name]) then
-            return false
+            local flags = rex.flags()
+            -- emulate behaviour of (?i) on libpcre (libpcre2 supports it)
+            local cfg = 0
+            if not is_pcre2 then
+                local cnt
+                re, cnt = re:gsub('^%(%?i%)', '')
+                if cnt > 0 then
+                    cfg = bit.bor(cfg, flags.CASELESS)
+                end
+            end
+            -- enable UTF-8
+            if is_pcre2 then
+                cfg = bit.bor(cfg, flags.UTF)
+                cfg = bit.bor(cfg, flags.UCP)
+            else
+                cfg = bit.bor(cfg, flags.UTF8)
+                cfg = bit.bor(cfg, flags.UCP)
+            end
+            -- XXX: compile re once
+            local re = rex.new(re, cfg)
+            if not re:match(obj[field_name]) then
+                return false
+            end
         end
     end
 
@@ -874,7 +838,7 @@ end
 ---   `offset` arqument of the GraphQL query),
 --- * `resulting_object_cnt_max` (number),
 --- * `fetched_object_cnt_max` (number),
---- * `resolveField` (function) for subrequests, see @{tarantool_graphql.new}.
+--- * `resolveField` (function) for subrequests, see @{impl.new}.
 ---
 --- @return nil
 ---
@@ -950,23 +914,6 @@ local function process_tuple(state, tuple, opts)
     return true
 end
 
---- Get schema name by a collection name.
----
---- @tparam table self data accessor instance
----
---- @tparam string collection_name
----
---- @treturn string `schema_name`
-local function get_schema_name(self, collection_name)
-    local collection = self.collections[collection_name]
-    assert(collection ~= nil,
-        ('cannot find the collection "%s"'):format(collection_name))
-    local schema_name = collection.schema_name
-    assert(type(schema_name) == 'string',
-        'schema_name must be a string, got ' .. type(schema_name))
-    return schema_name
-end
-
 --- Call one of accessor function: `update_tuple` or `delete_tuple` for each
 --- selected object.
 ---
@@ -988,7 +935,8 @@ local function perform_primary_key_operation(self, collection_name, schema_name,
         selected, operation, ...)
     check(operation, 'operation', 'string')
 
-    local _, primary_index_meta = get_primary_index_meta(self, collection_name)
+    local _, primary_index_meta = db_schema_helpers.get_primary_index_meta(
+        self, collection_name)
 
     local new_objects = {}
 
@@ -1019,7 +967,7 @@ end
 --- @tparam string collection_name name of collection to perform select
 ---
 --- @tparam table from collection and connection names we arrive from/by as
---- defined in the `tarantool_graphql.new` function description
+--- defined in the `impl.new` function description
 ---
 --- @tparam table filter subset of object fields with values by which we want
 --- to find full object(s)
@@ -1182,7 +1130,7 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     check(from.collection_name, 'from.collection_name', 'nil')
 
     -- convert object -> tuple (set default values from a schema)
-    local schema_name = get_schema_name(self, collection_name)
+    local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
     local default_flatten_object = self.default_flatten_object[schema_name]
     assert(default_flatten_object ~= nil,
         ('cannot find default_flatten_object ' ..
@@ -1224,7 +1172,7 @@ local function update_internal(self, collection_name, extra, selected)
     assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
 
     -- convert xobject -> update statements
-    local schema_name = get_schema_name(self, collection_name)
+    local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
     local default_xflatten = self.default_xflatten[schema_name]
     assert(default_xflatten ~= nil,
         ('cannot find default_xflatten ' ..
@@ -1240,9 +1188,15 @@ end
 
 --- Delete an object.
 ---
---- Parameters are the same as for @{select_update}.
+--- Corresponding parameters are the same as for @{select_internal}.
+---
+--- @tparam table self
+---
+--- @tparam string collection_name
 ---
 --- @tparam table extra `extra.extra_args.delete` is used
+---
+--- @tparam table selected objects to delete
 ---
 --- @treturn table `new_objects` list of deleted objects (in the order of the
 --- `selected` parameter)
@@ -1253,7 +1207,7 @@ local function delete_internal(self, collection_name, extra, selected)
         'arguments'
     assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
 
-    local schema_name = get_schema_name(self, collection_name)
+    local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
 
     return perform_primary_key_operation(self, collection_name, schema_name,
         selected, 'delete_tuple')
@@ -1312,110 +1266,6 @@ local function init_qcontext(accessor, qcontext)
         settings.timeout_ms * 1000 * 1000
 end
 
---- Get an avro-schema for a primary key by a collection name.
----
---- @tparam table self accessor_general instance
----
---- @tparam string collection_name name of a collection
----
---- @treturn string `offset_type` is a just string in case of scalar primary
---- key (and, then, offset) type
----
---- @treturn table `offset_type` is a record in case of compound (multi-part)
---- primary key
-local function get_primary_key_type(self, collection_name)
-    -- get name of field of primary key
-    local _, index_meta = get_primary_index_meta(
-        self, collection_name)
-
-    local collection = self.collections[collection_name]
-    local schema = self.schemas[collection.schema_name]
-
-    local offset_fields = {}
-
-    for _, field_name in ipairs(index_meta.fields) do
-        local field_type
-        for _, field in ipairs(schema.fields) do
-            if field.name == field_name then
-                field_type = field.type
-            end
-        end
-        assert(field_type ~= nil,
-            ('cannot find type for primary index field "%s" ' ..
-            'for collection "%s"'):format(field_name,
-            collection_name))
-        assert(type(field_type) == 'string',
-            'field type must be a string, got ' ..
-            type(field_type))
-        offset_fields[#offset_fields + 1] = {
-            name = field_name,
-            type = field_type,
-        }
-    end
-
-    local offset_type
-    assert(#offset_fields > 0,
-        'offset must contain at least one field')
-    if #offset_fields == 1 then
-        -- use a scalar type
-        offset_type = offset_fields[1].type
-    else
-        -- construct an input type
-        offset_type = {
-            name = collection_name .. '_offset',
-            type = 'record',
-            fields = offset_fields,
-        }
-    end
-
-    return offset_type
-end
-
--- XXX: add string fields of a nested record / 1:1 connection to
--- get_pcre_argument_type
-
---- Get an avro-schema for a pcre argument by a collection name.
----
---- Note: it is called from `list_args`, so applicable only for lists:
---- top-level objects and 1:N connections.
----
---- @tparam table self accessor_general instance
----
---- @tparam string collection_name name of a collection
----
---- @treturn table `pcre_type` is a record with fields per string/string* field
---- of an object of the collection
-local function get_pcre_argument_type(self, collection_name)
-    local collection = self.collections[collection_name]
-    assert(collection ~= nil, 'cannot found collection ' ..
-        tostring(collection_name))
-    local schema = self.schemas[collection.schema_name]
-    assert(schema ~= nil, 'cannot found schema ' ..
-        tostring(collection.schema_name))
-
-    assert(schema.type == 'record',
-        'top-level object expected to be a record, got ' ..
-        tostring(schema.type))
-
-    local string_fields = {}
-
-    for _, field in ipairs(schema.fields) do
-        if field.type == 'string' or field.type == 'string*' then
-            local field = table.copy(field)
-            field.type = avro_helpers.make_avro_type_nullable(
-                field.type, {raise_on_nullable = false})
-            table.insert(string_fields, field)
-        end
-    end
-
-    local pcre_type = {
-        name = collection_name .. '_pcre',
-        type = 'record',
-        fields = string_fields,
-    }
-    return pcre_type
-end
-
 --- Create default unflatten/flatten/xflatten functions, that can be called
 --- from funcs.unflatten_tuple/funcs.flatten_object/funcs.xflatten when an
 --- additional pre/postprocessing is not needed.
@@ -1470,114 +1320,6 @@ local function gen_default_object_tuple_map_funcs(models)
     }
 end
 
---- List of avro-schema fields to use as arguments of a collection field and
---- 1:N connection field.
----
---- @tparam table self the data accessor instance
----
---- @tparam string collection_name name of collection to create the fields
----
---- @treturn table list of avro-schema fields
-local function list_args(self, collection_name)
-    local offset_type = get_primary_key_type(self, collection_name)
-
-    -- add `pcre` argument only if lrexlib-pcre was found
-    local pcre_field
-    if rex ~= nil then
-        local pcre_type = get_pcre_argument_type(self, collection_name)
-        pcre_field = {name = 'pcre', type = pcre_type}
-    end
-
-    return {
-        {name = 'limit', type = 'int'},
-        {name = 'offset', type = offset_type},
-        -- {name = 'filter', type = ...},
-        pcre_field,
-    }
-end
-
---- List of avro-schema fields to use as extra arguments of a collection /
---- a connection field.
----
---- Mutation arguments (insert, update, delete) are generated here.
----
---- @tparam table self the data accessor instance
----
---- @tparam string collection_name name of collection to create the fields
----
---- @treturn table list of avro-schema fields
----
---- @treturn table map with flags to describe where generated arguments should
---- be used; the format is the following:
----
----    {
----        <field name> = {
----            add_to_mutations_only = <boolean>,
----            add_to_top_fields_only = <boolean>,
----        },
----        ...
----    }
-local function extra_args(self, collection_name)
-    if not self.settings.enable_mutations then
-        return {}, {}
-    end
-
-    local collection = self.collections[collection_name]
-    local schema_name = collection.schema_name
-
-    local schema_insert = table.copy(self.schemas[schema_name])
-    schema_insert.name = collection_name .. '_insert'
-
-    local _, primary_index_meta = get_primary_index_meta(self,
-        collection_name)
-
-    local schema_update = {
-        name = collection_name .. '_update',
-        type = 'record',
-        fields = {},
-    }
-    -- add all fields except ones whose are part of the primary key
-    for _, field in ipairs(self.schemas[schema_name].fields) do
-        assert(field.name ~= nil, 'field.name is nil')
-        local is_field_part_of_primary_key = false
-        for _, pk_field_name in ipairs(primary_index_meta.fields) do
-            if field.name == pk_field_name then
-                is_field_part_of_primary_key = true
-                break
-            end
-        end
-
-        if not is_field_part_of_primary_key then
-            local field = table.copy(field)
-            field.type = avro_helpers.make_avro_type_nullable(
-                field.type)
-            table.insert(schema_update.fields, field)
-        end
-    end
-
-    local schema_delete = 'boolean'
-
-    return {
-        {name = 'insert', type = schema_insert},
-        {name = 'update', type = schema_update},
-        {name = 'delete', type = schema_delete},
-    }, {
-        insert = {
-            add_to_mutations_only = true,
-            add_to_top_fields_only = true,
-        },
-        update = {
-            add_to_mutations_only = true,
-            add_to_top_fields_only = false,
-        },
-        delete = {
-            add_to_mutations_only = true,
-            add_to_top_fields_only = false,
-        },
-    }
-end
-
-
 --- Create a new data accessor.
 ---
 --- Provided `funcs` argument determines certain functions for retrieving
@@ -1602,7 +1344,7 @@ end
 ---    and `true` for avro-schema-3*)_.
 ---
 --- For examples of `opts.schemas` and `opts.collections` consider the
---- @{tarantool_graphql.new} function description.
+--- @{impl.new} function description.
 ---
 --- Example of `opts.service_fields` item:
 ---
@@ -1641,8 +1383,8 @@ end
 --- functions description.
 ---
 --- @treturn table data accessor instance, a table with the two methods
---- (`select` and `arguments`) as described in the @{tarantool_graphql.new}
---- function description.
+--- (`select` and `arguments`) as described in the @{impl.new} function
+--- description.
 function accessor_general.new(opts, funcs)
     assert(type(opts) == 'table',
         'opts must be a table, got ' .. type(opts))
@@ -1751,8 +1493,6 @@ function accessor_general.new(opts, funcs)
 
                 return selected
             end,
-            list_args = list_args,
-            extra_args = extra_args,
         }
     })
 end

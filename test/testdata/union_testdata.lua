@@ -2,7 +2,7 @@ local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
 local avro = require('avro_schema')
-local utils = require('graphql.utils')
+local test_utils = require('test.test_utils')
 
 local union_testdata = {}
 
@@ -149,13 +149,13 @@ function union_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1 = utils.show_trace(function()
+    local gql_query_1 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1)
     end)
 
     local variables_1 = {}
 
-    local result_1 = utils.show_trace(function()
+    local result_1 = test_utils.show_trace(function()
         return gql_query_1:execute(variables_1)
     end)
 

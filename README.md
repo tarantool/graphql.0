@@ -394,4 +394,8 @@ make test
 Consider LICENSE file for details. In brief:
 
 * graphql/core: MIT (c) 2015 Bjorn Swenson
+* graphql/server/graphiql: Facebook dev tools & examples license (allows use,
+  copy and distribute) (c) 2015, Facebook, Inc (more: [1])
 * all other content: BSD 2-clause (c) 2018 Tarantool AUTHORS
+
+[1]: https://github.com/graphql/graphiql/issues/10

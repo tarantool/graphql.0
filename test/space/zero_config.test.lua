@@ -2,8 +2,8 @@
 
 local tap = require('tap')
 local yaml = require('yaml')
-local utils = require('graphql.utils')
 local graphql = require('graphql')
+local test_utils = require('test.test_utils')
 
 local function init_spaces()
     local U_USER_ID_FN = 1
@@ -51,11 +51,11 @@ local function run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query_1 = utils.show_trace(function()
+    local gql_query_1 = test_utils.show_trace(function()
         return gql_wrapper:compile(query_1)
     end)
 
-    local result_1_1 = utils.show_trace(function()
+    local result_1_1 = test_utils.show_trace(function()
         local variables_1_1 = {user_id = 'user_id_1'}
         return gql_query_1:execute(variables_1_1)
     end)
@@ -69,9 +69,10 @@ local function run_queries(gql_wrapper)
     ]]):strip())
     test:is_deeply(result_1_1, exp_result_1_1, '1_1')
 
-    local result_1_2 = utils.show_trace(function()
+    local result_1_2 = test_utils.show_trace(function()
         local cfg = gql_wrapper.internal.cfg
         cfg.accessor = nil
+        cfg.e_schemas = nil
         return cfg
     end)
 
@@ -113,7 +114,7 @@ local function run_queries(gql_wrapper)
     assert(test:check(), 'check plan')
 end
 
-utils.show_trace(function()
+test_utils.show_trace(function()
     box.cfg { background = false }
     init_spaces()
     fill_test_data()
