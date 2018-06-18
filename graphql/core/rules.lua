@@ -65,14 +65,16 @@ function rules.argumentsDefinedOnType(node, context)
 end
 
 function rules.scalarFieldsAreLeaves(node, context)
-  if context.objects[#context.objects].__type == 'Scalar' and node.selectionSet then
+  local field_t = types.bare(context.objects[#context.objects]).__type
+  if field_t == 'Scalar' and node.selectionSet then
     error('Scalar values cannot have subselections')
   end
 end
 
 function rules.compositeFieldsAreNotLeaves(node, context)
-  local _type = context.objects[#context.objects].__type
-  local isCompositeType = _type == 'Object' or _type == 'Interface' or _type == 'Union'
+  local field_t = types.bare(context.objects[#context.objects]).__type
+  local isCompositeType = field_t == 'Object' or field_t == 'Interface' or
+    field_t == 'Union'
 
   if isCompositeType and not node.selectionSet then
     error('Composite types must have subselections')

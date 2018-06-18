@@ -359,7 +359,7 @@ end
 
 function common_testdata.run_queries(gql_wrapper)
     local test = tap.test('common')
-    test:plan(24)
+    test:plan(26)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -1216,6 +1216,53 @@ function common_testdata.run_queries(gql_wrapper)
 
     local result = {ok = ok, err = test_utils.strip_error(err)}
     test:is_deeply(result, exp_result_9, '9')
+
+    -- }}}
+
+    -- {{{ fail cases for scalar w/ fields and complex w/o fields
+
+    local query_10 = [[
+        query order {
+            order_collection {
+                order_id {}
+            }
+        }
+
+    ]]
+
+    local exp_result_10 = yaml.decode(([[
+        ---
+        ok: false
+        err: Scalar values cannot have subselections
+    ]]):strip())
+
+    local ok, err = pcall(function()
+        return gql_wrapper:compile(query_10)
+    end)
+
+    local result = {ok = ok, err = test_utils.strip_error(err)}
+    test:is_deeply(result, exp_result_10, 'scalar with fields is forbidden')
+
+    local query_11 = [[
+        query order_metainfo {
+            order_metainfo_collection {
+                store
+            }
+        }
+    ]]
+
+    local exp_result_11 = yaml.decode(([[
+        ---
+        ok: false
+        err: Composite types must have subselections
+    ]]):strip())
+
+    local ok, err = pcall(function()
+        return gql_wrapper:compile(query_11)
+    end)
+
+    local result = {ok = ok, err = test_utils.strip_error(err)}
+    test:is_deeply(result, exp_result_11, 'complex without fields is forbidden')
 
     -- }}}
 

@@ -1,6 +1,5 @@
 local yaml = require('yaml')
 local core_types = require('graphql.core.types')
-local core_types_helpers = require('graphql.convert_schema.core_types_helpers')
 local avro_helpers = require('graphql.avro_helpers')
 local helpers = require('graphql.convert_schema.helpers')
 
@@ -31,7 +30,7 @@ local function box_type(type_to_box, box_field_name, opts)
     local gen_argument = opts.gen_argument
     local context = opts.context
 
-    local gql_true_type = core_types_helpers.nullable(type_to_box)
+    local gql_true_type = core_types.nullable(type_to_box)
 
     -- Use bare name for the result type (to use in 'on' clause) and full name
     -- for the argument type to avoid 'Encountered multiple types' error. See

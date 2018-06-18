@@ -2,7 +2,6 @@
 
 local core_types = require('graphql.core.types')
 local core_schema = require('graphql.core.schema')
-local core_types_helpers = require('graphql.convert_schema.core_types_helpers')
 local gen_arguments = require('graphql.gen_arguments')
 local arguments = require('graphql.convert_schema.arguments')
 local types = require('graphql.convert_schema.types')
@@ -64,7 +63,7 @@ local function add_extra_arguments(state, root_types)
                 -- XXX: support multihead connections
                 if c.destination_collection then
                     local collection_name = c.destination_collection
-                    local field = core_types_helpers.raw_gql_type(
+                    local field = core_types.bare(
                         parent_field.kind).fields[c.name]
                     local extra_args = state.extra_arguments[collection_name]
                     local extra_args_meta =
@@ -125,7 +124,7 @@ local function create_root_collection(state)
         -- `convert` is designed to create GQL type corresponding to a real
         -- schema and connections. However it also works with the fake schema.
         -- Query/Mutation type must be the Object, so it cannot be nonNull.
-        root_types[what] = core_types_helpers.nullable(
+        root_types[what] = core_types.nullable(
             types.convert(state, root_schema, {
                 collection = root_collection,
             }))
@@ -291,7 +290,7 @@ function schema.convert(state, cfg)
         assert(collection_type.__type == 'NonNull',
             'collection must always has non-null type')
         state.nullable_collection_types[collection_name] =
-            core_types_helpers.nullable(collection_type)
+            core_types.nullable(collection_type)
 
         -- prepare arguments' types
         local object_args_avro = gen_arguments.object_args(cfg, collection_name)

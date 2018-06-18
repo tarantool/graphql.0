@@ -2,7 +2,7 @@
 
 local json = require('json')
 local yaml = require('yaml')
-local core_types_helpers = require('graphql.convert_schema.core_types_helpers')
+local core_types = require('graphql.core.types')
 
 local utils = require('graphql.utils')
 local check = utils.check
@@ -86,17 +86,16 @@ end
 function resolve.gen_resolve_function(collection_name, connection,
         destination_type, arguments, accessor)
     local c = connection
-    local raw_destination_type = core_types_helpers.raw_gql_type(
-        destination_type)
+    local bare_destination_type = core_types.bare(destination_type)
 
-    -- capture `raw_destination_type`
+    -- capture `bare_destination_type`
     local function genResolveField(info)
         return function(field_name, object, filter, opts)
-            assert(raw_destination_type.fields[field_name],
+            assert(bare_destination_type.fields[field_name],
                 ('performing a subrequest by the non-existent ' ..
                 'field "%s" of the collection "%s"'):format(field_name,
                 c.destination_collection))
-            return raw_destination_type.fields[field_name].resolve(
+            return bare_destination_type.fields[field_name].resolve(
                 object, filter, info, opts)
         end
     end
