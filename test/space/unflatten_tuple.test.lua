@@ -14,6 +14,9 @@ local graphql = require('graphql')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
 
+local utils = require('graphql.utils')
+local check = utils.check
+
 -- init box, upload test data and acquire metadata
 -- -----------------------------------------------
 
@@ -46,7 +49,8 @@ local ok, model = avro.compile({handle})
 assert(ok, 'avro schema compile: ' .. tostring(model))
 local order_model = model
 
-local function unflatten_tuple(collection_name, tuple, default)
+local function unflatten_tuple(self, collection_name, tuple, default)
+    check(self, 'self', 'table')
     if collection_name == 'user_collection' then
         local ok, obj = user_model.unflatten(tuple)
         assert(ok, 'unflatten: ' .. tostring(obj))

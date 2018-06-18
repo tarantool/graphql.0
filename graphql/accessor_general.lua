@@ -817,6 +817,8 @@ end
 --- Perform unflatten, skipping, filtering, limiting of objects. This is the
 --- core of the `select_internal` function.
 ---
+--- @tparam table self accessor_general instance
+---
 --- @tparam table state table variable where the function holds state accross
 --- invokes; fields:
 ---
@@ -844,7 +846,7 @@ end
 ---
 --- Nothing returned, but after necessary count of invokes `state.objs` will
 --- hold list of resulting objects.
-local function process_tuple(state, tuple, opts)
+local function process_tuple(self, state, tuple, opts)
     local limit = opts.limit
     local filter = opts.filter
     local do_filter = opts.do_filter
@@ -865,7 +867,7 @@ local function process_tuple(state, tuple, opts)
     local resolveField = opts.resolveField
 
     -- convert tuple -> object
-    local obj = opts.unflatten_tuple(collection_name, tuple,
+    local obj = opts.unflatten_tuple(self, collection_name, tuple,
         { use_tomap = opts.use_tomap }, opts.default_unflatten_tuple)
 
     -- skip all items before pivot (the item pointed by offset)
@@ -947,8 +949,8 @@ local function perform_primary_key_operation(self, collection_name, schema_name,
         end
         -- XXX: we can pass a tuple corresponding the object to update_tuple /
         -- delete_tuple to save one get operation
-        local new_tuple = self.funcs[operation](collection_name, key, ...)
-        local new_object = self.funcs.unflatten_tuple(collection_name,
+        local new_tuple = self.funcs[operation](self, collection_name, key, ...)
+        local new_object = self.funcs.unflatten_tuple(self, collection_name,
             new_tuple, {use_tomap = self.collection_use_tomap[collection_name]},
             self.default_unflatten_tuple[schema_name])
         table.insert(new_objects, new_object)
@@ -980,36 +982,28 @@ end
 ---
 --- @treturn table list of matching objects
 local function select_internal(self, collection_name, from, filter, args, extra)
-    assert(type(self) == 'table',
-        'self must be a table, got ' .. type(self))
-    assert(type(collection_name) == 'string',
-        'collection_name must be a string, got ' ..
-        type(collection_name))
+    check(self, 'self', 'table')
+    check(collection_name, 'collection_name', 'string')
     check(from, 'from', 'table')
-    assert(type(filter) == 'table',
-        'filter must be a table, got ' .. type(filter))
-    assert(type(args) == 'table',
-        'args must be a table, got ' .. type(args))
-    assert(args.limit == nil or type(args.limit) == 'number',
-        'args.limit must be a number of nil, got ' .. type(args.limit))
-    -- XXX: save type at parsing and check here
-    --assert(args.offset == nil or type(args.offset) == 'number',
-    --    'args.offset must be a number of nil, got ' .. type(args.offset))
-    assert(args.pcre == nil or type(args.pcre) == 'table',
-        'args.pcre must be nil or a table, got ' .. type(args.pcre))
+    check(filter, 'filter', 'table')
+    check(args, 'args', 'table')
+    check(args.limit, 'args.limit', 'number', 'nil')
+    -- XXX: save type of args.offset at parsing and check here
+    -- check(args.offset, 'args.offset', ...)
+    check(args.pcre, 'args.pcre', 'table', 'nil')
 
     local collection = self.collections[collection_name]
     assert(collection ~= nil,
         ('cannot find the collection "%s"'):format(
         collection_name))
-    assert(self.funcs.is_collection_exists(collection_name),
+    assert(self.funcs.is_collection_exists(self, collection_name),
         ('cannot find collection "%s"'):format(collection_name))
 
     -- search for suitable index
     local full_match, index_name, filter, index_value, pivot = get_index_name(
         self, collection_name, from, filter, args) -- we redefine filter here
     local index = index_name ~= nil and
-        self.funcs.get_index(collection_name, index_name) or nil
+        self.funcs.get_index(self, collection_name, index_name) or nil
     if from.collection_name ~= nil then
         -- allow fullscan only for a top-level object
         assert(index ~= nil,
@@ -1052,11 +1046,13 @@ local function select_internal(self, collection_name, from, filter, args, extra)
 
     if index == nil then
         -- fullscan
-        local primary_index = self.funcs.get_primary_index(collection_name)
+        local primary_index = self.funcs.get_primary_index(self,
+            collection_name)
         for _, tuple in primary_index:pairs() do
             assert(pivot == nil,
                 'offset for top-level objects must use a primary index')
-            local continue = process_tuple(select_state, tuple, select_opts)
+            local continue = process_tuple(self, select_state, tuple,
+                select_opts)
             if not continue then break end
         end
     else
@@ -1093,7 +1089,8 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         end
 
         for _, tuple in index:pairs(index_value, iterator_opts) do
-            local continue = process_tuple(select_state, tuple, select_opts)
+            local continue = process_tuple(self, select_state, tuple,
+                select_opts)
             if not continue then break end
         end
     end
@@ -1135,16 +1132,17 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     assert(default_flatten_object ~= nil,
         ('cannot find default_flatten_object ' ..
         'for collection "%s"'):format(collection_name))
-    local tuple = self.funcs.flatten_object(collection_name, object, {
+    local tuple = self.funcs.flatten_object(self, collection_name, object, {
         service_fields_defaults =
             self.service_fields_defaults[schema_name],
     }, default_flatten_object)
 
     -- insert tuple & tuple -> object (with default values set before)
-    local new_tuple = self.funcs.insert_tuple(collection_name, tuple)
-    local new_object = self.funcs.unflatten_tuple(collection_name, new_tuple, {
-        use_tomap = self.collection_use_tomap[collection_name]
-    }, self.default_unflatten_tuple[schema_name])
+    local new_tuple = self.funcs.insert_tuple(self, collection_name, tuple)
+    local use_tomap = self.collection_use_tomap[collection_name]
+    local new_object = self.funcs.unflatten_tuple(self, collection_name,
+        new_tuple, {use_tomap = use_tomap},
+        self.default_unflatten_tuple[schema_name])
 
     return {new_object}
 end
@@ -1177,7 +1175,7 @@ local function update_internal(self, collection_name, extra, selected)
     assert(default_xflatten ~= nil,
         ('cannot find default_xflatten ' ..
         'for collection "%s"'):format(collection_name))
-    local statements = self.funcs.xflatten(collection_name, xobject, {
+    local statements = self.funcs.xflatten(self, collection_name, xobject, {
         service_fields_defaults =
             self.service_fields_defaults[schema_name],
     }, default_xflatten)
@@ -1279,7 +1277,7 @@ local function gen_default_object_tuple_map_funcs(models)
     local default_flatten_object = {}
     local default_xflatten = {}
     for schema_name, model in pairs(models) do
-        default_unflatten_tuple[schema_name] = function(_, tuple, opts)
+        default_unflatten_tuple[schema_name] = function(_, _, tuple, opts)
             local opts = opts or {}
             check(opts, 'opts', 'table')
 
@@ -1288,7 +1286,7 @@ local function gen_default_object_tuple_map_funcs(models)
                 schema_name, tostring(obj)))
             return obj
         end
-        default_flatten_object[schema_name] = function(_, obj, opts)
+        default_flatten_object[schema_name] = function(_, _, obj, opts)
             local opts = opts or {}
             check(opts, 'opts', 'table')
             local sf_defaults = opts.service_fields_defaults or {}
@@ -1299,7 +1297,7 @@ local function gen_default_object_tuple_map_funcs(models)
                 schema_name, tostring(tuple)))
             return tuple
         end
-        default_xflatten[schema_name] = function(_, xobject, opts)
+        default_xflatten[schema_name] = function(_, _, xobject, opts)
             local opts = opts or {}
             check(opts, 'opts', 'table')
 
