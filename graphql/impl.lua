@@ -244,7 +244,7 @@ end
 ---                 --   any query-related data;
 ---                 -- * `resolveField(field_name, object, filter, opts)`
 ---                 --   (function) for performing a subrequest on a fields
----                 --   connected using a 1:1 or 1:1* connection.
+---                 --   connected using a 1:1 connection.
 ---                 --
 ---                 return ...
 ---             end,

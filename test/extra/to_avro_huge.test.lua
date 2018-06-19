@@ -114,7 +114,7 @@ fields:
                     type: int
                   - name: order_item__item
                     type:
-                      type: record
+                      type: record*
                       fields:
                       - name: id
                         type: int
@@ -144,7 +144,7 @@ fields:
         type: string
       - name: user_connection
         type:
-          type: record
+          type: record*
           fields:
           - name: id
             type: int
@@ -168,7 +168,7 @@ fields:
                       fields:
                       - name: order_item__item
                         type:
-                          type: record
+                          type: record*
                           fields:
                           - name: name
                             type: string

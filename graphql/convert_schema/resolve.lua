@@ -106,29 +106,16 @@ function resolve.gen_resolve_function(collection_name, connection,
         local opts = opts or {}
         assert(type(opts) == 'table',
             'opts must be nil or a table, got ' .. type(opts))
-        local dont_force_nullability =
-            opts.dont_force_nullability or false
-        assert(type(dont_force_nullability) == 'boolean',
-            'opts.dont_force_nullability ' ..
-            'must be nil or a boolean, got ' ..
-            type(dont_force_nullability))
+        -- no opts for now
 
         local from = gen_from_parameter(collection_name, parent, c)
 
         -- Avoid non-needed index lookup on a destination collection when
         -- all connection parts are null:
-        -- * return null for 1:1* connection;
+        -- * return null for 1:1 connection;
         -- * return {} for 1:N connection (except the case when source
         --   collection is the query or the mutation pseudo-collection).
         if collection_name ~= nil and are_all_parts_null(parent, c.parts) then
-            if c.type ~= '1:1*' and c.type ~= '1:N' then
-                -- `if` is to avoid extra json.encode
-                assert(c.type == '1:1*' or c.type == '1:N',
-                    ('only 1:1* or 1:N connections can have ' ..
-                    'all key parts null; parent is %s from ' ..
-                    'collection "%s"'):format(json.encode(parent),
-                        tostring(collection_name)))
-            end
             return c.type == '1:N' and {} or nil
         end
 
@@ -152,14 +139,8 @@ function resolve.gen_resolve_function(collection_name, connection,
         assert(type(objs) == 'table',
             'objs list received from an accessor ' ..
             'must be a table, got ' .. type(objs))
-        if c.type == '1:1' or c.type == '1:1*' then
-            -- we expect here exactly one object even for 1:1*
-            -- connections because we processed all-parts-are-null
-            -- situation above
-            assert(#objs == 1 or dont_force_nullability,
-                'expect one matching object, got ' ..
-                tostring(#objs))
-            return objs[1]
+        if c.type == '1:1' then
+            return objs[1] -- nil for empty list of matching objects
         else -- c.type == '1:N'
             return objs
         end

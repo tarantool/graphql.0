@@ -49,8 +49,6 @@ local function args_from_destination_collection(state, collection,
                                                 connection_type)
     if connection_type == '1:1' then
         return state.object_arguments[collection]
-    elseif connection_type == '1:1*' then
-        return state.object_arguments[collection]
     elseif connection_type == '1:N' then
         return state.all_arguments[collection]
     else
@@ -60,8 +58,6 @@ end
 
 local function specify_destination_type(destination_type, connection_type)
     if connection_type == '1:1' then
-        return core_types.nonNull(destination_type)
-    elseif connection_type == '1:1*' then
         return destination_type
     elseif connection_type == '1:N' then
         return core_types.nonNull(core_types.list(core_types.nonNull(
@@ -77,7 +73,7 @@ end
 --- described in comments to @{convert_multihead_connection}.
 ---
 --- @tparam table type_to_box GraphQL Object type (which represents a collection)
---- @tparam string connection_type of given collection (1:1, 1:1* or 1:N)
+--- @tparam string connection_type of given collection (1:1, 1:N)
 --- @tparam string type_to_box_name name of given 'type_to_box' (It can not
 --- be taken from 'type_to_box' because at the time of function execution
 --- 'type_to_box' refers to an empty table, which later will be filled with
@@ -96,9 +92,6 @@ local function box_collection_type(type_to_box, connection_type,
     if connection_type == '1:1' then
         box_type_name = 'box_' .. type_to_box_name
         box_type_description = 'Box around 1:1 multi-head variant'
-    elseif connection_type == '1:1*' then
-        box_type_name = 'box_' .. type_to_box_name
-        box_type_description = 'Box around 1:1* multi-head variant'
     elseif connection_type == '1:N' then
         box_type_name = 'box_array_' .. type_to_box_name
         box_type_description = 'Box around 1:N multi-head variant'
@@ -317,9 +310,8 @@ end
 local convert_connection_to_field = function(state, connection, collection_name,
         context)
     check(connection.type, 'connection.type', 'string')
-    assert(connection.type == '1:1' or connection.type == '1:1*' or
-        connection.type == '1:N', 'connection.type must be 1:1, 1:1* or 1:N, '..
-        'got ' .. connection.type)
+    assert(connection.type == '1:1' or connection.type == '1:N',
+        'connection.type must be 1:1 or 1:N, got ' .. connection.type)
     check(connection.name, 'connection.name', 'string')
     assert(connection.destination_collection or connection.variants,
         'connection must either destination_collection or variants field')

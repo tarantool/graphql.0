@@ -51,7 +51,7 @@ function nullable_1_1_conn_testdata.get_test_metadata()
                     "index_name": "in_reply_to"
                 },
                 {
-                    "type": "1:1*",
+                    "type": "1:1",
                     "name": "in_reply_to",
                     "destination_collection": "email",
                     "parts": [

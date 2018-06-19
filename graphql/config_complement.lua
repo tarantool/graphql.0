@@ -9,64 +9,25 @@
 local json = require('json')
 local yaml = require('yaml')
 local log = require('log')
+
 local utils = require('graphql.utils')
 local check = utils.check
-local get_spaces_formats = require('graphql.simple_config').get_spaces_formats
 
 local config_complement = {}
 
---- The function determines connection type by connection.parts
---- and source collection space format.
----
---- XXX Currently there are two possible situations when connection_parts form
---- unique index - all source_fields are nullable (1:1*) or all source_fields
---- are non nullable (1:1). In case of partially nullable connection_parts (which
---- form unique index) the error is raised. There is an alternative: relax
---- this requirement and deduce non-null connection type in the case.
-local function determine_connection_type(connection_parts, index, source_space_format)
-    local type
-
-    if #connection_parts < #(index.fields) then
-        type = '1:N'
+--- Determine connection type by connection.parts and index uniqueness.
+local function determine_connection_type(connection_parts, index)
+    if #connection_parts < #index.fields then
+        return '1:N'
+    elseif #connection_parts == #index.fields then
+        return index.unique and '1:1' or '1:N'
     end
 
-    if #connection_parts == #(index.fields) then
-        if index.unique then
-            type = '1:1'
-        else
-            type = '1:N'
-        end
-    end
-
-    local is_all_nullable = true
-    local is_all_not_nullable = true
-
-    for _, connection_part in pairs(connection_parts) do
-        for _,field_format in ipairs(source_space_format) do
-            if connection_part.source_field == field_format.name then
-                if field_format.is_nullable == true then
-                    is_all_not_nullable = false
-                else
-                    is_all_nullable = false
-                end
-            end
-        end
-    end
-
-    if is_all_nullable == is_all_not_nullable and type == '1:1' then
-        error('source_fields in connection_parts must be all nullable or ' ..
-            'not nullable at the same time')
-    end
-
-    if is_all_nullable and type == '1:1' then
-        type = '1:1*'
-    end
-
-    return type
+    error(('Connection parts count is more then index parts count: %d > %d')
+        :format(#connection_parts, #index.fields))
 end
 
--- The function returns connection_parts sorted by destination_fields as
--- index_fields prefix.
+-- Return connection_parts sorted by destination_fields as index_fields prefix.
 local function sort_parts(connection_parts, index_fields)
     local sorted_parts = {}
 
@@ -211,8 +172,6 @@ local function complement_connections(collections, connections, indexes)
     check(collections, 'collections', 'table')
     check(connections, 'connections', 'table')
 
-    local spaces_formats = get_spaces_formats()
-
     for _, c in pairs(connections) do
         check(c.name, 'connection.name', 'string')
         check(c.source_collection, 'connection.source_collection', 'string')
@@ -230,10 +189,7 @@ local function complement_connections(collections, connections, indexes)
         result_c.destination_collection = c.destination_collection
         result_c.parts = determine_connection_parts(c.parts, index)
 
-        local source_space_format = spaces_formats[result_c.source_collection]
-
-        result_c.type = determine_connection_type(result_c.parts, index,
-            source_space_format)
+        result_c.type = determine_connection_type(result_c.parts, index)
         result_c.index_name = c.index_name
         result_c.name = c.name
 

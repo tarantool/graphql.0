@@ -883,8 +883,7 @@ local function process_tuple(self, state, tuple, opts)
         if obj[k] == nil then
             local field_name = k
             local sub_filter = v
-            local sub_opts = {dont_force_nullability = true}
-            local field = resolveField(field_name, obj, sub_filter, sub_opts)
+            local field = resolveField(field_name, obj, sub_filter)
             if field == nil then return true end
             obj[k] = field
             -- XXX: Remove the value from a filter? But then we need to copy
