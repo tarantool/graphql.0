@@ -92,7 +92,7 @@ local function check_insert(test, gql_wrapper, virtbox, mutation_insert,
         -- check mutation result from graphql
         local result = gql_mutation_insert:execute(dont_pass_variables and {} or
             variables_insert)
-        test:is_deeply(result, exp_result_insert, 'insert result')
+        test:is_deeply(result.data, exp_result_insert, 'insert result')
         -- check inserted user
         local tuple = get_tuple(virtbox, 'user_collection', {user_id})
         test:ok(tuple ~= nil, 'tuple was inserted')
@@ -134,7 +134,7 @@ local function check_insert_order_metainfo(test, gql_wrapper, virtbox,
         -- check mutation result
         local gql_mutation_insert = gql_wrapper:compile(mutation_insert)
         local result = gql_mutation_insert:execute(variables)
-        test:is_deeply(result, exp_result_insert, 'insert result')
+        test:is_deeply(result.data, exp_result_insert, 'insert result')
 
         -- check inserted tuple
         local EXTERNAL_ID_STRING = 1 -- 0 is for int
@@ -218,7 +218,7 @@ local function check_update(test, gql_wrapper, virtbox, mutation_update,
         -- check mutation result from graphql
         local result = gql_mutation_update:execute(dont_pass_variables and {} or
             variables_update)
-        test:is_deeply(result, exp_result_update, 'update result')
+        test:is_deeply(result.data, exp_result_update, 'update result')
         -- check updated user
         local tuple = get_tuple(virtbox, 'user_collection', {user_id})
         test:ok(tuple ~= nil, 'updated tuple exists')
@@ -282,7 +282,7 @@ local function check_update_order_metainfo(test, gql_wrapper, virtbox,
         -- check mutation result
         local gql_mutation_update = gql_wrapper:compile(mutation_update)
         local result = gql_mutation_update:execute(variables)
-        test:is_deeply(result, exp_result_update, 'update result')
+        test:is_deeply(result.data, exp_result_update, 'update result')
 
         -- check updated tuple
         local tuple = get_tuple(virtbox, 'order_metainfo_collection',
@@ -334,7 +334,7 @@ local function check_delete(test, gql_wrapper, virtbox, mutation_delete,
         -- check mutation result from graphql
         local result = gql_mutation_delete:execute(dont_pass_variables and {} or
             variables_delete)
-        test:is_deeply(result, exp_result_delete, 'delete result')
+        test:is_deeply(result.data, exp_result_delete, 'delete result')
 
         -- check the user was deleted
         local tuple = get_tuple(virtbox, 'user_collection', {user_id})
@@ -468,10 +468,10 @@ local function run_queries(gql_wrapper, virtbox, meta)
         }
     ]]
     local gql_mutation_insert_3i = gql_wrapper:compile(mutation_insert_3i)
-    local ok, err = pcall(gql_mutation_insert_3i.execute,
-        gql_mutation_insert_3i, {})
+    local result = gql_mutation_insert_3i:execute({})
+    local err = test_utils.strip_error(result.errors[1].message)
     local err_exp = '"insert" must be the only argument when it is present'
-    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+    test:is(err, err_exp,
         '"insert" argument is forbidden with other filters (object arguments)')
 
     -- test "insert" argument is forbidden with list arguments
@@ -489,10 +489,10 @@ local function run_queries(gql_wrapper, virtbox, meta)
         }
     ]]
     local gql_mutation_insert_4i = gql_wrapper:compile(mutation_insert_4i)
-    local ok, err = pcall(gql_mutation_insert_4i.execute,
-        gql_mutation_insert_4i, {})
+    local result = gql_mutation_insert_4i:execute({})
+    local err = test_utils.strip_error(result.errors[1].message)
     local err_exp = '"insert" must be the only argument when it is present'
-    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+    test:is(err, err_exp,
         '"insert" argument is forbidden with other filters (list arguments)')
 
     -- test "insert" argument is forbidden with other extra argument
@@ -510,10 +510,10 @@ local function run_queries(gql_wrapper, virtbox, meta)
         }
     ]]
     local gql_mutation_insert_5i = gql_wrapper:compile(mutation_insert_5i)
-    local ok, err = pcall(gql_mutation_insert_5i.execute,
-        gql_mutation_insert_5i, {})
+    local result = gql_mutation_insert_5i:execute({})
+    local err = test_utils.strip_error(result.errors[1].message)
     local err_exp = '"insert" must be the only argument when it is present'
-    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+    test:is(err, err_exp,
         '"insert" argument is forbidden with other filters (extra arguments)')
 
     -- test inserting an object into a collection with subrecord, union, array
@@ -1134,11 +1134,11 @@ local function run_queries(gql_wrapper, virtbox, meta)
             user_id = 'user_id_201',
         }
     }
-    local ok, err = pcall(gql_mutation_update_4.execute, gql_mutation_update_4,
-        variables_update_4)
+    local result = gql_mutation_update_4:execute(variables_update_4)
+    local err = test_utils.strip_error(result.errors[1].message)
     local err_exp = "Attempt to modify a tuple field which is part of index " ..
         "'user_id_index' in space 'user_collection'"
-    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+    test:is(err, err_exp,
         'updating of a field of a primary key when it is NOT shard key field')
 
     local mutation_update_5 = [[
@@ -1159,11 +1159,11 @@ local function run_queries(gql_wrapper, virtbox, meta)
             order_id = 'order_id_4001',
         }
     }
-    local ok, err = pcall(gql_mutation_update_5.execute, gql_mutation_update_5,
-        variables_update_5)
+    local result = gql_mutation_update_5:execute(variables_update_5)
+    local err = test_utils.strip_error(result.errors[1].message)
     local err_exp = "Attempt to modify a tuple field which is part of index " ..
         "'order_id_index' in space 'order_collection'"
-    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+    test:is(err, err_exp,
         'updating of a field of a primary key when it is shard key field')
 
     -- }}}

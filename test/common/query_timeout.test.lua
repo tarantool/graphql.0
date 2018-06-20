@@ -7,7 +7,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 local tap = require('tap')
-local utils = require('test.test_utils')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.user_order_item_testdata')
 
 local function run_queries(gql_wrapper)
@@ -30,18 +30,19 @@ local function run_queries(gql_wrapper)
     ]]
 
     local gql_query = gql_wrapper:compile(query)
-    local variables = {
-    }
-    local ok, result = pcall(gql_query.execute, gql_query, variables)
-    assert(ok == false, 'this test should fail')
-    test:like(result, 'query execution timeout exceeded', 'timeout test')
+    local variables = {}
+    local result = gql_query:execute(variables)
+    assert(result.data == nil, "this test should fail")
+    assert(result.errors ~= nil, "this test should fail")
+    local err = test_utils.strip_error(result.errors[1].message)
+    test:like(err, 'query execution timeout exceeded', 'timeout test')
 
     assert(test:check(), 'check plan')
 end
 
 box.cfg({})
 
-utils.run_testdata(testdata, {
+test_utils.run_testdata(testdata, {
     run_queries = run_queries,
     graphql_opts = {
         timeout_ms = 0.001,

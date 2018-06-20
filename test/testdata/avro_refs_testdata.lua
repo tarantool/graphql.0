@@ -351,8 +351,8 @@ function testdata.run_queries(gql_wrapper)
     end
     local exp_result_1_1_p = {foo_2 = exp_result_1_1.foo}
 
-    test:is_deeply(result_1_1, exp_result_1_1, '1_1')
-    test:is_deeply(result_1_1_p, exp_result_1_1_p, '1_1_p')
+    test:is_deeply(result_1_1.data, exp_result_1_1, '1_1')
+    test:is_deeply(result_1_1_p.data, exp_result_1_1_p, '1_1_p')
 
     if avro_version == 2 then
         assert(test:check(), 'check plan')
@@ -392,8 +392,8 @@ function testdata.run_queries(gql_wrapper)
     ]]):strip())
     local exp_result_1_2_p = {foo_2 = exp_result_1_2.foo}
 
-    test:is_deeply(result_1_2, exp_result_1_2, '1_2')
-    test:is_deeply(result_1_2_p, exp_result_1_2_p, '1_2_p')
+    test:is_deeply(result_1_2.data, exp_result_1_2, '1_2')
+    test:is_deeply(result_1_2_p.data, exp_result_1_2_p, '1_2_p')
 
     assert(test:check(), 'check plan')
 end

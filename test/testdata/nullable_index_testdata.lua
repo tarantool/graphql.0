@@ -316,9 +316,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
     ]]
 
     local ok, err = pcall(function()
-        local gql_query_1 = gql_wrapper:compile(query_1)
-        local variables_1 = {}
-        return gql_query_1:execute(variables_1)
+        return gql_wrapper:compile(query_1)
     end)
 
     local result = {ok = ok, err = test_utils.strip_error(err)}
@@ -414,7 +412,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
           id_or_null_2: '13'
           id: '13'
     ]]):strip())
-    test:is_deeply(result, exp_result, '2_1')
+    test:is_deeply(result.data, exp_result, '2_1')
 
     -- lookup by the unique index; expected to see only the object with ID 42
     local result = test_utils.show_trace(function()
@@ -432,7 +430,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
           id_or_null_2: '42'
           id: '42'
     ]]):strip())
-    test:is_deeply(result, exp_result, '2_2')
+    test:is_deeply(result.data, exp_result, '2_2')
 
     -- lookup by the non-unique index; expected to see only the object with ID
     -- 42
@@ -451,7 +449,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
           id_or_null_2: '42'
           id: '42'
     ]]):strip())
-    test:is_deeply(result, exp_result, '2_3')
+    test:is_deeply(result.data, exp_result, '2_3')
 
     -- }}}
     -- {{{ connection: partial match with compound secondary index (nullable
@@ -488,7 +486,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
           - id: '42'
           id: '42'
     ]]):strip())
-    test:is_deeply(result_3_1, exp_result_3_1, '3_1')
+    test:is_deeply(result_3_1.data, exp_result_3_1, '3_1')
 
     local variables_3_2 = {id = '103'}
     local result_3_2 = test_utils.show_trace(function()
@@ -502,7 +500,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
           bar_partial_non_unique: []
           id: '103'
     ]]):strip())
-    test:is_deeply(result_3_2, exp_result_3_2, '3_2')
+    test:is_deeply(result_3_2.data, exp_result_3_2, '3_2')
 
     -- }}}
 

@@ -33,20 +33,25 @@ local function run_queries(gql_wrapper)
     local variables = {
         user_id = 5,
     }
-    local ok, result = pcall(gql_query.execute, gql_query, variables)
-    assert(ok == false, "this test should fail")
-    test:like(result,
-              'count%[4%] exceeds limit%[3%] %(`resulting_object_cnt_max`',
-              'resulting_object_cnt_max test')
+    local result = gql_query:execute(variables)
+    assert(result.data == nil, "this test should fail")
+    assert(result.errors ~= nil, "this test should fail")
+    local err = test_utils.strip_error(result.errors[1].message)
+    test:like(err,
+        'count%[4%] exceeds limit%[3%] %(`resulting_object_cnt_max`',
+        'resulting_object_cnt_max test')
+
     variables = {
         user_id = 5,
         description = "no such description"
     }
-    ok, result = pcall(gql_query.execute, gql_query, variables)
-    assert(ok == false, "this test should fail")
-    test:like(result,
-              'count%[6%] exceeds limit%[5%] %(`fetched_object_cnt_max`',
-              'resulting_object_cnt_max test')
+    local result = gql_query:execute(variables)
+    assert(result.data == nil, "this test should fail")
+    assert(result.errors ~= nil, "this test should fail")
+    local err = test_utils.strip_error(result.errors[1].message)
+    test:like(err,
+        'count%[6%] exceeds limit%[5%] %(`fetched_object_cnt_max`',
+        'resulting_object_cnt_max test')
 
     assert(test:check(), 'check plan')
 end

@@ -49,13 +49,13 @@ local function workload(shard, bench_prepare, bench_iter, opts)
 
     -- first iteration; print result and update checksum
     local result = bench_iter(state)
-    local result_str = yaml.encode(result)
+    local result_str = yaml.encode(result.data)
     checksum:update(result_str .. '1')
 
     -- the rest iterations; just update checksum
     for i = 2, iterations do
         local result = bench_iter(state)
-        local result_str = yaml.encode(result)
+        local result_str = yaml.encode(result.data)
         checksum:update(result_str .. tostring(i))
         if i % 100 == 0 then
             fiber.yield()

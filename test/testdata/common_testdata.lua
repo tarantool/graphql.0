@@ -359,7 +359,7 @@ end
 
 function common_testdata.run_queries(gql_wrapper)
     local test = tap.test('common')
-    test:plan(26)
+    test:plan(27)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -391,7 +391,7 @@ function common_testdata.run_queries(gql_wrapper)
     test_utils.show_trace(function()
         local gql_query_1 = gql_wrapper:compile(query_1)
         local result = gql_query_1:execute(variables_1)
-        test:is_deeply(result, exp_result_1, '1')
+        test:is_deeply(result.data, exp_result_1, '1')
     end)
 
     local query_1n = [[
@@ -411,7 +411,7 @@ function common_testdata.run_queries(gql_wrapper)
     test_utils.show_trace(function()
         local gql_query_1n = gql_wrapper:compile(query_1n)
         local result = gql_query_1n:execute(variables_1)
-        test:is_deeply(result, exp_result_1, '1n')
+        test:is_deeply(result.data, exp_result_1, '1n')
     end)
 
     local query_1inn = [[
@@ -431,7 +431,7 @@ function common_testdata.run_queries(gql_wrapper)
     test_utils.show_trace(function()
         local gql_query_1inn = gql_wrapper:compile(query_1inn)
         local result = gql_query_1inn:execute({})
-        test:is_deeply(result, exp_result_1, '1inn')
+        test:is_deeply(result.data, exp_result_1, '1inn')
     end)
 
     local query_1tn = [[
@@ -481,19 +481,18 @@ function common_testdata.run_queries(gql_wrapper)
 
     local err_exp = 'Operation name must be specified if more than one ' ..
         'operation exists.'
-    local ok, err = pcall(gql_query_1t.execute, gql_query_1t, {})
-    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
-        'non-determined query name should give an error')
+    local result = gql_query_1t:execute({})
+    local err = test_utils.strip_error(result.errors[1].message)
+    test:is(err, err_exp, 'non-determined query name should give an error')
 
     local err_exp = 'Unknown operation "non_existent_operation"'
-    local ok, err = pcall(gql_query_1t.execute, gql_query_1t, {},
-        'non_existent_operation')
-    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
-        'wrong operation name should give an error')
+    local result = gql_query_1t:execute({}, 'non_existent_operation')
+    local err = test_utils.strip_error(result.errors[1].message)
+    test:is(err, err_exp, 'wrong operation name should give an error')
 
     test_utils.show_trace(function()
         local result = gql_query_1t:execute({}, 'user_by_order')
-        test:is_deeply(result, exp_result_1, 'execute an operation by name')
+        test:is_deeply(result.data, exp_result_1, 'execute an operation by name')
     end)
 
     local query_2 = [[
@@ -531,7 +530,7 @@ function common_testdata.run_queries(gql_wrapper)
     test_utils.show_trace(function()
         local variables_2_1 = {user_id = 'user_id_1'}
         local result = gql_query_2:execute(variables_2_1)
-        test:is_deeply(result, exp_result_2_1, '2_1')
+        test:is_deeply(result.data, exp_result_2_1, '2_1')
     end)
 
     local exp_result_2_2 = yaml.decode(([[
@@ -570,7 +569,7 @@ function common_testdata.run_queries(gql_wrapper)
             offset = 'order_id_1573', -- 10th
         }
         local result = gql_query_2:execute(variables_2_2)
-        test:is_deeply(result, exp_result_2_2, '2_2')
+        test:is_deeply(result.data, exp_result_2_2, '2_2')
     end)
 
     local exp_result_2_3 = yaml.decode(([[
@@ -593,7 +592,7 @@ function common_testdata.run_queries(gql_wrapper)
             offset = 'order_id_1601', -- 38th
         }
         local result = gql_query_2:execute(variables_2_3)
-        test:is_deeply(result, exp_result_2_3, '2_3')
+        test:is_deeply(result.data, exp_result_2_3, '2_3')
     end)
 
     local exp_result_2_4 = yaml.decode(([[
@@ -614,7 +613,7 @@ function common_testdata.run_queries(gql_wrapper)
             offset = 'order_id_1602', -- 39th
         }
         local result = gql_query_2:execute(variables_2_4)
-        test:is_deeply(result, exp_result_2_4, '2_4')
+        test:is_deeply(result.data, exp_result_2_4, '2_4')
     end)
 
     local exp_result_2_5 = yaml.decode(([[
@@ -710,7 +709,7 @@ function common_testdata.run_queries(gql_wrapper)
     test_utils.show_trace(function()
         local variables_2_5 = {user_id = 'user_id_42'}
         local result = gql_query_2:execute(variables_2_5)
-        test:is_deeply(result, exp_result_2_5, '2_5')
+        test:is_deeply(result.data, exp_result_2_5, '2_5')
     end)
 
     local query_3 = [[
@@ -765,7 +764,7 @@ function common_testdata.run_queries(gql_wrapper)
         }
         local gql_query_3 = gql_wrapper:compile(query_3)
         local result = gql_query_3:execute(variables_3)
-        test:is_deeply(result, exp_result_3, '3')
+        test:is_deeply(result.data, exp_result_3, '3')
     end)
 
     -- extra filter for 1:N connection
@@ -807,7 +806,7 @@ function common_testdata.run_queries(gql_wrapper)
             description = 'first order of Ivan',
         }
         local result = gql_query_4:execute(variables_4_1)
-        test:is_deeply(result, exp_result_4_1, '4_1')
+        test:is_deeply(result.data, exp_result_4_1, '4_1')
     end)
 
     local exp_result_4_2 = yaml.decode(([[
@@ -826,7 +825,7 @@ function common_testdata.run_queries(gql_wrapper)
             description = 'non-existent order',
         }
         local result = gql_query_4:execute(variables_4_2)
-        test:is_deeply(result, exp_result_4_2, '4_2')
+        test:is_deeply(result.data, exp_result_4_2, '4_2')
     end)
 
     -- extra filter for 1:1 connection
@@ -868,24 +867,25 @@ function common_testdata.run_queries(gql_wrapper)
             description = 'first order of Ivan',
         }
         local result = gql_query_5:execute(variables_5_1)
-        test:is_deeply(result, exp_result_5_1, '5_1')
+        test:is_deeply(result.data, exp_result_5_1, '5_1')
     end)
 
-    --[=[
     local exp_result_5_2 = yaml.decode(([[
-        --- []
+        ---
+        order_collection:
+        - order_id: order_id_1
+          description: first order of Ivan
     ]]):strip())
 
-    -- should match no users (or give an error?)
+    -- should match no users
     test_utils.show_trace(function()
         local variables_5_2 = {
             first_name = 'non-existent user',
             description = 'first order of Ivan',
         }
         local result = gql_query_5:execute(variables_5_2)
-        test:is_deeply(result, exp_result_5_2, '5_2')
+        test:is_deeply(result.data, exp_result_5_2, '5_2')
     end)
-    ]=]--
 
     -- {{{ float, double
 
@@ -998,7 +998,7 @@ function common_testdata.run_queries(gql_wrapper)
         local result = gql_query_6:execute(variables_6_1)
         local exp_result_6_1 = deeply_number_tostring(exp_result_6_1)
         local result = deeply_number_tostring(result)
-        test:is_deeply(result, exp_result_6_1, '6_1')
+        test:is_deeply(result.data, exp_result_6_1, '6_1')
     end)
 
     local exp_result_6_2 = yaml.decode(([[
@@ -1062,12 +1062,12 @@ function common_testdata.run_queries(gql_wrapper)
         local variables_6_2 = {limit = 10, in_stock = true}
         local result = gql_query_6:execute(variables_6_2)
         local result = deeply_number_tostring(result)
-        test:is_deeply(result, exp_result_6_2, '6_2')
+        test:is_deeply(result.data, exp_result_6_2, '6_2')
 
         local variables_6_2 = {limit = 10}
         local result = gql_query_6_i_true:execute(variables_6_2)
         local result = deeply_number_tostring(result)
-        test:is_deeply(result, exp_result_6_2, '6_2')
+        test:is_deeply(result.data, exp_result_6_2, '6_2')
     end)
 
     local exp_result_6_3 = yaml.decode(([[
@@ -1131,12 +1131,12 @@ function common_testdata.run_queries(gql_wrapper)
         local variables_6_3 = {limit = 10, in_stock = false}
         local result = gql_query_6:execute(variables_6_3)
         local result = deeply_number_tostring(result)
-        test:is_deeply(result, exp_result_6_3, '6_3')
+        test:is_deeply(result.data, exp_result_6_3, '6_3')
 
         local variables_6_3 = {limit = 10}
         local result = gql_query_6_i_false:execute(variables_6_3)
         local result = deeply_number_tostring(result)
-        test:is_deeply(result, exp_result_6_3, '6_3')
+        test:is_deeply(result.data, exp_result_6_3, '6_3')
     end)
 
     -- should fail

@@ -143,7 +143,7 @@ function array_testdata.run_queries(gql_wrapper)
           customer_balances: {'salary': {'value': 333}, 'deposit': {'value': 444}}
     ]]):strip())
 
-    test:is_deeply(result_1, exp_result_1, '1')
+    test:is_deeply(result_1.data, exp_result_1, '1')
 
     assert(test:check(), 'check plan')
 end

@@ -41,8 +41,15 @@ local function gql_execute(qstate, variables, operation_name)
 
     local root_value = {}
 
-    return execute(state.schema, qstate.ast, root_value, variables,
-        operation_name)
+    local ok, data = pcall(execute, state.schema, qstate.ast, root_value,
+        variables, operation_name)
+    if not ok then
+        local err = utils.serialize_error(data)
+        return {errors = {err}}
+    end
+    return {
+        data = data,
+    }
 end
 
 --- Compile a query and execute an operation.

@@ -384,7 +384,7 @@ function multihead_conn_testdata.run_queries(gql_wrapper)
                 - account_id: credit_account_id_3
                   hero_id: hero_id_1
     ]]):strip())
-    test:is_deeply(result_1_1, exp_result_1_1, '1_1')
+    test:is_deeply(result_1_1.data, exp_result_1_1, '1_1')
 
     local variables_1_2 = {hero_id = 'hero_id_2'}
     local result_1_2 = test_utils.show_trace(function()
@@ -407,7 +407,7 @@ function multihead_conn_testdata.run_queries(gql_wrapper)
                 - account_id: dublon_account_id_3
                   hero_id: hero_id_2
     ]]):strip())
-    test:is_deeply(result_1_2, exp_result_1_2, '1_2')
+    test:is_deeply(result_1_2.data, exp_result_1_2, '1_2')
 
     assert(test:check(), 'check plan')
 end

@@ -50,7 +50,7 @@ local function run_queries(gql_wrapper)
           middle_name: Ivanovich
     ]]):strip())
 
-    test:is_deeply(result_1_1, exp_result_1_1, '1_1')
+    test:is_deeply(result_1_1.data, exp_result_1_1, '1_1')
 
     -- }}}
     -- {{{ offset + regexp match
@@ -71,7 +71,7 @@ local function run_queries(gql_wrapper)
           first_name: Vasiliy
     ]]):strip())
 
-    test:is_deeply(result_1_2, exp_result_1_2, '1_2')
+    test:is_deeply(result_1_2.data, exp_result_1_2, '1_2')
 
     -- }}}
     -- {{{ UTF-8 in regexp
@@ -93,7 +93,7 @@ local function run_queries(gql_wrapper)
           middle_name: Иванович
     ]]):strip())
 
-    test:is_deeply(result_1_3, exp_result_1_3, '1_3')
+    test:is_deeply(result_1_3.data, exp_result_1_3, '1_3')
 
     -- }}}
 
@@ -120,7 +120,7 @@ local function run_queries(gql_wrapper)
         return gql_query_1i:execute({})
     end)
 
-    test:is_deeply(result_1i_1, exp_result_1_1, '1i_1')
+    test:is_deeply(result_1i_1.data, exp_result_1_1, '1i_1')
 
     -- }}}
 
@@ -154,7 +154,8 @@ local function run_queries(gql_wrapper)
         return gql_query_2:execute({})
     end)
 
-    test:is_deeply(result_2, exp_result_2, 'regexp match by a subrecord field')
+    test:is_deeply(result_2.data, exp_result_2,
+        'regexp match by a subrecord field')
 
     -- }}}
 

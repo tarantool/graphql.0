@@ -1,6 +1,8 @@
 --- Various utility function used across the graphql module sources and tests.
 
+local json = require('json')
 local log = require('log')
+local ffi = require('ffi')
 
 local utils = {}
 
@@ -215,6 +217,27 @@ function utils.optional_require_rex()
         rex, is_pcre2 = utils.optional_require('rex_pcre'), false
     end
     return rex, is_pcre2
+end
+
+function utils.serialize_error(err)
+    if type(err) == 'string' then
+        return {message = err}
+    elseif type(err) == 'cdata' and
+            tostring(ffi.typeof(err)) == 'ctype<const struct error &>' then
+        return {message = tostring(err)}
+    elseif type(err) == 'table' and type(err.message) == 'string' then
+        return err
+    end
+
+    local message = 'internal error: unknown error format'
+    local encode_use_tostring_orig = json.cfg.encode_use_tostring
+    json.cfg({encode_use_tostring = true})
+    local orig_error = json.encode(err)
+    json.cfg({encode_use_tostring = encode_use_tostring_orig})
+    return {
+        message = message,
+        orig_error = orig_error,
+    }
 end
 
 return utils

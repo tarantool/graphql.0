@@ -3113,7 +3113,7 @@ local function run_queries(gql_wrapper)
     test_utils.show_trace(function()
         local gql_query = gql_wrapper:compile(query)
         local result = gql_query:execute({})
-        test:is_deeply(result, exp_result, 'introspection query')
+        test:is_deeply(result.data, exp_result, 'introspection query')
     end)
 
     assert(test:check(), 'check plan')

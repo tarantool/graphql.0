@@ -114,16 +114,8 @@ function server.init(graphql, host, port)
             operation_name = nil
         end
 
-        local ok, result = pcall(compiled_query.execute, compiled_query,
-            variables, operation_name)
-        if not ok then
-            return {
-                status = 200,
-                body = json.encode({error = {{message = result}}})
-            }
-        end
+        local result = compiled_query:execute(variables, operation_name)
 
-        result = {data = result}
         return {
             status = 200,
             headers = {

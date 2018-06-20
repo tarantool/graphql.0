@@ -52,7 +52,7 @@ test_utils.show_trace(function()
         - user_id: user_id_1
           name: Ivan
     ]]):strip())
-    test:is_deeply(result, exp_result, '1')
+    test:is_deeply(result.data, exp_result, '1')
 end)
 
 -- test require('graphql').execute(query)
@@ -65,7 +65,7 @@ test_utils.show_trace(function()
         - user_id: user_id_2
           name: Vasiliy
     ]]):strip())
-    test:is_deeply(result, exp_result, '2')
+    test:is_deeply(result.data, exp_result, '2')
 end)
 
 -- test server

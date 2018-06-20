@@ -119,7 +119,7 @@ local function run_queries(gql_wrapper)
         return gql_query_1:execute(variables_1)
     end)
 
-    test:is_deeply(result, exp_result_1, '1')
+    test:is_deeply(result.data, exp_result_1, '1')
 
     assert(test:check(), 'check plan')
 end
