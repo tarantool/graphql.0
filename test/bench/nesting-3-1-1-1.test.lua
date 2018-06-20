@@ -16,7 +16,8 @@ local testdata = require('test.testdata.bench_testdata')
 -- ---------
 
 local function bench_prepare(state)
-    state.gql_wrapper = bench.bench_prepare_helper(testdata, state.shard)
+    local meta = testdata.meta or testdata.get_test_metadata()
+    state.gql_wrapper = bench.bench_prepare_helper(testdata, state.shard, meta)
     local query = [[
         query match_by_user_and_passport($user_id: String, $number: String) {
             user(user_id: $user_id, user_to_passport_c: {

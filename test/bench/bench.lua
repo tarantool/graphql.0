@@ -157,8 +157,8 @@ function bench.run(test_name, opts)
 end
 
 -- helper for preparing benchmarking environment
-function bench.bench_prepare_helper(testdata, shard)
-    testdata.fill_test_data(shard or box.space)
+function bench.bench_prepare_helper(testdata, shard, meta)
+    testdata.fill_test_data(shard or box.space, meta)
     return test_utils.graphql_from_testdata(testdata, shard, {
         graphql_opts = {
             timeout_ms = graphql.TIMEOUT_INFINITY,
