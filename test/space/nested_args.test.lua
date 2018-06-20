@@ -36,7 +36,7 @@ local BODY_FN = avro_version == 3 and 5 or 7
 
 for _, tuple in box.space.email:pairs() do
     local body = tuple[BODY_FN]
-    if body:match('^[xy]$') then
+    if body:match('^[xyz]$') then
         local key = {tuple[LOCALPART_FN], tuple[DOMAIN_FN]}
         box.space.email:delete(key)
     end

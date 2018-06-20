@@ -255,6 +255,17 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox, meta)
         in_reply_to_domain = box.NULL,
         body = 'y',
     })
+
+    -- Check dangling 1:1 connection.
+    local localpart = prng:next_string(16):hex()
+    local non_existent_localpart = prng:next_string(16):hex()
+    test_utils.replace_object(virtbox, meta, 'email', {
+        localpart = localpart,
+        domain = domain,
+        in_reply_to_localpart = non_existent_localpart,
+        in_reply_to_domain = DOMAIN,
+        body = 'z',
+    })
 end
 
 function nullable_1_1_conn_testdata.drop_spaces()
@@ -264,7 +275,7 @@ end
 
 function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
     local test = tap.test('nullable_1_1_conn')
-    test:plan(5)
+    test:plan(7)
 
     -- {{{ downside traversal (1:N connections)
 
@@ -339,10 +350,10 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
     -- {{{ upside traversal (1:1 connections)
 
     local query_upside = [[
-        query emails_trace_upside($body: String) {
+        query emails_trace_upside($body: String, $child_domain: String) {
             email(body: $body) {
                 body
-                in_reply_to {
+                in_reply_to(domain: $child_domain) {
                     body
                     in_reply_to {
                         body
@@ -415,6 +426,52 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
     ]]):strip())
     exp_result.err = exp_result.err:gsub(', ', ',')
     test:is_deeply(result, exp_result, 'upside_y')
+
+    -- Check we get an error when trying to use dangling 1:1 connection. Check
+    -- we don't get this error when `disable_dangling_check` is set.
+    if gql_wrapper.disable_dangling_check then
+        local variables_upside_z = {body = 'z'}
+        local result = test_utils.show_trace(function()
+            return gql_query_upside:execute(variables_upside_z)
+        end)
+
+        local exp_result = yaml.decode(([[
+            ---
+            email:
+            - body: z
+        ]]):strip())
+
+        test:is_deeply(result, exp_result, 'upside_z disabled constraint check')
+    else
+        local variables_upside_z = {body = 'z'}
+        local ok, err = pcall(function()
+            return gql_query_upside:execute(variables_upside_z)
+        end)
+
+        local result = {ok = ok, err = test_utils.strip_error(err)}
+        local exp_result = yaml.decode(([[
+            ---
+            ok: false
+            err: "FULL MATCH constraint was failed: we expect 1 tuples, got 0"
+        ]]):strip())
+        test:is_deeply(result, exp_result, 'upside_z constraint violation')
+    end
+
+    -- We can got zero objects by 1:1 connection when use filters, it is not
+    -- violation of FULL MATCH constraint, because we found corresponding
+    -- tuple, but filter it then.
+    local variables_upside_f = {body = 'f', child_domain = 'non-existent'}
+    local result = test_utils.show_trace(function()
+        return gql_query_upside:execute(variables_upside_f)
+    end)
+
+    local exp_result = yaml.decode(([[
+        ---
+        email:
+        - body: f
+    ]]):strip())
+
+    test:is_deeply(result, exp_result, 'upside_f filter child')
 
     assert(test:check(), 'check plan')
 end

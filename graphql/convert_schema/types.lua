@@ -155,8 +155,11 @@ local function convert_simple_connection(state, connection, collection_name)
         extra = e_args,
     }
 
+    local opts = {
+        disable_dangling_check = state.disable_dangling_check,
+    }
     local resolve_function = resolve.gen_resolve_function(collection_name, c,
-        destination_type, arguments, state.accessor)
+        destination_type, arguments, state.accessor, opts)
 
     local field = {
         name = c.name,
@@ -276,9 +279,12 @@ local function convert_multihead_connection(state, connection, collection_name,
         union_types[#union_types + 1] = variant_type
     end
 
+    local opts = {
+        disable_dangling_check = state.disable_dangling_check,
+    }
     local resolve_function = resolve.gen_resolve_function_multihead(
         collection_name, c, union_types, var_num_to_box_field_name,
-        state.accessor)
+        state.accessor, opts)
 
     local field = {
         name = c.name,
