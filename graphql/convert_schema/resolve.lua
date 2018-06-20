@@ -29,10 +29,10 @@ local function gen_from_parameter(collection_name, parent, connection)
     }
 end
 
--- Check FULL match constraint before request of
--- destination object(s). Note that connection key parts
--- can be prefix of index key parts. Zero parts count
--- considered as ok by this check.
+--- Check FULL match constraint before request of destination object(s).
+---
+--- Note that connection key parts can be prefix of index key parts. Zero parts
+--- count considered as ok by this check.
 local function are_all_parts_null(parent, connection_parts)
     local are_all_parts_null = true
     local are_all_parts_non_null = true
@@ -84,8 +84,10 @@ local function separate_args_instance(args_instance, arguments)
 end
 
 function resolve.gen_resolve_function(collection_name, connection,
-        destination_type, arguments, accessor)
+        destination_type, arguments, accessor, opts)
     local c = connection
+    local opts = opts or {}
+    local disable_dangling_check = opts.disable_dangling_check or false
     local bare_destination_type = core_types.bare(destination_type)
 
     -- capture `bare_destination_type`
@@ -106,30 +108,22 @@ function resolve.gen_resolve_function(collection_name, connection,
         local opts = opts or {}
         assert(type(opts) == 'table',
             'opts must be nil or a table, got ' .. type(opts))
-        local dont_force_nullability =
-            opts.dont_force_nullability or false
-        assert(type(dont_force_nullability) == 'boolean',
-            'opts.dont_force_nullability ' ..
-            'must be nil or a boolean, got ' ..
-            type(dont_force_nullability))
+        -- no opts for now
 
         local from = gen_from_parameter(collection_name, parent, c)
 
         -- Avoid non-needed index lookup on a destination collection when
         -- all connection parts are null:
-        -- * return null for 1:1* connection;
+        -- * return null for 1:1 connection;
         -- * return {} for 1:N connection (except the case when source
         --   collection is the query or the mutation pseudo-collection).
         if collection_name ~= nil and are_all_parts_null(parent, c.parts) then
-            if c.type ~= '1:1*' and c.type ~= '1:N' then
-                -- `if` is to avoid extra json.encode
-                assert(c.type == '1:1*' or c.type == '1:N',
-                    ('only 1:1* or 1:N connections can have ' ..
-                    'all key parts null; parent is %s from ' ..
-                    'collection "%s"'):format(json.encode(parent),
-                        tostring(collection_name)))
-            end
             return c.type == '1:N' and {} or nil
+        end
+
+        local exp_tuple_count
+        if not disable_dangling_check and c.type == '1:1' then
+            exp_tuple_count = 1
         end
 
         local resolveField = genResolveField(info)
@@ -137,6 +131,7 @@ function resolve.gen_resolve_function(collection_name, connection,
             qcontext = info.qcontext,
             resolveField = resolveField, -- for subrequests
             extra_args = {},
+            exp_tuple_count = exp_tuple_count,
         }
 
         -- object_args_instance will be passed to 'filter'
@@ -152,14 +147,8 @@ function resolve.gen_resolve_function(collection_name, connection,
         assert(type(objs) == 'table',
             'objs list received from an accessor ' ..
             'must be a table, got ' .. type(objs))
-        if c.type == '1:1' or c.type == '1:1*' then
-            -- we expect here exactly one object even for 1:1*
-            -- connections because we processed all-parts-are-null
-            -- situation above
-            assert(#objs == 1 or dont_force_nullability,
-                'expect one matching object, got ' ..
-                tostring(#objs))
-            return objs[1]
+        if c.type == '1:1' then
+            return objs[1] -- nil for empty list of matching objects
         else -- c.type == '1:N'
             return objs
         end
@@ -167,7 +156,9 @@ function resolve.gen_resolve_function(collection_name, connection,
 end
 
 function resolve.gen_resolve_function_multihead(collection_name, connection,
-        union_types, var_num_to_box_field_name, accessor)
+        union_types, var_num_to_box_field_name, accessor, opts)
+    local opts = opts or {}
+    local disable_dangling_check = opts.disable_dangling_check or false
     local c = connection
 
     local determinant_keys = utils.get_keys(c.variants[1].determinant)
@@ -208,9 +199,13 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
             name = c.name,
             destination_collection = v.destination_collection,
         }
+        local opts = {
+            disable_dangling_check = disable_dangling_check,
+        }
         -- XXX: generate a function for each variant at schema generation time
         local result = resolve.gen_resolve_function(collection_name,
-            quazi_connection, destination_type, {}, accessor)(parent, {}, info)
+            quazi_connection, destination_type, {}, accessor, opts)(
+            parent, {}, info)
 
         -- This 'wrapping' is needed because we use 'select' on 'collection'
         -- GraphQL type and the result of the resolve function must be in

@@ -222,34 +222,16 @@ end
 ---         },
 ---         ...
 ---     },
----     accessor = setmetatable({}, {
----         __index = {
----             select = function(self, parent, collection_name, from,
----                     object_args_instance, list_args_instance, extra)
----                 -- * from has the following structure:
----                 --
----                 -- {
----                 --     collection_name = <...>,
----                 --     connection_name = <...>,
----                 --     destination_args_names = <...>,
----                 --     destination_args_values = <...>,
----                 -- }
----                 --
----                 -- from.collection_name is nil for a top-level collection.
----                 --
----                 -- `extra` is a table which contains additional data for
----                 -- the query:
----                 --
----                 -- * `qcontext` (table) can be used by an accessor to store
----                 --   any query-related data;
----                 -- * `resolveField(field_name, object, filter, opts)`
----                 --   (function) for performing a subrequest on a fields
----                 --   connected using a 1:1 or 1:1* connection.
----                 --
----                 return ...
----             end,
----         }
----     }),
+---     indexes = <table>,
+---     service_fields = <table>,
+---     accessor = <table> or <string>,
+---     accessor_funcs = <table>,
+---     collection_use_tomap = <boolean>,
+---     resulting_object_cnt_max = <number>,
+---     fetched_object_cnt_max = <number>,
+---     timeout_ms = <number>,
+---     enable_mutations = <boolean>,
+---     disable_dangling_check = <boolean>,
 --- })
 function impl.new(cfg)
     local cfg = cfg or {}
@@ -279,7 +261,9 @@ function impl.new(cfg)
         cfg.indexes = cfg.accessor.indexes
     end
 
-    local state = {}
+    local state = {
+        disable_dangling_check = cfg.disable_dangling_check,
+    }
     convert_schema.convert(state, cfg)
     return setmetatable(state, {
         __index = {

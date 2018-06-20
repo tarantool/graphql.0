@@ -25,7 +25,7 @@ local schema = {}
 --- * DONE: Move avro-schema -> GraphQL arguments translating into its own
 ---   module.
 --- * DONE: Support a sub-record arguments and others (union, array, ...).
---- * TBD: Generate arguments for cartesian product of {1:1, 1:1*, 1:N, all} x
+--- * TBD: Generate arguments for cartesian product of {1:1, 1:N, all} x
 ---   {query, mutation, all} x {top-level, nested, all} x {collections}.
 --- * TBD: Use generated arguments in GraphQL types (schema) generation.
 ---
@@ -138,7 +138,8 @@ local function create_root_collection(state)
     })
 end
 
---- Execute a function for each 1:1 or 1:1* connection of each collection.
+--- Execute a function for each connection of one of specified types in each
+--- collection.
 ---
 --- @tparam table state tarantool_graphql instance
 ---
@@ -160,7 +161,7 @@ local function for_each_connection(state, connection_types, func)
     end
 end
 
---- Add arguments corresponding to 1:1 and 1:1* connections (nested filters).
+--- Add arguments corresponding to 1:1 connections (nested filters).
 ---
 --- @tparam table state graphql_tarantool instance
 local function add_connection_arguments(state)
@@ -169,8 +170,8 @@ local function add_connection_arguments(state)
     -- map source collection and connection name to an input object
     local lookup_input_objects = {}
 
-    -- create InputObjects for each 1:1 or 1:1* connection of each collection
-    for_each_connection(state, {'1:1', '1:1*'}, function(collection_name, c)
+    -- create InputObjects for each 1:1 connection of each collection
+    for_each_connection(state, {'1:1'}, function(collection_name, c)
         -- XXX: support multihead connections
         if c.variants ~= nil then return end
 
@@ -195,7 +196,7 @@ local function add_connection_arguments(state)
 
     -- update fields of collection arguments and input objects with other input
     -- objects
-    for_each_connection(state, {'1:1', '1:1*'}, function(collection_name, c)
+    for_each_connection(state, {'1:1'}, function(collection_name, c)
         -- XXX: support multihead connections
         if c.variants ~= nil then return end
 

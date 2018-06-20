@@ -883,8 +883,7 @@ local function process_tuple(self, state, tuple, opts)
         if obj[k] == nil then
             local field_name = k
             local sub_filter = v
-            local sub_opts = {dont_force_nullability = true}
-            local field = resolveField(field_name, obj, sub_filter, sub_opts)
+            local field = resolveField(field_name, obj, sub_filter)
             if field == nil then return true end
             obj[k] = field
             -- XXX: Remove the value from a filter? But then we need to copy
@@ -991,6 +990,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
     -- XXX: save type of args.offset at parsing and check here
     -- check(args.offset, 'args.offset', ...)
     check(args.pcre, 'args.pcre', 'table', 'nil')
+    check(extra.exp_tuple_count, 'extra.exp_tuple_count', 'number', 'nil')
 
     local collection = self.collections[collection_name]
     assert(collection ~= nil,
@@ -1044,6 +1044,18 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         resolveField = extra.resolveField,
     }
 
+    -- assert that connection constraint applied only to objects got from the
+    -- index that underlies the connection
+    if extra.exp_tuple_count ~= nil then
+        local err = 'internal error: connection constraint (expected tuple ' ..
+            'count) cannot be applied to an index that is not under a ' ..
+            'connection'
+        assert(from.collection_name ~= nil, err)
+        assert(index ~= nil, err)
+        assert(pivot == nil or (pivot.value_list == nil and
+            pivot.filter ~= nil), err)
+    end
+
     if index == nil then
         -- fullscan
         local primary_index = self.funcs.get_primary_index(self,
@@ -1088,10 +1100,26 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             iterator_opts.limit = args.limit
         end
 
+        local tuple_count = 0
+
         for _, tuple in index:pairs(index_value, iterator_opts) do
+            tuple_count = tuple_count + 1
+            -- check full match constraint
+            if extra.exp_tuple_count ~= nil and
+                    tuple_count > extra.exp_tuple_count then
+                error(('FULL MATCH constraint was failed: we got more then ' ..
+                    '%d tuples'):format(extra.exp_tuple_count))
+            end
             local continue = process_tuple(self, select_state, tuple,
                 select_opts)
             if not continue then break end
+        end
+
+        -- check full match constraint
+        if extra.exp_tuple_count ~= nil and
+                tuple_count ~= extra.exp_tuple_count then
+            error(('FULL MATCH constraint was failed: we expect %d tuples, ' ..
+                'got %d'):format(extra.exp_tuple_count, tuple_count))
         end
     end
 
@@ -1099,10 +1127,11 @@ local function select_internal(self, collection_name, from, filter, args, extra)
     local objs = select_state.objs
 
     assert(args.limit == nil or count <= args.limit,
-        ('count[%d] exceeds limit[%s] (before return)'):format(
-        count, args.limit))
+        ('internal error: selected objects count (%d) exceeds limit (%s)')
+            :format(count, args.limit))
     assert(#objs == count,
-        ('count[%d] is not equal to objs count[%d]'):format(count, #objs))
+        ('internal error: selected objects count (%d) is not equal size of ' ..
+            'selected object list (%d)'):format(count, #objs))
 
     return objs
 end
@@ -1383,6 +1412,25 @@ end
 --- @treturn table data accessor instance, a table with the two methods
 --- (`select` and `arguments`) as described in the @{impl.new} function
 --- description.
+---
+--- Brief explanation of some select function parameters:
+---
+--- * `from` (table or nil) is nil for a top-level collection or a table with
+---   the following fields:
+---
+---   - collection_name
+---   - connection_name
+---   - destination_args_names
+---   - destination_args_values
+---
+--- * `extra` (table) is a table which contains additional data for the query:
+---
+---   - `qcontext` (table) can be used by an accessor to store any
+---     query-related data;
+---   - `resolveField(field_name, object, filter, opts)` (function) for
+---     performing a subrequest on a fields connected using a 1:1 connection.
+---   - extra_args
+---   - exp_tuple_count
 function accessor_general.new(opts, funcs)
     assert(type(opts) == 'table',
         'opts must be a table, got ' .. type(opts))
