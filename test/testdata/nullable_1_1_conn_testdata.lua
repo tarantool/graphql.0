@@ -413,29 +413,15 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
         '"in_reply_to_localpart":"1f70391f6ba858129413bd801b12acbf"}'
     test:is(err, exp_err, 'upside_y')
 
-    -- Check we get an error when trying to use dangling 1:1 connection. Check
-    -- we don't get this error when `disable_dangling_check` is set.
-    if gql_wrapper.disable_dangling_check then
-        local variables_upside_z = {body = 'z'}
-        local result = test_utils.show_trace(function()
-            return gql_query_upside:execute(variables_upside_z)
-        end)
-
-        local exp_result = yaml.decode(([[
-            ---
-            email:
-            - body: z
-        ]]):strip())
-
-        test:is_deeply(result.data, exp_result, 'upside_z disabled constraint check')
-    else
-        local variables_upside_z = {body = 'z'}
-        local result = gql_query_upside:execute(variables_upside_z)
-        local err = result.errors[1].message
-        local exp_err = 'FULL MATCH constraint was failed: we expect 1 ' ..
-            'tuples, got 0'
-        test:is(err, exp_err, 'upside_z constraint violation')
-    end
+    -- Check we get an error when trying to use dangling 1:1 connection.
+    -- See nullable_1_1_conn_nocheck.test.lua for the case when
+    -- `disable_dangling_check` is set.
+    local variables_upside_z = {body = 'z'}
+    local result = gql_query_upside:execute(variables_upside_z)
+    local err = result.errors[1].message
+    local exp_err = 'FULL MATCH constraint was failed: we expect 1 ' ..
+        'tuples, got 0'
+    test:is(err, exp_err, 'upside_z constraint violation')
 
     -- We can got zero objects by 1:1 connection when use filters, it is not
     -- violation of FULL MATCH constraint, because we found corresponding
