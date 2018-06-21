@@ -857,11 +857,11 @@ local function process_tuple(self, state, tuple, opts)
     local fetched_object_cnt_max = opts.fetched_object_cnt_max
     qstats.fetched_object_cnt = qstats.fetched_object_cnt + 1
     assert(qstats.fetched_object_cnt <= fetched_object_cnt_max,
-            ('fetched object count[%d] exceeds limit[%d] ' ..
-                    '(`fetched_object_cnt_max` in accessor)'):format(
-                    qstats.fetched_object_cnt, fetched_object_cnt_max))
+        ('fetched object count (%d) exceeds fetched_object_cnt_max limit (%d)')
+        :format(qstats.fetched_object_cnt, fetched_object_cnt_max))
     assert(qcontext.deadline_clock > clock.monotonic64(),
-           'query execution timeout exceeded, use `timeout_ms` to increase it')
+       ('query execution timeout exceeded timeout_ms limit (%s ms)'):format(
+       tostring(self.settings.timeout_ms)))
     local collection_name = opts.collection_name
     local pcre = opts.pcre
     local resolveField = opts.resolveField
@@ -906,9 +906,9 @@ local function process_tuple(self, state, tuple, opts)
     state.count = state.count + 1
     qstats.resulting_object_cnt = qstats.resulting_object_cnt + 1
     assert(qstats.resulting_object_cnt <= resulting_object_cnt_max,
-            ('returning object count[%d] exceeds limit[%d] ' ..
-                    '(`resulting_object_cnt_max` in accessor)'):format(
-                    qstats.resulting_object_cnt, resulting_object_cnt_max))
+        ('resulting objects count (%d) exceeds resulting_object_cnt_max ' ..
+        'limit (%d)'):format(qstats.resulting_object_cnt,
+        resulting_object_cnt_max))
     if limit ~= nil and state.count >= limit then
         return false
     end

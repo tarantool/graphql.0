@@ -35,7 +35,8 @@ local function run_queries(gql_wrapper)
     assert(result.data == nil, "this test should fail")
     assert(result.errors ~= nil, "this test should fail")
     local err = result.errors[1].message
-    test:like(err, 'query execution timeout exceeded', 'timeout test')
+    test:is(err, 'query execution timeout exceeded timeout_ms limit (0.001 ms)',
+        'timeout test')
 
     assert(test:check(), 'check plan')
 end

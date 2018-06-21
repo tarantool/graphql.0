@@ -37,9 +37,9 @@ local function run_queries(gql_wrapper)
     assert(result.data == nil, "this test should fail")
     assert(result.errors ~= nil, "this test should fail")
     local err = result.errors[1].message
-    test:like(err,
-        'count%[4%] exceeds limit%[3%] %(`resulting_object_cnt_max`',
-        'resulting_object_cnt_max test')
+    test:is(err,
+        'resulting objects count (4) exceeds resulting_object_cnt_max ' ..
+        'limit (3)', 'resulting_object_cnt_max test')
 
     variables = {
         user_id = 5,
@@ -49,9 +49,9 @@ local function run_queries(gql_wrapper)
     assert(result.data == nil, "this test should fail")
     assert(result.errors ~= nil, "this test should fail")
     local err = result.errors[1].message
-    test:like(err,
-        'count%[6%] exceeds limit%[5%] %(`fetched_object_cnt_max`',
-        'resulting_object_cnt_max test')
+    test:is(err,
+        'fetched object count (6) exceeds fetched_object_cnt_max limit (5)',
+        'fetched_object_cnt_max test')
 
     assert(test:check(), 'check plan')
 end
