@@ -225,7 +225,8 @@ end
 
 function types.inputMap(config)
   local instance = {
-    __type = 'InputMap',
+    __type = 'Scalar',
+    subtype = 'InputMap',
     name = config.name,
     serialize = function(value) return value end,
     parseValue = function(value) return value end,
@@ -243,7 +244,8 @@ end
 
 function types.inputUnion(config)
   local instance = {
-    __type = 'InputUnion',
+    __type = 'Scalar',
+    subtype = 'InputUnion',
     name = config.name,
     serialize = function(value) return value end,
     parseValue = function(value) return value end,

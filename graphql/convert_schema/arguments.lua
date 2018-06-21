@@ -127,7 +127,7 @@ function arguments.convert_record_fields(fields, root_name)
 
     local context = {
         field_name = nil,
-        path = {'$arguments', root_name},
+        path = {'arguments', root_name},
     }
 
     local args = {}

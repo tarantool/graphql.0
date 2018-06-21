@@ -71,7 +71,12 @@ function util.coerceValue(node, schemaType, variables)
   end
 
   local isInputObject = schemaType.__type == 'InputObject'
-  if isInputObject or schemaType.__type == 'InputMap' then
+  local isInputMap = schemaType.__type == 'Scalar' and
+    schemaType.subtype == 'InputMap'
+  local isInputUnion = schemaType.__type == 'Scalar' and
+    schemaType.subtype == 'InputUnion'
+
+  if isInputObject or isInputMap then
     if node.kind ~= 'inputObject' then
       error('Expected an input object')
     end
@@ -102,17 +107,17 @@ function util.coerceValue(node, schemaType, variables)
     return node.value
   end
 
+  if isInputUnion then
+    local child_type = schemaType.resolveNodeType(node)
+    return util.coerceValue(node, child_type, variables)
+  end
+
   if schemaType.__type == 'Scalar' then
     if schemaType.parseLiteral(node) == nil then
       error('Could not coerce "' .. tostring(node.value) .. '" to "' .. schemaType.name .. '"')
     end
 
     return schemaType.parseLiteral(node)
-  end
-
-  if schemaType.__type == 'InputUnion' then
-    local child_type = schemaType.resolveNodeType(node)
-    return util.coerceValue(node, child_type, variables)
   end
 end
 

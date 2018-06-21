@@ -3,7 +3,7 @@ local check = utils.check
 
 local helpers = {}
 
---- Get dot-separated name prepended with namespace.
+--- Get three-underscore-separated name prepended with namespace.
 ---
 --- @tparam string name base name
 ---
@@ -19,18 +19,18 @@ function helpers.full_name(name, context)
         return name
     end
 
-    local namespace = table.concat(context.path, '.')
-    return namespace .. '.' .. name
+    local namespace = table.concat(context.path, '___')
+    return namespace .. '___' .. name
 end
 
---- Get last part of dot-separated name.
+--- Get last part of three-underscore-separated name.
 ---
 --- @tparam string name full name
 ---
 --- @treturn string base name
 function helpers.base_name(name)
     check(name, 'name', 'string')
-    return name:gsub('^.*%.', '')
+    return name:gsub('^.*___', '')
 end
 
 return helpers
