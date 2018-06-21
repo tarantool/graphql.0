@@ -41,10 +41,16 @@ local function gql_execute(qstate, variables, operation_name)
 
     local root_value = {}
 
-    local ok, data = pcall(execute, state.schema, qstate.ast, root_value,
-        variables, operation_name)
+    local traceback
+    local ok, data = xpcall(function()
+        return execute(state.schema, qstate.ast, root_value, variables,
+            operation_name)
+    end, function(err)
+        traceback = debug.traceback()
+        return err
+    end)
     if not ok then
-        local err = utils.serialize_error(data)
+        local err = utils.serialize_error(data, traceback)
         return {errors = {err}}
     end
     return {

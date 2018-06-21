@@ -225,13 +225,21 @@ function utils.optional_require_rex()
     return rex, is_pcre2
 end
 
-function utils.serialize_error(err)
+function utils.serialize_error(err, traceback)
     if type(err) == 'string' then
-        return {message = utils.strip_error(err)}
+        return {
+            message = utils.strip_error(err),
+            traceback = traceback,
+        }
     elseif type(err) == 'cdata' and
             tostring(ffi.typeof(err)) == 'ctype<const struct error &>' then
-        return {message = tostring(err)}
+        return {
+            message = tostring(err),
+            traceback = traceback,
+        }
     elseif type(err) == 'table' and type(err.message) == 'string' then
+        local err = table.copy(err)
+        err.traceback = traceback
         return err
     end
 
@@ -243,6 +251,7 @@ function utils.serialize_error(err)
     return {
         message = message,
         orig_error = orig_error,
+        traceback = traceback,
     }
 end
 
