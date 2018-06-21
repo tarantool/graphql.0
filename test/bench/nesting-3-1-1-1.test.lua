@@ -61,8 +61,8 @@ bench.run('nesting-3-1-1-1', {
         shard = 10000,
     },
     checksums = {
-        space = 839993960,
-        shard = 922069577,
+        space = 3707454999,
+        shard = 4073260869,
     },
 })
 
