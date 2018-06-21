@@ -1,4 +1,5 @@
 local fio = require('fio')
+local graphql_utils = require('graphql.utils')
 local utils = require('graphql.server.utils')
 local json = require('json')
 
@@ -100,11 +101,18 @@ function server.init(graphql, host, port)
 
         local query = parsed.query
 
-        local ok, compiled_query = pcall(graphql.compile, graphql, query)
+        local traceback
+        local ok, compiled_query = xpcall(function()
+            return graphql:compile(query)
+        end, function(err)
+            traceback = debug.traceback()
+            return err
+        end)
         if not ok then
+            local err = graphql_utils.serialize_error(compiled_query, traceback)
             return {
                 status = 200,
-                body = json.encode({errors = {{message = compiled_query}}})
+                body = json.encode({errors = {err}})
             }
         end
 

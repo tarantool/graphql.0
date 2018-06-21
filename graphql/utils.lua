@@ -226,20 +226,21 @@ function utils.optional_require_rex()
 end
 
 function utils.serialize_error(err, traceback)
+    local extensions = {traceback = traceback}
     if type(err) == 'string' then
         return {
             message = utils.strip_error(err),
-            traceback = traceback,
+            extensions = extensions,
         }
     elseif type(err) == 'cdata' and
             tostring(ffi.typeof(err)) == 'ctype<const struct error &>' then
         return {
             message = tostring(err),
-            traceback = traceback,
+            extensions = extensions,
         }
     elseif type(err) == 'table' and type(err.message) == 'string' then
         local err = table.copy(err)
-        err.traceback = traceback
+        err.extensions = extensions
         return err
     end
 
@@ -248,10 +249,10 @@ function utils.serialize_error(err, traceback)
     json.cfg({encode_use_tostring = true})
     local orig_error = json.encode(err)
     json.cfg({encode_use_tostring = encode_use_tostring_orig})
+    extensions.orig_error = orig_error
     return {
         message = message,
-        orig_error = orig_error,
-        traceback = traceback,
+        extensions = extensions,
     }
 end
 
