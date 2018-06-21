@@ -9,8 +9,8 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local tap = require('tap')
 local graphql = require('graphql')
+local utils = require('graphql.utils')
 local testdata = require('test.testdata.compound_index_testdata')
-local test_utils = require('test.test_utils')
 
 -- init box, upload test data and acquire metadata
 -- -----------------------------------------------
@@ -58,7 +58,7 @@ local err_exp = '1:1 connection "user_connection" of collection ' ..
     '"order_collection" has less fields than the index of ' ..
     '"user_str_num_index" collection (cannot prove uniqueness of the partial ' ..
     'index)'
-test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
     'not enough fields')
 
 -- restore back cut part
@@ -83,7 +83,7 @@ local ok, err = pcall(create_gql_wrapper, metadata)
 local err_exp = 'several indexes were marked as primary in the ' ..
     '"user_collection" collection, at least "user_str_num_index" and ' ..
     '"user_str_index"'
-test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
     'multiple primary indexes')
 
 -- restore metadata back

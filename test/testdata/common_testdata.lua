@@ -1,6 +1,7 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
+local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 
 local common_testdata = {}
@@ -452,7 +453,7 @@ function common_testdata.run_queries(gql_wrapper)
     local err_exp = 'Cannot have more than one operation when using ' ..
         'anonymous operations'
     local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_1tn)
-    test:is_deeply({ok, test_utils.strip_error(err)}, {false, err_exp},
+    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
         'unnamed query should be a single one')
 
     local query_1t = [[
@@ -482,12 +483,12 @@ function common_testdata.run_queries(gql_wrapper)
     local err_exp = 'Operation name must be specified if more than one ' ..
         'operation exists.'
     local result = gql_query_1t:execute({})
-    local err = test_utils.strip_error(result.errors[1].message)
+    local err = result.errors[1].message
     test:is(err, err_exp, 'non-determined query name should give an error')
 
     local err_exp = 'Unknown operation "non_existent_operation"'
     local result = gql_query_1t:execute({}, 'non_existent_operation')
-    local err = test_utils.strip_error(result.errors[1].message)
+    local err = result.errors[1].message
     test:is(err, err_exp, 'wrong operation name should give an error')
 
     test_utils.show_trace(function()
@@ -1162,7 +1163,7 @@ function common_testdata.run_queries(gql_wrapper)
         return gql_wrapper:compile(query_7)
     end)
 
-    local result = {ok = ok, err = test_utils.strip_error(err)}
+    local result = {ok = ok, err = utils.strip_error(err)}
     test:is_deeply(result, exp_result_7, '7')
 
     -- should fail
@@ -1188,7 +1189,7 @@ function common_testdata.run_queries(gql_wrapper)
         return gql_wrapper:compile(query_8)
     end)
 
-    local result = {ok = ok, err = test_utils.strip_error(err)}
+    local result = {ok = ok, err = utils.strip_error(err)}
     test:is_deeply(result, exp_result_8, '8')
 
     -- should fail
@@ -1214,7 +1215,7 @@ function common_testdata.run_queries(gql_wrapper)
         return gql_wrapper:compile(query_9)
     end)
 
-    local result = {ok = ok, err = test_utils.strip_error(err)}
+    local result = {ok = ok, err = utils.strip_error(err)}
     test:is_deeply(result, exp_result_9, '9')
 
     -- }}}
@@ -1240,7 +1241,7 @@ function common_testdata.run_queries(gql_wrapper)
         return gql_wrapper:compile(query_10)
     end)
 
-    local result = {ok = ok, err = test_utils.strip_error(err)}
+    local result = {ok = ok, err = utils.strip_error(err)}
     test:is_deeply(result, exp_result_10, 'scalar with fields is forbidden')
 
     local query_11 = [[
@@ -1261,7 +1262,7 @@ function common_testdata.run_queries(gql_wrapper)
         return gql_wrapper:compile(query_11)
     end)
 
-    local result = {ok = ok, err = test_utils.strip_error(err)}
+    local result = {ok = ok, err = utils.strip_error(err)}
     test:is_deeply(result, exp_result_11, 'complex without fields is forbidden')
 
     -- }}}

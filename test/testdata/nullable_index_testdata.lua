@@ -6,6 +6,7 @@
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
+local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 
 local nullable_index_testdata = {}
@@ -319,7 +320,7 @@ function nullable_index_testdata.run_queries(gql_wrapper)
         return gql_wrapper:compile(query_1)
     end)
 
-    local result = {ok = ok, err = test_utils.strip_error(err)}
+    local result = {ok = ok, err = utils.strip_error(err)}
     local exp_result = yaml.decode(([[
         ---
         ok: false

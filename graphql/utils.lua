@@ -6,6 +6,12 @@ local ffi = require('ffi')
 
 local utils = {}
 
+--- Return an error w/o file name and line number.
+function utils.strip_error(err)
+    local res = tostring(err):gsub('^.-:.-: (.*)$', '%1')
+    return res
+end
+
 --- Recursively checks whether `sub` fields values are match `t` ones.
 function utils.is_subtable(t, sub)
     for k, v in pairs(sub) do
@@ -221,7 +227,7 @@ end
 
 function utils.serialize_error(err)
     if type(err) == 'string' then
-        return {message = err}
+        return {message = utils.strip_error(err)}
     elseif type(err) == 'cdata' and
             tostring(ffi.typeof(err)) == 'ctype<const struct error &>' then
         return {message = tostring(err)}

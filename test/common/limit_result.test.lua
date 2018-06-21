@@ -36,7 +36,7 @@ local function run_queries(gql_wrapper)
     local result = gql_query:execute(variables)
     assert(result.data == nil, "this test should fail")
     assert(result.errors ~= nil, "this test should fail")
-    local err = test_utils.strip_error(result.errors[1].message)
+    local err = result.errors[1].message
     test:like(err,
         'count%[4%] exceeds limit%[3%] %(`resulting_object_cnt_max`',
         'resulting_object_cnt_max test')
@@ -48,7 +48,7 @@ local function run_queries(gql_wrapper)
     local result = gql_query:execute(variables)
     assert(result.data == nil, "this test should fail")
     assert(result.errors ~= nil, "this test should fail")
-    local err = test_utils.strip_error(result.errors[1].message)
+    local err = result.errors[1].message
     test:like(err,
         'count%[6%] exceeds limit%[5%] %(`fetched_object_cnt_max`',
         'resulting_object_cnt_max test')

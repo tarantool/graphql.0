@@ -393,7 +393,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
 
     local variables_upside_x = {body = 'x'}
     local result = gql_query_upside:execute(variables_upside_x)
-    local err = test_utils.strip_error(result.errors[1].message)
+    local err = result.errors[1].message
     local exp_err = 'FULL MATCH constraint was failed: connection key parts ' ..
         'must be all non-nulls or all nulls; object: ' ..
         '{"domain":"graphql.tarantool.org",' ..
@@ -404,7 +404,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
 
     local variables_upside_y = {body = 'y'}
     local result = gql_query_upside:execute(variables_upside_y)
-    local err = test_utils.strip_error(result.errors[1].message)
+    local err = result.errors[1].message
     local exp_err = 'FULL MATCH constraint was failed: connection key parts ' ..
         'must be all non-nulls or all nulls; object: ' ..
         '{"domain":"graphql.tarantool.org",' ..
@@ -431,7 +431,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
     else
         local variables_upside_z = {body = 'z'}
         local result = gql_query_upside:execute(variables_upside_z)
-        local err = test_utils.strip_error(result.errors[1].message)
+        local err = result.errors[1].message
         local exp_err = 'FULL MATCH constraint was failed: we expect 1 ' ..
             'tuples, got 0'
         test:is(err, exp_err, 'upside_z constraint violation')
