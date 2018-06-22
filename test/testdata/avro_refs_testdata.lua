@@ -11,90 +11,150 @@ local test_utils = require('test.test_utils')
 
 local testdata = {}
 
-testdata.meta = {
-    schemas = json.decode([[{
-        "foo": {
-            "type": "record",
-            "name": "foo",
-            "fields": [
-                {"name": "id", "type": "long"},
-                {
-                    "name": "bar",
-                    "type": {
-                        "type": "record",
+function testdata.get_test_metadata()
+    local schemas
+
+    if test_utils.major_avro_schema_version() == 3 then
+        schemas = json.decode([[{
+            "foo": {
+                "type": "record",
+                "name": "foo",
+                "fields": [
+                    {"name": "id", "type": "long"},
+                    {
                         "name": "bar",
-                        "fields": [
-                            {"name": "x", "type": "long"},
-                            {"name": "y", "type": "long"}
-                        ]
-                    }
-                },
-                {
-                    "name": "bar_ref",
-                    "type": "bar"
-                },
-                {
-                    "name": "bar_nref",
-                    "type": "bar*"
-                },
-                {
-                    "name": "baz",
-                    "type": {
-                        "type": "record*",
+                        "type": {
+                            "type": "record",
+                            "name": "bar",
+                            "fields": [
+                                {"name": "x", "type": "long"},
+                                {"name": "y", "type": "long"}
+                            ]
+                        }
+                    },
+                    {
+                        "name": "bar_ref",
+                        "type": "bar"
+                    },
+                    {
+                        "name": "bar_nref",
+                        "type": "bar*"
+                    },
+                    {"name": "bar_ref_array", "type": {
+                        "type": "array",
+                        "items": "bar"
+                    }},
+                    {"name": "bar_nref_array", "type": {
+                        "type": "array",
+                        "items": "bar*"
+                    }},
+                    {"name": "bar_ref_map", "type": {
+                        "type": "map",
+                        "values": "bar"
+                    }},
+                    {"name": "bar_nref_map", "type": {
+                        "type": "map",
+                        "values": "bar*"
+                    }},
+                    {
                         "name": "baz",
-                        "fields": [
-                            {"name": "x", "type": "long"},
-                            {"name": "y", "type": "long"}
-                        ]
+                        "type": {
+                            "type": "record*",
+                            "name": "baz",
+                            "fields": [
+                                {"name": "x", "type": "long"},
+                                {"name": "y", "type": "long"}
+                            ]
+                        }
+                    },
+                    {
+                        "name": "baz_ref",
+                        "type": "baz"
+                    },
+                    {
+                        "name": "baz_nref",
+                        "type": "baz*"
                     }
-                },
-                {
-                    "name": "baz_ref",
-                    "type": "baz"
-                },
-                {
-                    "name": "baz_nref",
-                    "type": "baz*"
-                }
-            ]
-        }
-    }]]),
-    -- added foo_2: check compiling metainfo with two usages of the same schema
-    collections = json.decode([[{
-        "foo": {
-            "schema_name": "foo",
-            "connections": []
-        },
-        "foo_2": {
-            "schema_name": "foo",
-            "connections": []
-        }
-    }]]),
-    service_fields = {
-        foo = {},
-        foo_2 = {},
-    },
-    indexes = {
-        foo = {
-            id = {
-                service_fields = {},
-                fields = {'id'},
-                index_type = 'tree',
-                unique = true,
-                primary = true,
+                ]
+            }
+        }]])
+    else -- avro-schema-2*
+        -- we cannot use nullable types with avro-schema-2* (it is buggy in
+        -- many cases)
+        schemas = json.decode([[{
+            "foo": {
+                "type": "record",
+                "name": "foo",
+                "fields": [
+                    {"name": "id", "type": "long"},
+                    {
+                        "name": "bar",
+                        "type": {
+                            "type": "record",
+                            "name": "bar",
+                            "fields": [
+                                {"name": "x", "type": "long"},
+                                {"name": "y", "type": "long"}
+                            ]
+                        }
+                    },
+                    {
+                        "name": "bar_ref",
+                        "type": "bar"
+                    },
+                    {"name": "bar_ref_array", "type": {
+                        "type": "array",
+                        "items": "bar"
+                    }},
+                    {"name": "bar_ref_map", "type": {
+                        "type": "map",
+                        "values": "bar"
+                    }}
+                ]
+            }
+        }]])
+    end
+
+    return {
+        schemas = schemas,
+        -- added foo_2: check compiling metainfo with two usages of the same
+        -- schema
+        collections = json.decode([[{
+            "foo": {
+                "schema_name": "foo",
+                "connections": []
             },
+            "foo_2": {
+                "schema_name": "foo",
+                "connections": []
+            }
+        }]]),
+        service_fields = {
+            foo = {},
+            foo_2 = {},
         },
-        foo_2 = {
-            id = {
-                service_fields = {},
-                fields = {'id'},
-                index_type = 'tree',
-                unique = true,
-                primary = true,
+        indexes = {
+            foo = {
+                id = {
+                    service_fields = {},
+                    fields = {'id'},
+                    index_type = 'tree',
+                    unique = true,
+                    primary = true,
+                },
+            },
+            foo_2 = {
+                id = {
+                    service_fields = {},
+                    fields = {'id'},
+                    index_type = 'tree',
+                    unique = true,
+                    primary = true,
+                },
             },
         },
     }
-}
+end
 
 function testdata.init_spaces()
     -- foo fields
@@ -122,90 +182,97 @@ function testdata.fill_test_data(virtbox, meta)
 
     local avro_version = test_utils.major_avro_schema_version()
 
+    local obj_1
+    local obj_2
+
     if avro_version == 3 then
         -- non-null bar, baz and its refs
-        local obj_1 = {
+        obj_1 = {
             id = 1,
             bar = {x = x, y = y},
             bar_ref = {x = x, y = y},
             bar_nref = {x = x, y = y},
+            bar_ref_array = {{x = x, y = y}},
+            bar_nref_array = {{x = x, y = y}},
+            bar_ref_map = {xy = {x = x, y = y}},
+            bar_nref_map = {xy = {x = x, y = y}},
             baz = {x = a, y = b},
             baz_ref = {x = a, y = b},
             baz_nref = {x = a, y = b},
         }
         -- null in nullable bar, baz refs
-        local obj_2 = {
+        obj_2 = {
             id = 2,
             bar = {x = x, y = y},
             bar_ref = {x = x, y = y},
             bar_nref = box.NULL,
+            bar_ref_array = {{x = x, y = y}},
+            bar_nref_array = {},
+            bar_ref_map = {xy = {x = x, y = y}},
+            bar_nref_map = {xy = box.NULL},
             baz = box.NULL,
             baz_ref = {x = a, y = b},
             baz_nref = box.NULL,
         }
+
         -- replaces
         test_utils.replace_object(virtbox, meta, 'foo', obj_1)
         test_utils.replace_object(virtbox, meta, 'foo', obj_2)
         test_utils.replace_object(virtbox, meta, 'foo_2', obj_1)
         test_utils.replace_object(virtbox, meta, 'foo_2', obj_2)
     else
-        -- flatten does not work properly in the case of avro-schema-2.3.2
-        local NULL_T = 0
-        local VALUE_T = 1
+        obj_1 = {
+            id = 1,
+            bar = {x = x, y = y},
+            bar_ref = {x = x, y = y},
+            bar_ref_array = {{x = x, y = y}},
+            bar_ref_map = {xy = {x = x, y = y}},
+        }
 
-        -- non-null bar, baz and its refs
-        local tuple_1 = {1,                           -- id
-            x, y, x, y, VALUE_T, {x, y},              -- bar & refs
-            VALUE_T, {a, b}, a, b, VALUE_T, {a, b},   -- baz & refs
-        }
-        -- null in nullable bar, baz refs
-        local tuple_2 = {2,                           -- id
-            x, y, x, y, NULL_T, box.NULL,             -- bar & refs
-            NULL_T, box.NULL, a, b, NULL_T, box.NULL, -- baz & refs
-        }
         -- replaces
-        virtbox.foo:replace(tuple_1)
-        virtbox.foo:replace(tuple_2)
-        virtbox.foo_2:replace(tuple_1)
-        virtbox.foo_2:replace(tuple_2)
+        test_utils.replace_object(virtbox, meta, 'foo', obj_1)
+        test_utils.replace_object(virtbox, meta, 'foo_2', obj_1)
     end
 end
 
 function testdata.run_queries(gql_wrapper)
-    local test = tap.test('avro_refs')
-    test:plan(4)
+    local avro_version = test_utils.major_avro_schema_version()
 
-    local query_1 = [[
-        query get_by_id($id: Long) {
-            foo(id: $id) {
-                id
-                bar {
-                    x
-                    y
-                }
-                bar_ref {
-                    x
-                    y
-                }
-                bar_nref {
-                    x
-                    y
-                }
-                baz {
-                    x
-                    y
-                }
-                baz_ref {
-                    x
-                    y
-                }
-                baz_nref {
-                    x
-                    y
+    local test = tap.test('avro_refs')
+    test:plan(avro_version == 3 and 4 or 2)
+
+    local query_1
+    if avro_version == 3 then
+        query_1 = [[
+            query get_by_id($id: Long) {
+                foo(id: $id) {
+                    id
+                    bar            {x, y}
+                    bar_ref        {x, y}
+                    bar_nref       {x, y}
+                    bar_ref_array  {x, y}
+                    bar_nref_array {x, y}
+                    bar_ref_map
+                    bar_nref_map
+                    baz            {x, y}
+                    baz_ref        {x, y}
+                    baz_nref       {x, y}
                 }
             }
-        }
-    ]]
+        ]]
+    else
+        query_1 = [[
+            query get_by_id($id: Long) {
+                foo(id: $id) {
+                    id
+                    bar            {x, y}
+                    bar_ref        {x, y}
+                    bar_ref_array  {x, y}
+                    bar_ref_map
+                }
+            }
+        ]]
+    end
     local query_1_p = query_1:gsub('foo', 'foo_2')
 
     local gql_query_1 = test_utils.show_trace(function()
@@ -223,33 +290,74 @@ function testdata.run_queries(gql_wrapper)
         return gql_query_1_p:execute(variables_1_1)
     end)
 
-    local exp_result_1_1 = yaml.decode(([[
-        ---
-        foo:
-        - id: 1
-          bar:
-            x: 1000
-            y: 2000
-          bar_ref:
-            x: 1000
-            y: 2000
-          bar_nref:
-            x: 1000
-            y: 2000
-          baz:
-            x: 3000
-            y: 4000
-          baz_ref:
-            x: 3000
-            y: 4000
-          baz_nref:
-            x: 3000
-            y: 4000
-    ]]):strip())
+    local exp_result_1_1
+    if avro_version == 3 then
+        exp_result_1_1 = yaml.decode(([[
+            ---
+            foo:
+            - id: 1
+              bar:
+                x: 1000
+                y: 2000
+              bar_ref:
+                x: 1000
+                y: 2000
+              bar_nref:
+                x: 1000
+                y: 2000
+              bar_ref_array:
+              - x: 1000
+                y: 2000
+              bar_nref_array:
+              - x: 1000
+                y: 2000
+              bar_ref_map:
+                xy:
+                  x: 1000
+                  y: 2000
+              bar_nref_map:
+                xy:
+                  x: 1000
+                  y: 2000
+              baz:
+                x: 3000
+                y: 4000
+              baz_ref:
+                x: 3000
+                y: 4000
+              baz_nref:
+                x: 3000
+                y: 4000
+        ]]):strip())
+    else
+        exp_result_1_1 = yaml.decode(([[
+            ---
+            foo:
+            - id: 1
+              bar:
+                x: 1000
+                y: 2000
+              bar_ref:
+                x: 1000
+                y: 2000
+              bar_ref_array:
+              - x: 1000
+                y: 2000
+              bar_ref_map:
+                xy:
+                  x: 1000
+                  y: 2000
+        ]]):strip())
+    end
     local exp_result_1_1_p = {foo_2 = exp_result_1_1.foo}
 
     test:is_deeply(result_1_1, exp_result_1_1, '1_1')
     test:is_deeply(result_1_1_p, exp_result_1_1_p, '1_1_p')
+
+    if avro_version == 2 then
+        assert(test:check(), 'check plan')
+        return
+    end
 
     local variables_1_2 = {id = 2}
     local result_1_2 = test_utils.show_trace(function()
@@ -269,6 +377,15 @@ function testdata.run_queries(gql_wrapper)
           bar_ref:
             x: 1000
             y: 2000
+          bar_ref_array:
+          - x: 1000
+            y: 2000
+          bar_nref_array: []
+          bar_ref_map:
+            xy:
+              x: 1000
+              y: 2000
+          bar_nref_map: {}
           baz_ref:
             x: 3000
             y: 4000
