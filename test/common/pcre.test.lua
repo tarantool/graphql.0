@@ -166,6 +166,10 @@ box.cfg({})
 
 test_utils.run_testdata(testdata, {
     run_queries = run_queries,
+    graphql_opts = {
+        -- gh-137: timeout exceeded
+        timeout_ms = 10000, -- 10 seconds
+    }
 })
 
 os.exit()

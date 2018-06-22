@@ -49,30 +49,24 @@ local emails_metadata = emails_testdata.get_test_metadata()
 -- build accessor and graphql schemas
 -- ----------------------------------
 
-local common_accessor = graphql.accessor_space.new({
+local common_gql_wrapper = graphql.new({
     schemas = common_metadata.schemas,
     collections = common_metadata.collections,
     service_fields = common_metadata.service_fields,
     indexes = common_metadata.indexes,
-})
-
-local common_gql_wrapper = graphql.new({
-    schemas = common_metadata.schemas,
-    collections = common_metadata.collections,
-    accessor = common_accessor,
-})
-
-local emails_accessor = graphql.accessor_space.new({
-    schemas = emails_metadata.schemas,
-    collections = emails_metadata.collections,
-    service_fields = emails_metadata.service_fields,
-    indexes = emails_metadata.indexes,
+    accessor = 'space',
+    -- gh-137: timeout exceeded
+    timeout_ms = 10000, -- 10 seconds
 })
 
 local emails_gql_wrapper = graphql.new({
     schemas = emails_metadata.schemas,
     collections = emails_metadata.collections,
-    accessor = emails_accessor,
+    service_fields = emails_metadata.service_fields,
+    indexes = emails_metadata.indexes,
+    accessor = 'space',
+    -- gh-137: timeout exceeded
+    timeout_ms = 10000, -- 10 seconds
 })
 
 -- run queries
