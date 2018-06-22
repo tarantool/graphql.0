@@ -225,12 +225,12 @@ function avro_helpers.expand_references(avro_schema, opts)
     elseif avro_t == 'array' or avro_t == 'array*' then
         local res = table.copy(avro_schema)
         res.items = avro_helpers.expand_references(avro_schema.items,
-            {definitons = definitions})
+            {definitions = definitions})
         return res
     elseif avro_t == 'map' or avro_t == 'map*' then
         local res = table.copy(avro_schema)
         res.values = avro_helpers.expand_references(avro_schema.values,
-            {definitons = definitions})
+            {definitions = definitions})
         return res
     elseif avro_helpers.is_scalar_type(avro_t) then
         return avro_schema
