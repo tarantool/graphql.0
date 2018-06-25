@@ -125,11 +125,12 @@ evaluateSelections = function(objectType, object, selections, context)
   return result
 end
 
-return function(schema, tree, rootValue, variables, operationName)
+return function(schema, tree, rootValue, variables, operationName, opts)
+  local opts = opts or {}
   local context = query_util.buildContext(schema, tree, rootValue, variables, operationName)
   -- The field is passed to resolve function within info attribute.
   -- Can be used to store any data within one query.
-  context.qcontext = {}
+  context.qcontext = opts.qcontext or {}
   local rootType = schema[context.operation.operation]
 
   if not rootType then

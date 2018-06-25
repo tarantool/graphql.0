@@ -878,6 +878,12 @@ local function process_tuple(self, state, tuple, opts)
         return true -- skip pivot item too
     end
 
+    -- Don't count subrequest resulting objects (needed for filtering) into
+    -- count of object we show to an user as a result.
+    -- XXX: It is better to have an option to control whether selected objects
+    -- will be counted as resulting ones.
+    local saved_resulting_object_cnt = qstats.resulting_object_cnt
+
     -- make subrequests if needed
     for k, v in pairs(filter) do
         if obj[k] == nil then
@@ -890,6 +896,8 @@ local function process_tuple(self, state, tuple, opts)
             -- the filter each time in the case.
         end
     end
+
+    qstats.resulting_object_cnt = saved_resulting_object_cnt
 
     -- filter out non-matching objects
     local match = utils.is_subtable(obj, filter) and
@@ -1060,6 +1068,13 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         -- fullscan
         local primary_index = self.funcs.get_primary_index(self,
             collection_name)
+
+        -- count full scan select request
+        extra.qcontext.statistics.select_requests_cnt =
+            extra.qcontext.statistics.select_requests_cnt + 1
+        extra.qcontext.statistics.full_scan_select_requests_cnt =
+            extra.qcontext.statistics.full_scan_select_requests_cnt + 1
+
         for _, tuple in primary_index:pairs() do
             assert(pivot == nil,
                 'offset for top-level objects must use a primary index')
@@ -1101,6 +1116,12 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         end
 
         local tuple_count = 0
+
+        -- count index select request
+        extra.qcontext.statistics.select_requests_cnt =
+            extra.qcontext.statistics.select_requests_cnt + 1
+        extra.qcontext.statistics.index_select_requests_cnt =
+            extra.qcontext.statistics.index_select_requests_cnt + 1
 
         for _, tuple in index:pairs(index_value, iterator_opts) do
             tuple_count = tuple_count + 1
@@ -1287,7 +1308,10 @@ local function init_qcontext(accessor, qcontext)
     local settings = accessor.settings
     qcontext.statistics = {
         resulting_object_cnt = 0,
-        fetched_object_cnt = 0
+        fetched_object_cnt = 0,
+        select_requests_cnt = 0,
+        full_scan_select_requests_cnt = 0,
+        index_select_requests_cnt = 0,
     }
     qcontext.deadline_clock = clock.monotonic64() +
         settings.timeout_ms * 1000 * 1000

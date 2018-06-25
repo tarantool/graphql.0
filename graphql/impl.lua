@@ -40,11 +40,12 @@ local function gql_execute(qstate, variables, operation_name)
     check(operation_name, 'operation_name', 'string', 'nil')
 
     local root_value = {}
+    local qcontext = {}
 
     local traceback
     local ok, data = xpcall(function()
         return execute(state.schema, qstate.ast, root_value, variables,
-            operation_name)
+            operation_name, {qcontext = qcontext})
     end, function(err)
         traceback = debug.traceback()
         return err
@@ -55,6 +56,9 @@ local function gql_execute(qstate, variables, operation_name)
     end
     return {
         data = data,
+        meta = {
+            statistics = qcontext.statistics,
+        }
     }
 end
 
