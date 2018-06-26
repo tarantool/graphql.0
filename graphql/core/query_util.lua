@@ -111,7 +111,8 @@ function query_util.buildContext(schema, tree, rootValue, variables, operationNa
         rootValue = rootValue,
         variables = variables,
         operation = nil,
-        fragmentMap = {}
+        fragmentMap = {},
+        variableTypes = {},
     }
 
     for _, definition in ipairs(tree.definitions) do
@@ -134,6 +135,12 @@ function query_util.buildContext(schema, tree, rootValue, variables, operationNa
         else
             error('Must provide an operation')
         end
+    end
+
+    -- Save variableTypes for the operation.
+    for _, definition in ipairs(context.operation.variableDefinitions or {}) do
+        context.variableTypes[definition.variable.name.value] =
+            query_util.typeFromAST(definition.type, context.schema)
     end
 
     return context

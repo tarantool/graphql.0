@@ -39,9 +39,8 @@ end
 --- case)
 --- @return[2] `false` otherwise
 function utils.is_array(table)
-    if type(table) ~= 'table' then
-        return false
-    end
+    utils.check(table, 'table', 'table')
+
     local max = 0
     local count = 0
     for k, _ in pairs(table) do

@@ -56,7 +56,6 @@ local function run_queries(gql_wrapper)
     -- {{{ offset + regexp match
 
     local variables_1_2 = {
-        user_id = 'user_id_1',
         first_name_re = '^V',
     }
 

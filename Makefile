@@ -10,6 +10,7 @@ default:
 lint:
 	luacheck graphql/*.lua \
 		graphql/core/execute.lua \
+		graphql/core/validate_variables.lua \
 		graphql/convert_schema/*.lua \
 		graphql/server/*.lua \
 		test/bench/*.lua \

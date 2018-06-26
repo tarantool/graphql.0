@@ -360,7 +360,7 @@ end
 
 function common_testdata.run_queries(gql_wrapper)
     local test = tap.test('common')
-    test:plan(27)
+    test:plan(46)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -1265,6 +1265,251 @@ function common_testdata.run_queries(gql_wrapper)
     local result = {ok = ok, err = utils.strip_error(err)}
     test:is_deeply(result, exp_result_11, 'complex without fields is forbidden')
 
+    -- }}}
+
+    -- {{{ fail cases for a variable type
+
+    local query_12 = [[
+        query order($order_id: String!) {
+            order_collection(order_id: $order_id) {
+                order_id
+            }
+        }
+    ]]
+    local gql_query_12 = test_utils.show_trace(function()
+        return gql_wrapper:compile(query_12)
+    end)
+
+    -- {{{ non-null, scalar type mismatch
+
+    local variables_12_1 = {}
+    local exp_err = 'Variable "order_id" expected to be non-null'
+    local result = gql_query_12:execute(variables_12_1)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'nil for a non-null type')
+
+    local variables_12_2 = {order_id = box.NULL}
+    local exp_err = 'Variable "order_id" expected to be non-null'
+    local result = gql_query_12:execute(variables_12_2)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'box.NULL for a non-null type')
+
+    local variables_12_3 = {order_id = 42}
+    local exp_err = 'Wrong variable "order_id" for the Scalar "String"'
+    local result = gql_query_12:execute(variables_12_3)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'Int for a String type')
+
+    -- }}}
+
+    local query_13 = [[
+        mutation($xorder_metainfo: order_metainfo_collection_update) {
+            order_metainfo_collection(update: $xorder_metainfo, limit: 1) {
+                order_metainfo_id
+            }
+        }
+    ]]
+    local gql_query_13 = test_utils.show_trace(function()
+        return gql_wrapper:compile(query_13)
+    end)
+
+    -- {{{ List
+
+    local variables_13_1 = {xorder_metainfo = {store = {tags = '123'}}}
+    local exp_err = 'Variable "xorder_metainfo.store.tags" for a List ' ..
+        'must be a Lua table, got string'
+    local result = gql_query_13:execute(variables_13_1)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'String for a List type')
+
+    local variables_13_2 = {xorder_metainfo = {store = {tags = {1, 2, 3}}}}
+    local exp_err = 'Wrong variable "xorder_metainfo.store.tags[1]" for ' ..
+        'the Scalar "String"'
+    local result = gql_query_13:execute(variables_13_2)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'wrong List value type')
+
+    local variables_13_3 = {xorder_metainfo = {store = {tags = {foo = 'bar'}}}}
+    local exp_err = 'Variable "xorder_metainfo.store.tags" for a List ' ..
+        'must be an array, got map'
+    local result = gql_query_13:execute(variables_13_3)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'map for a List type')
+
+    -- }}}
+    -- {{{ InputObject
+
+    local variables_13_4 = {xorder_metainfo = {store = {address = 42}}}
+    local exp_err = 'Variable "xorder_metainfo.store.address" for the ' ..
+        'InputObject "arguments___order_metainfo_collection___update' ..
+        '___order_metainfo_collection_update___store___store___address' ..
+        '___address" must be a Lua table, got number'
+    local result = gql_query_13:execute(variables_13_4)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'Int for an InputObject type')
+
+    local variables_13_5 = {xorder_metainfo = {store = {
+        address = {'foo', 'bar', 'baz'}}}}
+    local exp_err = 'Field key of the variable "xorder_metainfo.store.' ..
+        'address" for the InputObject "arguments___order_metainfo_' ..
+        'collection___update___order_metainfo_collection_update___' ..
+        'store___store___address___address" must be a string, got number'
+    local result = gql_query_13:execute(variables_13_5)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'List for an InputObject type')
+
+    local variables_13_6 = {xorder_metainfo = {store = {
+        address = {
+            street = 'street',
+            city = 'city',
+            state = 'state',
+            zip = 42,
+        }
+    }}}
+    local exp_err = 'Wrong variable "xorder_metainfo.store.address.zip" ' ..
+        'for the Scalar "String"'
+    local result = gql_query_13:execute(variables_13_6)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'wrong type for an InputObject field')
+
+    local variables_13_7 = {xorder_metainfo = {store = {
+        address = {
+            street = 'street',
+            city = 'city',
+            state = 'state',
+            zip = 'zip',
+            foo = 'foo',
+        }
+    }}}
+    local exp_err = 'Unknown field "foo" of the variable "xorder_metainfo.' ..
+        'store.address" for the InputObject "arguments___order_metainfo_' ..
+        'collection___update___order_metainfo_collection_update___store' ..
+        '___store___address___address"'
+    local result = gql_query_13:execute(variables_13_7)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'extra field for an InputObject type')
+
+    -- }}}
+
+    -- {{{ InputMap
+
+    local variables_13_8 = {xorder_metainfo = {store = {
+        parametrized_tags = 42}}}
+    local exp_err = 'Variable "xorder_metainfo.store.parametrized_tags" ' ..
+        'for the InputMap "arguments___order_metainfo_collection___update' ..
+        '___order_metainfo_collection_update___store___store___' ..
+        'parametrized_tags___InputMap" must be a Lua table, got number'
+    local result = gql_query_13:execute(variables_13_8)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'Int for an InputMap type')
+
+    local variables_13_9 = {xorder_metainfo = {store = {
+        parametrized_tags = {'foo', 'bar', 'baz'}}}}
+    local exp_err = 'Field key of the variable "xorder_metainfo.store.' ..
+        'parametrized_tags" for the InputMap "arguments___order_metainfo_' ..
+        'collection___update___order_metainfo_collection_update___store___' ..
+        'store___parametrized_tags___InputMap" must be a string, got number'
+    local result = gql_query_13:execute(variables_13_9)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'List for an InputMap type')
+
+    local variables_13_10 = {xorder_metainfo = {store = {
+        parametrized_tags = {int_tag = 42}}}}
+    local exp_err = 'Wrong variable "xorder_metainfo.store.' ..
+        'parametrized_tags.int_tag" for the Scalar "String"'
+    local result = gql_query_13:execute(variables_13_10)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'wrong type for an InputMap field')
+
+    -- }}}
+
+    -- {{{ InputUnion
+
+    local variables_13_11 = {xorder_metainfo = {store = {
+        external_id = 42}}}
+    local exp_err = 'union value must be a map with one field, got number'
+    local result = gql_query_13:execute(variables_13_11)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'non-map value type for an InputUnion type')
+
+    local variables_13_12 = {xorder_metainfo = {store = {
+        external_id = {int = 42.2}}}}
+    local exp_err = 'Wrong variable "xorder_metainfo.store.external_id.int" ' ..
+        'for the Scalar "Int"'
+    local result = gql_query_13:execute(variables_13_12)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'wrong value type for an InputUnion type')
+
+    local variables_13_13 = {xorder_metainfo = {store = {
+        external_id = {integer = 42}}}} -- integer instead of int
+    local exp_err = 'unexpected union value field: integer'
+    local result = gql_query_13:execute(variables_13_13)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'wrong object field name for an InputUnion type')
+
+    local variables_13_14 = {xorder_metainfo = {store = {
+        external_id = {a = 1, b = 2, c = 3}}}}
+    local exp_err = 'union value must have only one field'
+    local result = gql_query_13:execute(variables_13_14)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'object with several fields for an InputUnion type')
+
+    local variables_13_15 = {xorder_metainfo = {store = {
+        external_id = {}}}}
+    local exp_err = 'union value must have only one field'
+    local result = gql_query_13:execute(variables_13_15)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'object with no fields for an InputUnion type')
+
+    -- }}}
+
+    local query_14 = [[
+        mutation($order_metainfo: order_metainfo_collection_insert) {
+            order_metainfo_collection(insert: $order_metainfo) {
+                order_metainfo_id
+            }
+        }
+    ]]
+    local gql_query_14 = test_utils.show_trace(function()
+        return gql_wrapper:compile(query_14)
+    end)
+
+    -- {{{ InputObject (no mandatory field)
+
+    local variables_14_1 = {
+        order_metainfo = {
+            metainfo = 'order metainfo',
+            order_metainfo_id = 'order_metainfo_id_14_1',
+            order_id = 'order_id',
+            store = {
+                name = 'store',
+                address = {
+                    street = 'street',
+                    city = 'city',
+                    state = 'state',
+                    -- no zip field
+                },
+                second_address = {
+                    street = 'second street',
+                    city = 'second city',
+                    state = 'second state',
+                    zip = 'second zip',
+                },
+                external_id = {string = 'eid'},
+                tags = {'slow'},
+                parametrized_tags = {
+                    size = 'small',
+                }
+            }
+        }
+    }
+    local exp_err = 'Variable "order_metainfo.store.address.zip" expected ' ..
+        'to be non-null'
+    local result = gql_query_14:execute(variables_14_1)
+    local err = result.errors[1].message
+    test:is(err, exp_err, 'Lack of non-null field for an InputObject type')
+
+    -- }}}
     -- }}}
 
     assert(test:check(), 'check plan')

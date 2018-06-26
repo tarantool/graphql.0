@@ -1232,7 +1232,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
     }
     local result = gql_query_4:execute(variables_4_2)
     local err = result.errors[1].message
-    local exp_err = 'offset by a partial key is forbidden'
+    local exp_err = 'Variable "offset.user_num" expected to be non-null'
     test:is(err, exp_err, '4_2')
 
     -- }}}
@@ -1310,8 +1310,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
     }
     local result = gql_query_5:execute(variables_5_2)
     local err = result.errors[1].message
-    local exp_err = 'offset by a partial key is forbidden: ' ..
-        'expected "order_num" field'
+    local exp_err = 'Variable "offset.order_num" expected to be non-null'
     test:is(err, exp_err, '5_2')
 
     -- }}}

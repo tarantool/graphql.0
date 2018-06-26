@@ -1137,8 +1137,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
     }
     local result = gql_mutation_update_4:execute(variables_update_4)
     local err = result.errors[1].message
-    local err_exp = "Attempt to modify a tuple field which is part of index " ..
-        "'user_id_index' in space 'user_collection'"
+    local err_exp = 'Unknown field "user_id" of the variable "xuser" ' ..
+        'for the InputObject "user_collection_update"'
     test:is(err, err_exp,
         'updating of a field of a primary key when it is NOT shard key field')
 
@@ -1162,8 +1162,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
     }
     local result = gql_mutation_update_5:execute(variables_update_5)
     local err = result.errors[1].message
-    local err_exp = "Attempt to modify a tuple field which is part of index " ..
-        "'order_id_index' in space 'order_collection'"
+    local err_exp = 'Unknown field "order_id" of the variable "xorder" ' ..
+        'for the InputObject "order_collection_update"'
     test:is(err, err_exp,
         'updating of a field of a primary key when it is shard key field')
 

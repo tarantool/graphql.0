@@ -2,6 +2,7 @@ local path = (...):gsub('%.[^%.]+$', '')
 local util = require(path .. '.util')
 local introspection = require(path .. '.introspection')
 local query_util = require(path .. '.query_util')
+local validate_variables = require(path .. '.validate_variables')
 
 local function defaultResolver(object, arguments, info)
   return object[info.fieldASTs[1].name.value]
@@ -144,6 +145,8 @@ return function(schema, tree, rootValue, variables, operationName, opts)
   if not rootType then
     error('Unsupported operation "' .. context.operation.operation .. '"')
   end
+
+  validate_variables.validate_variables(context)
 
   return evaluateSelections(rootType, rootValue, context.operation.selectionSet.selections, context)
 end

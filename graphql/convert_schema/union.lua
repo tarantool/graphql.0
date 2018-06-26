@@ -301,15 +301,18 @@ function union.convert(avro_schema, opts)
         types = union_types,
         name = helpers.full_name(union_name, context),
         resolveType = function(result)
+            assert(type(result) == 'table',
+                'union value must be a map with one field, got ' ..
+                type(result))
+            assert(next(result) ~= nil and next(result, next(result)) == nil,
+                'union value must have only one field')
             for determinant, type in pairs(determinant_to_type) do
                 if result[determinant] ~= nil then
                     return type
                 end
             end
-            error(('result object has no determinant field matching ' ..
-                'determinants for this union\nresult object:\n%s' ..
-                'determinants:\n%s'):format(yaml.encode(result),
-                    yaml.encode(determinant_to_type)))
+            local field_name = tostring(next(result))
+            error(('unexpected union value field: %s'):format(field_name))
         end,
         resolveNodeType = function(node)
             assert(#node.values == 1,

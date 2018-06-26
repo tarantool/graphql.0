@@ -512,10 +512,8 @@ local function run_queries(gql_wrapper)
                 kind: NON_NULL
               name: price
             - type:
-                ofType:
-                  name: Boolean
-                  kind: SCALAR
-                kind: NON_NULL
+                name: Boolean
+                kind: SCALAR
               name: in_stock
             - type:
                 ofType:
