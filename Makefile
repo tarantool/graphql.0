@@ -9,6 +9,7 @@ default:
 .PHONY: lint
 lint:
 	luacheck graphql/*.lua \
+		graphql/core/execute.lua \
 		graphql/convert_schema/*.lua \
 		graphql/server/*.lua \
 		test/bench/*.lua \
