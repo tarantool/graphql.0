@@ -300,9 +300,10 @@ Consider the following details:
   `update` argument, then connected objects are selected.
 * The `limit` and `offset` arguments applied before update, so a user can use
   `limit: 1` to update only first match.
-* Objects traversed in deep-first up-first order as it written in a mutation
-  request. So an `update` argument potentially changes those fields that are
-  follows the updated object in this order.
+* Objects are traversed in pre-order depth-first way, object's fields are
+  traversed in an order as they are written in a mutation request. So an
+  `update` argument potentially changes those fields that are follows the
+  updated object in this order.
 * Filters by connected objects are performed before update. Resulting connected
   objects given after the update (it is matter when a field(s) of the parent
   objects by whose the connection is made is subject to change).
