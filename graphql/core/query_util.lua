@@ -7,10 +7,10 @@ local query_util = {}
 function query_util.typeFromAST(node, schema)
   local innerType
   if node.kind == 'listType' then
-    innerType = query_util.typeFromAST(node.type)
+    innerType = query_util.typeFromAST(node.type, schema)
     return innerType and types.list(innerType)
   elseif node.kind == 'nonNullType' then
-    innerType = query_util.typeFromAST(node.type)
+    innerType = query_util.typeFromAST(node.type, schema)
     return innerType and types.nonNull(innerType)
   else
     assert(node.kind == 'namedType', 'Variable must be a named type')
