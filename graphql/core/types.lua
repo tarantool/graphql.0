@@ -320,7 +320,7 @@ end
 
 types.int = types.scalar({
   name = 'Int',
-  description = "The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. ",
+  description = "The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.",
   serialize = coerceInt,
   parseValue = coerceInt,
   parseLiteral = function(node)

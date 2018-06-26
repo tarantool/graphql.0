@@ -595,8 +595,8 @@ local function run_queries(gql_wrapper)
               name: INLINE_FRAGMENT
               description: Location adjacent to an inline fragment.
             name: __DirectiveLocation
-            description: 'A Directive can be adjacent to many parts of the GraphQL language,
-              a __DirectiveLocation describes one such possible adjacencies. '
+            description: A Directive can be adjacent to many parts of the GraphQL language,
+              a __DirectiveLocation describes one such possible adjacencies.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -709,11 +709,11 @@ local function run_queries(gql_wrapper)
               name: args
             kind: OBJECT
             name: __Directive
-            description: 'A Directive provides a way to describe alternate runtime execution
+            description: A Directive provides a way to describe alternate runtime execution
               and type validation behavior in a GraphQL document. In some cases, you need
               to provide options to alter GraphQL’s execution behavior in ways field arguments
               will not suffice, such as conditionally including or skipping a field. Directives
-              provide this by describing additional information to the executor. '
+              provide this by describing additional information to the executor.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -766,8 +766,8 @@ local function run_queries(gql_wrapper)
               name: description
             kind: OBJECT
             name: __Field
-            description: 'Object and Interface types are described by a list of Fields, each
-              of which has a name, potentially a list of arguments, and a return type. '
+            description: Object and Interface types are described by a list of Fields, each
+              of which has a name, potentially a list of arguments, and a return type.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -880,9 +880,9 @@ local function run_queries(gql_wrapper)
                 input value.
             kind: OBJECT
             name: __InputValue
-            description: 'Arguments provided to Fields or Directives and the input fields
+            description: Arguments provided to Fields or Directives and the input fields
               of an InputObject are represented as Input Values which describe their type
-              and optionally a default value. '
+              and optionally a default value.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1135,9 +1135,9 @@ local function run_queries(gql_wrapper)
               description: A list of all directives supported by this server.
             kind: OBJECT
             name: __Schema
-            description: 'A GraphQL Schema defines the capabilities of a GraphQL server. It
+            description: A GraphQL Schema defines the capabilities of a GraphQL server. It
               exposes all available types and directives on the server, as well as the entry
-              points for query and mutation operations. '
+              points for query and mutation operations.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1272,9 +1272,9 @@ local function run_queries(gql_wrapper)
               name: description
             kind: OBJECT
             name: __EnumValue
-            description: 'One possible value for a given Enum. Enum values are unique values,
+            description: One possible value for a given Enum. Enum values are unique values,
               not a placeholder for a string or numeric value. However an Enum value is returned
-              in a JSON response as a string. '
+              in a JSON response as a string.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -1365,13 +1365,13 @@ local function run_queries(gql_wrapper)
               name: description
             kind: OBJECT
             name: __Type
-            description: 'The fundamental unit of any GraphQL Schema is the type. There are
+            description: The fundamental unit of any GraphQL Schema is the type. There are
               many kinds of types in GraphQL as represented by the `__TypeKind` enum. Depending
               on the kind of a type, certain fields describe information about that type.
               Scalar types provide no information beyond a name and description, while Enum
               types provide their values. Object and Interface types provide the fields they
               describe. Abstract types, Union and Interface, provide the Object types possible
-              at runtime. List and NonNull types compose other types. '
+              at runtime. List and NonNull types compose other types.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1402,8 +1402,8 @@ local function run_queries(gql_wrapper)
             description: generated from avro-schema for order_metainfo_collection_insert
           - kind: SCALAR
             name: Int
-            description: 'The `Int` scalar type represents non-fractional signed whole numeric
-              values. Int can represent values between -(2^31) and 2^31 - 1. '
+            description: The `Int` scalar type represents non-fractional signed whole numeric
+              values. Int can represent values between -(2^31) and 2^31 - 1.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -2194,11 +2194,11 @@ local function run_queries(gql_wrapper)
               name: args
             kind: OBJECT
             name: __Directive
-            description: 'A Directive provides a way to describe alternate runtime execution
+            description: A Directive provides a way to describe alternate runtime execution
               and type validation behavior in a GraphQL document. In some cases, you need
               to provide options to alter GraphQL’s execution behavior in ways field arguments
               will not suffice, such as conditionally including or skipping a field. Directives
-              provide this by describing additional information to the executor. '
+              provide this by describing additional information to the executor.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2570,9 +2570,9 @@ local function run_queries(gql_wrapper)
               description: A list of all directives supported by this server.
             kind: OBJECT
             name: __Schema
-            description: 'A GraphQL Schema defines the capabilities of a GraphQL server. It
+            description: A GraphQL Schema defines the capabilities of a GraphQL server. It
               exposes all available types and directives on the server, as well as the entry
-              points for query and mutation operations. '
+              points for query and mutation operations.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2605,9 +2605,9 @@ local function run_queries(gql_wrapper)
               name: description
             kind: OBJECT
             name: __EnumValue
-            description: 'One possible value for a given Enum. Enum values are unique values,
+            description: One possible value for a given Enum. Enum values are unique values,
               not a placeholder for a string or numeric value. However an Enum value is returned
-              in a JSON response as a string. '
+              in a JSON response as a string.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2698,13 +2698,13 @@ local function run_queries(gql_wrapper)
               name: description
             kind: OBJECT
             name: __Type
-            description: 'The fundamental unit of any GraphQL Schema is the type. There are
+            description: The fundamental unit of any GraphQL Schema is the type. There are
               many kinds of types in GraphQL as represented by the `__TypeKind` enum. Depending
               on the kind of a type, certain fields describe information about that type.
               Scalar types provide no information beyond a name and description, while Enum
               types provide their values. Object and Interface types provide the fields they
               describe. Abstract types, Union and Interface, provide the Object types possible
-              at runtime. List and NonNull types compose other types. '
+              at runtime. List and NonNull types compose other types.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -2759,9 +2759,9 @@ local function run_queries(gql_wrapper)
                 input value.
             kind: OBJECT
             name: __InputValue
-            description: 'Arguments provided to Fields or Directives and the input fields
+            description: Arguments provided to Fields or Directives and the input fields
               of an InputObject are represented as Input Values which describe their type
-              and optionally a default value. '
+              and optionally a default value.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2814,8 +2814,8 @@ local function run_queries(gql_wrapper)
               name: description
             kind: OBJECT
             name: __Field
-            description: 'Object and Interface types are described by a list of Fields, each
-              of which has a name, potentially a list of arguments, and a return type. '
+            description: Object and Interface types are described by a list of Fields, each
+              of which has a name, potentially a list of arguments, and a return type.
           - name: Double
             kind: SCALAR
           - kind: SCALAR
@@ -2823,8 +2823,8 @@ local function run_queries(gql_wrapper)
             description: The `Boolean` scalar type represents `true` or `false`.
           - kind: SCALAR
             name: Int
-            description: 'The `Int` scalar type represents non-fractional signed whole numeric
-              values. Int can represent values between -(2^31) and 2^31 - 1. '
+            description: The `Int` scalar type represents non-fractional signed whole numeric
+              values. Int can represent values between -(2^31) and 2^31 - 1.
           - kind: SCALAR
             name: String
             description: The `String` scalar type represents textual data, represented as
@@ -3066,8 +3066,8 @@ local function run_queries(gql_wrapper)
               name: INLINE_FRAGMENT
               description: Location adjacent to an inline fragment.
             name: __DirectiveLocation
-            description: 'A Directive can be adjacent to many parts of the GraphQL language,
-              a __DirectiveLocation describes one such possible adjacencies. '
+            description: A Directive can be adjacent to many parts of the GraphQL language,
+              a __DirectiveLocation describes one such possible adjacencies.
           queryType:
             name: Query
           directives:
