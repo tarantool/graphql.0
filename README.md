@@ -141,23 +141,23 @@ be consistent.
 Mutations are disabled in the resharding state of a shard cluster.
 
 There are three types of modifications: insert, update and delete. Several
-modifications are allowed in an one GraphQL request, but they will be processed
-in non-transactional way.
+modifications are allowed in one GraphQL request, but they will be processed in
+non-transactional way.
 
 In the case of shard accessor the following constraints can guarantee that data
-will be changed in atomic way or, in other words, in an one shard request (but
+will be changed in atomic way or, in other words, in one shard request (but
 foregoing and upcoming selects can see other data):
 
 * One insert / update / delete argument over the entire GraphQL request.
 * For update / delete: either the argument is for 1:1 connection or `limit: 1`
-  is used for a collection (a topmost field) or 1:N connection (a nested
+  is used for a collection (a upmost field) or 1:N connection (a nested
   field).
 * No update of a first field of a **tuple** (shard key is calculated by it). It
   is the first field of upmost record in the schema for a collection in case
   when there are no service fields. If there are service fields, the first
   field of a tuple cannot be changed by a mutation GraphQL request.
 
-Data can be changed between shard requests which are part of the one GraphQL
+Data can be changed between shard requests which are part of one GraphQL
 request, so the result can observe inconsistent state. We'll don't show all
 possible cases, but give an idea what going on in the following paragraph.
 
@@ -229,7 +229,7 @@ Consider the following details:
 #### Update
 
 Example with an update statement passed from a variable. Note that here we
-update an object given by a connection (inside an one of nested fields of a
+update an object given by a connection (inside one of nested fields of a
 request):
 
 ```
@@ -336,7 +336,7 @@ Consider the following details:
 * The `delete` argument is forbidden with `insert` or `update` arguments.
 * The `delete` argument is forbidden in `query` requests.
 * The same fields traversal order and 'select -> change -> select connected'
-  order of operations for an one field are applied likewise for the `update`
+  order of operations for one field are applied likewise for the `update`
   argument.
 * The `limit` argument can be used to define how many objects are subject to
   deletion and `offset` can help with adjusting start point of multi-object
