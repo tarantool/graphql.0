@@ -3,6 +3,7 @@
 ---
 --- It provides basic logic for such space-like data storages and abstracted
 --- away from details from where tuples are arrived into the application.
+package.cpath = package.cpath .. ";/usr/share/tarantool/pcre2/?.so"
 
 local ffi = require('ffi')
 local json = require('json')

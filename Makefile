@@ -24,8 +24,8 @@ lint:
 
 .PHONY: test
 test: lint
-	virtualenv -p python2.7 ./.env-2.7
-	. ./.env-2.7/bin/activate && \
+	virtualenv -p python2 ./.env-2
+	. ./.env-2/bin/activate && \
 		pip install -r ./test-run/requirements.txt && \
 		pip install tarantool && \
 		cd test && ./test-run.py

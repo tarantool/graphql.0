@@ -1,3 +1,4 @@
+package.path = package.path .. ";/usr/share/tarantool/lulpeg/?.lua"
 local lpeg = require 'lulpeg'
 local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
 local C, Ct, Cmt, Cg, Cc, Cf, Cmt = lpeg.C, lpeg.Ct, lpeg.Cmt, lpeg.Cg, lpeg.Cc, lpeg.Cf, lpeg.Cmt
