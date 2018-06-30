@@ -98,8 +98,10 @@ local function create_union_types(avro_schema, opts)
         if type == 'null' then
             is_nullable = true
         else
-            local variant_type = convert(type, {context = context})
             local box_field_name = type.name or avro_helpers.avro_type(type)
+            table.insert(context.path, box_field_name)
+            local variant_type = convert(type, {context = context})
+            table.remove(context.path, #context.path)
             union_types[#union_types + 1] = box_type(variant_type,
                 box_field_name, {
                     gen_argument = gen_argument,

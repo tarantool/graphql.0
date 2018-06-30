@@ -1,9 +1,10 @@
+local yaml = require('yaml')
 local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
-local schema = require(path .. '.schema')
 local introspection = require(path .. '.introspection')
 local query_util = require(path .. '.query_util')
+local graphql_utils = require('graphql.utils')
 
 local function getParentField(context, name, count)
   if introspection.fieldMap[name] then return introspection.fieldMap[name] end
@@ -162,7 +163,8 @@ function rules.unambiguousSelections(node, context)
 
         validateField(key, fieldEntry)
       elseif selection.kind == 'inlineFragment' then
-        local parentType = selection.typeCondition and context.schema:getType(selection.typeCondition.name.value) or parentType
+        local parentType = selection.typeCondition and context.schema:getType(
+          selection.typeCondition.name.value) or parentType
         validateSelectionSet(selection.selectionSet, parentType)
       elseif selection.kind == 'fragmentSpread' then
         local fragmentDefinition = context.fragmentMap[selection.name.value]
@@ -436,117 +438,192 @@ function rules.variablesAreDefined(node, context)
   end
 end
 
-function rules.variableUsageAllowed(node, context)
-  if context.currentOperation then
-    local variableMap = {}
-    for _, definition in ipairs(context.currentOperation.variableDefinitions or {}) do
-      variableMap[definition.variable.name.value] = definition
+-- {{{ variableUsageAllowed
+
+local function collectArguments(referencedNode, context, seen, arguments)
+  if referencedNode.kind == 'selectionSet' then
+    for _, selection in ipairs(referencedNode.selections) do
+      if not seen[selection] then
+        seen[selection] = true
+        collectArguments(selection, context, seen, arguments)
+      end
+    end
+  elseif referencedNode.kind == 'field' and referencedNode.arguments then
+    local fieldName = referencedNode.name.value
+    arguments[fieldName] = arguments[fieldName] or {}
+    for _, argument in ipairs(referencedNode.arguments) do
+      table.insert(arguments[fieldName], argument)
+    end
+  elseif referencedNode.kind == 'inlineFragment' then
+    return collectArguments(referencedNode.selectionSet, context, seen,
+      arguments)
+  elseif referencedNode.kind == 'fragmentSpread' then
+    local fragment = context.fragmentMap[referencedNode.name.value]
+    return fragment and collectArguments(fragment.selectionSet, context, seen,
+      arguments)
+  end
+end
+
+-- http://facebook.github.io/graphql/June2018/#AreTypesCompatible()
+local function isTypeSubTypeOf(subType, superType, context)
+  if subType == superType then return true end
+
+  if superType.__type == 'NonNull' then
+    if subType.__type == 'NonNull' then
+      return isTypeSubTypeOf(subType.ofType, superType.ofType, context)
     end
 
-    local arguments
+    return false
+  elseif subType.__type == 'NonNull' then
+    return isTypeSubTypeOf(subType.ofType, superType, context)
+  end
 
-    if node.kind == 'field' then
-      arguments = { [node.name.value] = node.arguments }
-    elseif node.kind == 'fragmentSpread' then
-      local seen = {}
-      local function collectArguments(referencedNode)
-        if referencedNode.kind == 'selectionSet' then
-          for _, selection in ipairs(referencedNode.selections) do
-            if not seen[selection] then
-              seen[selection] = true
-              collectArguments(selection)
-            end
-          end
-        elseif referencedNode.kind == 'field' and referencedNode.arguments then
-          local fieldName = referencedNode.name.value
-          arguments[fieldName] = arguments[fieldName] or {}
-          for _, argument in ipairs(referencedNode.arguments) do
-            table.insert(arguments[fieldName], argument)
-          end
-        elseif referencedNode.kind == 'inlineFragment' then
-          return collectArguments(referencedNode.selectionSet)
-        elseif referencedNode.kind == 'fragmentSpread' then
-          local fragment = context.fragmentMap[referencedNode.name.value]
-          return fragment and collectArguments(fragment.selectionSet)
+  if superType.__type == 'List' then
+    if subType.__type == 'List' then
+      return isTypeSubTypeOf(subType.ofType, superType.ofType, context)
+    end
+
+    return false
+  elseif subType.__type == 'List' then
+    return false
+  end
+
+  if superType.__type == 'Scalar' and superType.subtype == 'InputUnion' then
+    local types = superType.types
+    for i = 1, #types do
+      if types[i] == subType then
+        return true
+      end
+    end
+
+    return false
+  end
+
+  return false
+end
+
+local function getTypeName(t)
+  if t.name ~= nil then
+    if t.name == 'Scalar' and t.subtype == 'InputMap' then
+      return ('InputMap(%s)'):format(getTypeName(t.values))
+    elseif t.name == 'Scalar' and t.subtype == 'InputUnion' then
+      local typeNames = {}
+      for _, child in ipairs(t.types) do
+        table.insert(typeNames, getTypeName(child))
+      end
+      return ('InputUnion(%s)'):format(table.concat(typeNames, ','))
+    end
+    return t.name
+  elseif t.__type == 'NonNull' then
+    return ('NonNull(%s)'):format(getTypeName(t.ofType))
+  elseif t.__type == 'List' then
+    return ('List(%s)'):format(getTypeName(t.ofType))
+  end
+
+  local orig_encode_use_tostring = yaml.cfg.encode_use_tostring
+  local err = ('Internal error: unknown type:\n%s'):format(yaml.encode(t))
+  yaml.cfg({encode_use_tostring = orig_encode_use_tostring})
+  error(err)
+end
+
+local function isVariableTypesValid(argument, argumentType, context,
+    variableMap)
+  if argument.value.kind == 'variable' then
+    -- found a variable, check types compatibility
+    local variableName = argument.value.name.value
+    local variableDefinition = variableMap[variableName]
+    local hasDefault = variableDefinition.defaultValue ~= nil
+
+    local variableType = query_util.typeFromAST(variableDefinition.type,
+      context.schema)
+
+    if hasDefault and variableType.__type ~= 'NonNull' then
+      variableType = types.nonNull(variableType)
+    end
+
+    if not isTypeSubTypeOf(variableType, argumentType, context) then
+      return false, ('Variable "%s" type mismatch: the variable type "%s" ' ..
+        'is not compatible with the argument type "%s"'):format(variableName,
+        getTypeName(variableType), getTypeName(argumentType))
+    end
+  elseif argument.value.kind == 'inputObject' then
+    -- find variables deeper
+    for _, child in ipairs(argument.value.values) do
+      local isInputObject = argumentType.__type == 'InputObject'
+      local isInputMap = argumentType.__type == 'Scalar' and
+        argumentType.subtype == 'InputMap'
+      local isInputUnion = argumentType.__type == 'Scalar' and
+        argumentType.subtype == 'InputUnion'
+
+      if isInputObject then
+        local childArgumentType = argumentType.fields[child.name].kind
+        local ok, err = isVariableTypesValid(child, childArgumentType, context,
+          variableMap)
+        if not ok then return false, err end
+      elseif isInputMap then
+        local childArgumentType = argumentType.values
+        local ok, err = isVariableTypesValid(child, childArgumentType, context,
+          variableMap)
+        if not ok then return false, err end
+      elseif isInputUnion then
+        local has_ok = false
+        local first_err
+
+        for _, childArgumentType in ipairs(argumentType.types) do
+          local ok, err = isVariableTypesValid(child,
+            childArgumentType, context, variableMap)
+          has_ok = has_ok or ok
+          first_err = first_err or graphql_utils.strip_error(err)
+          if ok then break end
         end
-      end
 
-      local fragment = context.fragmentMap[node.name.value]
-      if fragment then
-        arguments = {}
-        collectArguments(fragment.selectionSet)
-      end
-    end
-
-    if not arguments then return end
-
-    for field in pairs(arguments) do
-      local parentField = getParentField(context, field)
-      for i = 1, #arguments[field] do
-        local argument = arguments[field][i]
-        if argument.value.kind == 'variable' then
-          local argumentType = parentField.arguments[argument.name.value]
-
-          local variableName = argument.value.name.value
-          local variableDefinition = variableMap[variableName]
-          local hasDefault = variableDefinition.defaultValue ~= nil
-
-          local variableType = query_util.typeFromAST(variableDefinition.type,
-            context.schema)
-
-          if hasDefault and variableType.__type ~= 'NonNull' then
-            variableType = types.nonNull(variableType)
-          end
-
-          local function isTypeSubTypeOf(subType, superType)
-            if subType == superType then return true end
-
-            if superType.__type == 'NonNull' then
-              if subType.__type == 'NonNull' then
-                return isTypeSubTypeOf(subType.ofType, superType.ofType)
-              end
-
-              return false
-            elseif subType.__type == 'NonNull' then
-              return isTypeSubTypeOf(subType.ofType, superType)
-            end
-
-            if superType.__type == 'List' then
-              if subType.__type == 'List' then
-                return isTypeSubTypeOf(subType.ofType, superType.ofType)
-              end
-
-              return false
-            elseif subType.__type == 'List' then
-              return false
-            end
-
-            if subType.__type ~= 'Object' then return false end
-
-            if superType.__type == 'Interface' then
-              local implementors = context.schema:getImplementors(superType.name)
-              return implementors and implementors[context.schema:getType(subType.name)]
-            elseif superType.__type == 'Union' then
-              local types = superType.types
-              for i = 1, #types do
-                if types[i] == subType then
-                  return true
-                end
-              end
-
-              return false
-            end
-
-            return false
-          end
-
-          if not isTypeSubTypeOf(variableType, argumentType) then
-            error('Variable type mismatch')
-          end
+        if not has_ok then
+          return false, first_err
         end
       end
     end
   end
+  return true
 end
+
+function rules.variableUsageAllowed(node, context)
+  if not context.currentOperation then return end
+
+  local variableMap = {}
+  local variableDefinitions = context.currentOperation.variableDefinitions
+  for _, definition in ipairs(variableDefinitions or {}) do
+    variableMap[definition.variable.name.value] = definition
+  end
+
+  local arguments
+
+  if node.kind == 'field' then
+    arguments = { [node.name.value] = node.arguments }
+  elseif node.kind == 'fragmentSpread' then
+    local seen = {}
+    local fragment = context.fragmentMap[node.name.value]
+    if fragment then
+      arguments = {}
+      collectArguments(fragment.selectionSet, context, seen, arguments)
+    end
+  end
+
+  if not arguments then return end
+
+  for field in pairs(arguments) do
+    local parentField = getParentField(context, field)
+    for i = 1, #arguments[field] do
+      local argument = arguments[field][i]
+      local argumentType = parentField.arguments[argument.name.value]
+      local ok, err = isVariableTypesValid(argument, argumentType, context,
+        variableMap)
+      if not ok then
+        error(err)
+      end
+    end
+  end
+end
+
+-- }}}
 
 return rules

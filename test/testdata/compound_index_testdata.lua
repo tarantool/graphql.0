@@ -1318,7 +1318,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
     -- (top-level collection, full primary key)
 
     local query_6 = [[
-        query users($limit: Int, $user_str: String, $user_num: Long) {
+        query users($limit: Int, $user_str: String!, $user_num: Long!) {
             user_collection(limit: $limit, offset: {user_str: $user_str,
                     user_num: $user_num}) {
                 user_str

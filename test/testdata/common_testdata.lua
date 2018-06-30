@@ -360,7 +360,7 @@ end
 
 function common_testdata.run_queries(gql_wrapper)
     local test = tap.test('common')
-    test:plan(46)
+    test:plan(53)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -1510,6 +1510,135 @@ function common_testdata.run_queries(gql_wrapper)
     test:is(err, exp_err, 'Lack of non-null field for an InputObject type')
 
     -- }}}
+    -- }}}
+
+    -- {{{ check variable type againts argument type
+
+    local query_15 = [[
+        mutation($tags: [Int!]) {
+            order_metainfo_collection(
+                update: {store: {tags: $tags}}
+                limit: 1
+            ) {
+                order_metainfo_id
+                store { tags }
+            }
+        }
+    ]]
+    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_15)
+    local err_exp = 'Variable "tags" type mismatch: the variable type ' ..
+        '"List(NonNull(Int))" is not compatible with the argument type ' ..
+        '"List(NonNull(String))"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+        'variable usage inside InputObject')
+
+    local query_16 = [[
+        mutation($tag_value: Int) {
+            order_metainfo_collection(
+                update: {store: {parametrized_tags: {foo: $tag_value}}}
+                limit: 1
+            ) {
+                order_metainfo_id
+            }
+        }
+    ]]
+    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_16)
+    local err_exp = 'Variable "tag_value" type mismatch: the variable type ' ..
+        '"Int" is not compatible with the argument type "NonNull(String)"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+        'variable usage inside InputMap')
+
+    local query_17 = [[
+        mutation($map_value: Int) {
+            order_metainfo_collection(
+                update: {store: {parametrized_tags: $map_value}}
+                limit: 1
+            ) {
+                order_metainfo_id
+            }
+        }
+    ]]
+    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_17)
+    local err_exp = 'Variable "map_value" type mismatch: the variable type ' ..
+        '"Int" is not compatible with the argument type "arguments___' ..
+        'order_metainfo_collection___update___order_metainfo_collection_' ..
+        'update___store___store___parametrized_tags___InputMap"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+        'variable usage as InputMap')
+
+    local query_18 = [[
+        mutation($id_value: Float!) {
+            order_metainfo_collection(
+                update: {store: {external_id: {int: $id_value}}}
+                limit: 1
+            ) {
+                order_metainfo_id
+            }
+        }
+    ]]
+    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_18)
+    local err_exp = 'Variable "id_value" type mismatch: the variable type ' ..
+        '"NonNull(Float)" is not compatible with the argument type ' ..
+        '"arguments___order_metainfo_collection___update___order_metainfo_' ..
+        'collection_update___store___store___external_id___external_id___' ..
+        'Int_box"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+        'variable usage inside InputUnion')
+
+    local query_19 = [[
+        mutation($id_box_value: Int) {
+            order_metainfo_collection(
+                update: {store: {external_id: $id_box_value}}
+                limit: 1
+            ) {
+                order_metainfo_id
+            }
+        }
+    ]]
+    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_19)
+    local err_exp = 'Variable "id_box_value" type mismatch: the variable ' ..
+        'type "Int" is not compatible with the argument type "arguments___' ..
+        'order_metainfo_collection___update___order_metainfo_collection_' ..
+        'update___store___store___external_id___external_id"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+        'variable usage as InputUnion')
+
+    local box_t = 'arguments___order_metainfo_collection___update___' ..
+        'order_metainfo_collection_update___store___store___external_id___' ..
+        'external_id___Int_box'
+    local query_20 = [[
+        mutation($id_box_value: ]] .. box_t .. [[) {
+            order_metainfo_collection(
+                update: {store: {external_id: $id_box_value}}
+                limit: 1
+            ) {
+                order_metainfo_id
+            }
+        }
+    ]]
+    local ok, _ = pcall(gql_wrapper.compile, gql_wrapper, query_20)
+    test:is(ok, true, 'correct variable usage as InputUnion')
+
+    -- {{{ nullable variable for NonNull argument
+    local query_21 = [[
+        mutation($first_name: String) {
+            user_collection(insert: {
+                user_id: "user_id_new"
+                first_name: $first_name
+                middle_name: "middle name new"
+                last_name: "last name new"
+            }) {
+                user_id
+            }
+        }
+    ]]
+    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_21)
+    local err_exp = 'Variable "first_name" type mismatch: the variable type ' ..
+        '"String" is not compatible with the argument type "NonNull(String)"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+        'nullable variable for non-null argument')
+    -- }}}
+
     -- }}}
 
     assert(test:check(), 'check plan')

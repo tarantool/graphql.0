@@ -249,6 +249,7 @@ function types.inputUnion(config)
     __type = 'Scalar',
     subtype = 'InputUnion',
     name = config.name,
+    types = config.types,
     serialize = function(value) return value end,
     parseValue = function(value) return value end,
     parseLiteral = function(node)
