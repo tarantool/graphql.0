@@ -1,4 +1,3 @@
-local yaml = require('yaml')
 local path = (...):gsub('%.[^%.]+$', '')
 local types = require(path .. '.types')
 local util = require(path .. '.util')
@@ -502,30 +501,6 @@ local function isTypeSubTypeOf(subType, superType, context)
   return false
 end
 
-local function getTypeName(t)
-  if t.name ~= nil then
-    if t.name == 'Scalar' and t.subtype == 'InputMap' then
-      return ('InputMap(%s)'):format(getTypeName(t.values))
-    elseif t.name == 'Scalar' and t.subtype == 'InputUnion' then
-      local typeNames = {}
-      for _, child in ipairs(t.types) do
-        table.insert(typeNames, getTypeName(child))
-      end
-      return ('InputUnion(%s)'):format(table.concat(typeNames, ','))
-    end
-    return t.name
-  elseif t.__type == 'NonNull' then
-    return ('NonNull(%s)'):format(getTypeName(t.ofType))
-  elseif t.__type == 'List' then
-    return ('List(%s)'):format(getTypeName(t.ofType))
-  end
-
-  local orig_encode_use_tostring = yaml.cfg.encode_use_tostring
-  local err = ('Internal error: unknown type:\n%s'):format(yaml.encode(t))
-  yaml.cfg({encode_use_tostring = orig_encode_use_tostring})
-  error(err)
-end
-
 local function isVariableTypesValid(argument, argumentType, context,
     variableMap)
   if argument.value.kind == 'variable' then
@@ -544,7 +519,7 @@ local function isVariableTypesValid(argument, argumentType, context,
     if not isTypeSubTypeOf(variableType, argumentType, context) then
       return false, ('Variable "%s" type mismatch: the variable type "%s" ' ..
         'is not compatible with the argument type "%s"'):format(variableName,
-        getTypeName(variableType), getTypeName(argumentType))
+        util.getTypeName(variableType), util.getTypeName(argumentType))
     end
   elseif argument.value.kind == 'inputObject' then
     -- find variables deeper

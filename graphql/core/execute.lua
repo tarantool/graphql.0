@@ -93,7 +93,8 @@ local function getFieldEntry(objectType, object, fields, context)
 
   local arguments = util.map(fieldType.arguments or {}, function(argument, name)
     local supplied = argumentMap[name] and argumentMap[name].value
-    supplied =  supplied and util.coerceValue(supplied, argument, context.variables)
+    supplied = util.coerceValue(supplied, argument, context.variables,
+      {strict_non_null = true})
     if supplied ~= nil then
         return supplied
     else

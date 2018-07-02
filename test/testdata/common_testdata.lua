@@ -361,7 +361,7 @@ end
 function common_testdata.run_queries(gql_wrapper)
     local avro_version = test_utils.major_avro_schema_version()
     local test = tap.test('common')
-    test:plan(avro_version == 3 and 53 or 30)
+    test:plan(avro_version == 3 and 54 or 30)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -1643,6 +1643,29 @@ function common_testdata.run_queries(gql_wrapper)
         '"String" is not compatible with the argument type "NonNull(String)"'
     test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
         'nullable variable for non-null argument')
+    -- }}}
+
+    -- {{{ lack of non-null argument
+
+    local query_22 = [[
+        mutation {
+            user_collection(insert: {
+                user_id: "user_id_new"
+                # no first_name field
+                middle_name: "middle name new"
+                last_name: "last name new"
+            }) {
+                user_id
+            }
+        }
+    ]]
+    local gql_query_22 = test_utils.show_trace(function()
+        return gql_wrapper:compile(query_22)
+    end)
+    local result = gql_query_22:execute({})
+    local err = result.errors[1].message
+    local err_exp = 'Expected non-null for "NonNull(String)", got null'
+    test:is(err, err_exp, 'lack of non-null argument')
     -- }}}
 
     -- }}}
