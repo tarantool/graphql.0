@@ -13,8 +13,10 @@ local bit = require('bit')
 local rex, is_pcre2 = utils.optional_require_rex()
 local avro_helpers = require('graphql.avro_helpers')
 local db_schema_helpers = require('graphql.db_schema_helpers')
+local error_codes = require('graphql.error_codes')
 
 local check = utils.check
+local e = error_codes
 
 -- XXX: consider using [1] when it will be mature enough;
 -- look into [2] for the status.
@@ -856,12 +858,17 @@ local function process_tuple(self, state, tuple, opts)
     local resulting_object_cnt_max = opts.resulting_object_cnt_max
     local fetched_object_cnt_max = opts.fetched_object_cnt_max
     qstats.fetched_object_cnt = qstats.fetched_object_cnt + 1
-    assert(qstats.fetched_object_cnt <= fetched_object_cnt_max,
-        ('fetched object count (%d) exceeds fetched_object_cnt_max limit (%d)')
-        :format(qstats.fetched_object_cnt, fetched_object_cnt_max))
-    assert(qcontext.deadline_clock > clock.monotonic64(),
-       ('query execution timeout exceeded timeout_ms limit (%s ms)'):format(
-       tostring(self.settings.timeout_ms)))
+    if qstats.fetched_object_cnt > fetched_object_cnt_max then
+        error(e.fetched_objects_limit_exceeded(
+            ('fetched objects count (%d) exceeds fetched_object_cnt_max ' ..
+            'limit (%d)'):format(qstats.fetched_object_cnt,
+            fetched_object_cnt_max)))
+    end
+    if clock.monotonic64() > qcontext.deadline_clock then
+        error(e.timeout_exceeded((
+            'query execution timeout exceeded timeout_ms limit (%s ms)'):format(
+            tostring(self.settings.timeout_ms))))
+    end
     local collection_name = opts.collection_name
     local pcre = opts.pcre
     local resolveField = opts.resolveField
@@ -913,10 +920,12 @@ local function process_tuple(self, state, tuple, opts)
     state.objs[#state.objs + 1] = obj
     state.count = state.count + 1
     qstats.resulting_object_cnt = qstats.resulting_object_cnt + 1
-    assert(qstats.resulting_object_cnt <= resulting_object_cnt_max,
-        ('resulting objects count (%d) exceeds resulting_object_cnt_max ' ..
-        'limit (%d)'):format(qstats.resulting_object_cnt,
-        resulting_object_cnt_max))
+    if qstats.resulting_object_cnt > resulting_object_cnt_max then
+        error(e.resulting_objects_limit_exceeded(
+            ('resulting objects count (%d) exceeds resulting_object_cnt_max ' ..
+            'limit (%d)'):format(qstats.resulting_object_cnt,
+            resulting_object_cnt_max)))
+    end
     if limit ~= nil and state.count >= limit then
         return false
     end

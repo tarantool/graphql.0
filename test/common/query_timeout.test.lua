@@ -9,6 +9,9 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 local tap = require('tap')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.user_order_item_testdata')
+local graphql = require('graphql')
+
+local e = graphql.error_codes
 
 local function run_queries(gql_wrapper)
     local test = tap.test('result cnt')
@@ -34,9 +37,10 @@ local function run_queries(gql_wrapper)
     local result = gql_query:execute(variables)
     assert(result.data == nil, "this test should fail")
     assert(result.errors ~= nil, "this test should fail")
+    local exp_err = 'query execution timeout exceeded timeout_ms limit (0.001 ms)'
     local err = result.errors[1].message
-    test:is(err, 'query execution timeout exceeded timeout_ms limit (0.001 ms)',
-        'timeout test')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.TIMEOUT_EXCEEDED}, 'timeout test')
 
     assert(test:check(), 'check plan')
 end
