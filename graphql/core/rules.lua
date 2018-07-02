@@ -3,7 +3,10 @@ local types = require(path .. '.types')
 local util = require(path .. '.util')
 local introspection = require(path .. '.introspection')
 local query_util = require(path .. '.query_util')
+local graphql_error_codes = require('graphql.error_codes')
 local graphql_utils = require('graphql.utils')
+
+local e = graphql_error_codes
 
 local function getParentField(context, name, count)
   if introspection.fieldMap[name] then return introspection.fieldMap[name] end
@@ -593,7 +596,7 @@ function rules.variableUsageAllowed(node, context)
       local ok, err = isVariableTypesValid(argument, argumentType, context,
         variableMap)
       if not ok then
-        error(err)
+        error(e.type_mismatch(err))
       end
     end
   end

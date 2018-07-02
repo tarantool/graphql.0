@@ -3,8 +3,14 @@ local json = require('json')
 local yaml = require('yaml')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
+local graphql = require('graphql')
+
+local e = graphql.error_codes
 
 local common_testdata = {}
+
+-- forward declaration
+local type_mismatch_cases
 
 -- needed to compare a dump with floats/doubles, because, say,
 -- `tonumber(tostring(1/3)) == 1/3` is `false`
@@ -451,10 +457,10 @@ function common_testdata.run_queries(gql_wrapper)
         }
     ]]
 
-    local err_exp = 'Cannot have more than one operation when using ' ..
+    local exp_err = 'Cannot have more than one operation when using ' ..
         'anonymous operations'
     local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_1tn)
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
         'unnamed query should be a single one')
 
     local query_1t = [[
@@ -481,16 +487,16 @@ function common_testdata.run_queries(gql_wrapper)
         return gql_wrapper:compile(query_1t)
     end)
 
-    local err_exp = 'Operation name must be specified if more than one ' ..
+    local exp_err = 'Operation name must be specified if more than one ' ..
         'operation exists.'
     local result = gql_query_1t:execute({})
     local err = result.errors[1].message
-    test:is(err, err_exp, 'non-determined query name should give an error')
+    test:is(err, exp_err, 'non-determined query name should give an error')
 
-    local err_exp = 'Unknown operation "non_existent_operation"'
+    local exp_err = 'Unknown operation "non_existent_operation"'
     local result = gql_query_1t:execute({}, 'non_existent_operation')
     local err = result.errors[1].message
-    test:is(err, err_exp, 'wrong operation name should give an error')
+    test:is(err, exp_err, 'wrong operation name should give an error')
 
     test_utils.show_trace(function()
         local result = gql_query_1t:execute({}, 'user_by_order')
@@ -1268,6 +1274,14 @@ function common_testdata.run_queries(gql_wrapper)
 
     -- }}}
 
+    type_mismatch_cases(gql_wrapper, test)
+end
+
+-- extracted from run_queries to prevent 'function at line NNN has more than
+-- 200 local variables' error
+type_mismatch_cases = function(gql_wrapper, test)
+    local avro_version = test_utils.major_avro_schema_version()
+
     -- {{{ fail cases for a variable type
 
     local query_12 = [[
@@ -1287,19 +1301,25 @@ function common_testdata.run_queries(gql_wrapper)
     local exp_err = 'Variable "order_id" expected to be non-null'
     local result = gql_query_12:execute(variables_12_1)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'nil for a non-null type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'nil for a non-null type')
 
     local variables_12_2 = {order_id = box.NULL}
     local exp_err = 'Variable "order_id" expected to be non-null'
     local result = gql_query_12:execute(variables_12_2)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'box.NULL for a non-null type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'box.NULL for a non-null type')
 
     local variables_12_3 = {order_id = 42}
     local exp_err = 'Wrong variable "order_id" for the Scalar "String"'
     local result = gql_query_12:execute(variables_12_3)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'Int for a String type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'Int for a String type')
 
     -- }}}
 
@@ -1326,21 +1346,27 @@ function common_testdata.run_queries(gql_wrapper)
         'must be a Lua table, got string'
     local result = gql_query_13:execute(variables_13_1)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'String for a List type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'String for a List type')
 
     local variables_13_2 = {xorder_metainfo = {store = {tags = {1, 2, 3}}}}
     local exp_err = 'Wrong variable "xorder_metainfo.store.tags[1]" for ' ..
         'the Scalar "String"'
     local result = gql_query_13:execute(variables_13_2)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'wrong List value type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'wrong List value type')
 
     local variables_13_3 = {xorder_metainfo = {store = {tags = {foo = 'bar'}}}}
     local exp_err = 'Variable "xorder_metainfo.store.tags" for a List ' ..
         'must be an array, got map'
     local result = gql_query_13:execute(variables_13_3)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'map for a List type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'map for a List type')
 
     -- }}}
     -- {{{ InputObject
@@ -1352,7 +1378,9 @@ function common_testdata.run_queries(gql_wrapper)
         '___address" must be a Lua table, got number'
     local result = gql_query_13:execute(variables_13_4)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'Int for an InputObject type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'Int for an InputObject type')
 
     local variables_13_5 = {xorder_metainfo = {store = {
         address = {'foo', 'bar', 'baz'}}}}
@@ -1362,7 +1390,9 @@ function common_testdata.run_queries(gql_wrapper)
         'store___store___address___address" must be a string, got number'
     local result = gql_query_13:execute(variables_13_5)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'List for an InputObject type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'List for an InputObject type')
 
     local variables_13_6 = {xorder_metainfo = {store = {
         address = {
@@ -1376,7 +1406,9 @@ function common_testdata.run_queries(gql_wrapper)
         'for the Scalar "String"'
     local result = gql_query_13:execute(variables_13_6)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'wrong type for an InputObject field')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'wrong type for an InputObject field')
 
     local variables_13_7 = {xorder_metainfo = {store = {
         address = {
@@ -1393,7 +1425,9 @@ function common_testdata.run_queries(gql_wrapper)
         '___store___address___address"'
     local result = gql_query_13:execute(variables_13_7)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'extra field for an InputObject type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'extra field for an InputObject type')
 
     -- }}}
 
@@ -1407,7 +1441,9 @@ function common_testdata.run_queries(gql_wrapper)
         'parametrized_tags___InputMap" must be a Lua table, got number'
     local result = gql_query_13:execute(variables_13_8)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'Int for an InputMap type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'Int for an InputMap type')
 
     local variables_13_9 = {xorder_metainfo = {store = {
         parametrized_tags = {'foo', 'bar', 'baz'}}}}
@@ -1417,7 +1453,9 @@ function common_testdata.run_queries(gql_wrapper)
         'store___parametrized_tags___InputMap" must be a string, got number'
     local result = gql_query_13:execute(variables_13_9)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'List for an InputMap type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'List for an InputMap type')
 
     local variables_13_10 = {xorder_metainfo = {store = {
         parametrized_tags = {int_tag = 42}}}}
@@ -1425,7 +1463,9 @@ function common_testdata.run_queries(gql_wrapper)
         'parametrized_tags.int_tag" for the Scalar "String"'
     local result = gql_query_13:execute(variables_13_10)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'wrong type for an InputMap field')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'wrong type for an InputMap field')
 
     -- }}}
 
@@ -1436,7 +1476,9 @@ function common_testdata.run_queries(gql_wrapper)
     local exp_err = 'union value must be a map with one field, got number'
     local result = gql_query_13:execute(variables_13_11)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'non-map value type for an InputUnion type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'non-map value type for an InputUnion type')
 
     local variables_13_12 = {xorder_metainfo = {store = {
         external_id = {int = 42.2}}}}
@@ -1444,28 +1486,36 @@ function common_testdata.run_queries(gql_wrapper)
         'for the Scalar "Int"'
     local result = gql_query_13:execute(variables_13_12)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'wrong value type for an InputUnion type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'wrong value type for an InputUnion type')
 
     local variables_13_13 = {xorder_metainfo = {store = {
         external_id = {integer = 42}}}} -- integer instead of int
     local exp_err = 'unexpected union value field: integer'
     local result = gql_query_13:execute(variables_13_13)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'wrong object field name for an InputUnion type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'wrong object field name for an InputUnion type')
 
     local variables_13_14 = {xorder_metainfo = {store = {
         external_id = {a = 1, b = 2, c = 3}}}}
     local exp_err = 'union value must have only one field'
     local result = gql_query_13:execute(variables_13_14)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'object with several fields for an InputUnion type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'object with several fields for an InputUnion type')
 
     local variables_13_15 = {xorder_metainfo = {store = {
         external_id = {}}}}
     local exp_err = 'union value must have only one field'
     local result = gql_query_13:execute(variables_13_15)
     local err = result.errors[1].message
-    test:is(err, exp_err, 'object with no fields for an InputUnion type')
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'object with no fields for an InputUnion type')
 
     -- }}}
 
@@ -1512,13 +1562,15 @@ function common_testdata.run_queries(gql_wrapper)
     local exp_err = 'Variable "order_metainfo.store.address.zip" expected ' ..
         'to be non-null'
     local result = gql_query_14:execute(variables_14_1)
+    local code = result.errors[1].extensions.error_code
     local err = result.errors[1].message
-    test:is(err, exp_err, 'Lack of non-null field for an InputObject type')
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'Lack of a non-null field for an InputObject type')
 
     -- }}}
     -- }}}
 
-    -- {{{ check variable type againts argument type
+    -- {{{ check a variable type against an argument type
 
     local query_15 = [[
         mutation($tags: [Int!]) {
@@ -1531,11 +1583,13 @@ function common_testdata.run_queries(gql_wrapper)
             }
         }
     ]]
-    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_15)
-    local err_exp = 'Variable "tags" type mismatch: the variable type ' ..
+    local ok, res = pcall(gql_wrapper.compile, gql_wrapper, query_15)
+    local err = utils.strip_error(res.message)
+    local code = res.extensions.error_code
+    local exp_err = 'Variable "tags" type mismatch: the variable type ' ..
         '"List(NonNull(Int))" is not compatible with the argument type ' ..
         '"List(NonNull(String))"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    test:is_deeply({ok, err, code}, {false, exp_err, e.TYPE_MISMATCH},
         'variable usage inside InputObject')
 
     local query_16 = [[
@@ -1548,10 +1602,12 @@ function common_testdata.run_queries(gql_wrapper)
             }
         }
     ]]
-    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_16)
-    local err_exp = 'Variable "tag_value" type mismatch: the variable type ' ..
+    local ok, res = pcall(gql_wrapper.compile, gql_wrapper, query_16)
+    local err = utils.strip_error(res.message)
+    local code = res.extensions.error_code
+    local exp_err = 'Variable "tag_value" type mismatch: the variable type ' ..
         '"Int" is not compatible with the argument type "NonNull(String)"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    test:is_deeply({ok, err, code}, {false, exp_err, e.TYPE_MISMATCH},
         'variable usage inside InputMap')
 
     local query_17 = [[
@@ -1564,12 +1620,14 @@ function common_testdata.run_queries(gql_wrapper)
             }
         }
     ]]
-    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_17)
-    local err_exp = 'Variable "map_value" type mismatch: the variable type ' ..
+    local ok, res = pcall(gql_wrapper.compile, gql_wrapper, query_17)
+    local err = utils.strip_error(res.message)
+    local code = res.extensions.error_code
+    local exp_err = 'Variable "map_value" type mismatch: the variable type ' ..
         '"Int" is not compatible with the argument type "arguments___' ..
         'order_metainfo_collection___update___order_metainfo_collection_' ..
         'update___store___store___parametrized_tags___InputMap"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    test:is_deeply({ok, err, code}, {false, exp_err, e.TYPE_MISMATCH},
         'variable usage as InputMap')
 
     local query_18 = [[
@@ -1582,13 +1640,15 @@ function common_testdata.run_queries(gql_wrapper)
             }
         }
     ]]
-    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_18)
-    local err_exp = 'Variable "id_value" type mismatch: the variable type ' ..
+    local ok, res = pcall(gql_wrapper.compile, gql_wrapper, query_18)
+    local err = utils.strip_error(res.message)
+    local code = res.extensions.error_code
+    local exp_err = 'Variable "id_value" type mismatch: the variable type ' ..
         '"NonNull(Float)" is not compatible with the argument type ' ..
         '"arguments___order_metainfo_collection___update___order_metainfo_' ..
         'collection_update___store___store___external_id___external_id___' ..
         'Int_box"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    test:is_deeply({ok, err, code}, {false, exp_err, e.TYPE_MISMATCH},
         'variable usage inside InputUnion')
 
     local query_19 = [[
@@ -1601,12 +1661,14 @@ function common_testdata.run_queries(gql_wrapper)
             }
         }
     ]]
-    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_19)
-    local err_exp = 'Variable "id_box_value" type mismatch: the variable ' ..
+    local ok, res = pcall(gql_wrapper.compile, gql_wrapper, query_19)
+    local err = utils.strip_error(res.message)
+    local code = res.extensions.error_code
+    local exp_err = 'Variable "id_box_value" type mismatch: the variable ' ..
         'type "Int" is not compatible with the argument type "arguments___' ..
         'order_metainfo_collection___update___order_metainfo_collection_' ..
         'update___store___store___external_id___external_id"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    test:is_deeply({ok, err, code}, {false, exp_err, e.TYPE_MISMATCH},
         'variable usage as InputUnion')
 
     local box_t = 'arguments___order_metainfo_collection___update___' ..
@@ -1638,10 +1700,12 @@ function common_testdata.run_queries(gql_wrapper)
             }
         }
     ]]
-    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_21)
-    local err_exp = 'Variable "first_name" type mismatch: the variable type ' ..
+    local ok, res = pcall(gql_wrapper.compile, gql_wrapper, query_21)
+    local err = utils.strip_error(res.message)
+    local code = res.extensions.error_code
+    local exp_err = 'Variable "first_name" type mismatch: the variable type ' ..
         '"String" is not compatible with the argument type "NonNull(String)"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    test:is_deeply({ok, err, code}, {false, exp_err, e.TYPE_MISMATCH},
         'nullable variable for non-null argument')
     -- }}}
 
@@ -1664,8 +1728,10 @@ function common_testdata.run_queries(gql_wrapper)
     end)
     local result = gql_query_22:execute({})
     local err = result.errors[1].message
-    local err_exp = 'Expected non-null for "NonNull(String)", got null'
-    test:is(err, err_exp, 'lack of non-null argument')
+    local code = result.errors[1].extensions.error_code
+    local exp_err = 'Expected non-null for "NonNull(String)", got null'
+    test:is_deeply({err, code}, {exp_err, e.WRONG_VALUE},
+        'lack of non-null argument')
     -- }}}
 
     -- }}}

@@ -225,22 +225,41 @@ function utils.optional_require_rex()
 end
 
 function utils.serialize_error(err, traceback)
-    local extensions = {traceback = traceback}
+    local def_extensions = {traceback = traceback}
     if type(err) == 'string' then
         return {
             message = utils.strip_error(err),
-            extensions = extensions,
+            extensions = def_extensions,
         }
     elseif type(err) == 'cdata' and
             tostring(ffi.typeof(err)) == 'ctype<const struct error &>' then
         return {
             message = tostring(err),
-            extensions = extensions,
+            extensions = def_extensions,
         }
-    elseif type(err) == 'table' and type(err.message) == 'string' then
-        local err = table.copy(err)
-        err.extensions = extensions
-        return err
+    elseif type(err) == 'table' then
+        local res = {}
+        local ok = true
+        for k, v in pairs(err) do
+            if k == 'message' then
+                ok = ok and type(v) == 'string'
+                res.message = v
+            elseif k == 'extensions' then
+                ok = ok and type(v) == 'table'
+                res.extensions = table.copy(v)
+                -- add def_extensions fields to res.extensions
+                for k, v in pairs(def_extensions) do
+                    if res.extensions[k] == nil then
+                        res.extensions[k] = v
+                    end
+                end
+            else
+                ok = false
+            end
+        end
+        if ok then
+            return res
+        end
     end
 
     local message = 'internal error: unknown error format'
@@ -248,11 +267,13 @@ function utils.serialize_error(err, traceback)
     json.cfg({encode_use_tostring = true})
     local orig_error = json.encode(err)
     json.cfg({encode_use_tostring = encode_use_tostring_orig})
-    extensions.orig_error = orig_error
-    return {
+
+    local res = {
         message = message,
-        extensions = extensions,
+        extensions = def_extensions,
     }
+    res.extensions.orig_error = orig_error
+    return res
 end
 
 return utils

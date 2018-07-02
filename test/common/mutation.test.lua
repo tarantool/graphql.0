@@ -435,8 +435,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
         }
     ]]
     local ok, err = pcall(gql_wrapper.compile, gql_wrapper, mutation_insert_2)
-    local err_exp = 'Non-existent argument "insert"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    local exp_err = 'Non-existent argument "insert"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
         '"insert" argument is forbidden in a non-top level field')
 
     -- test "insert" argument is forbidden in a query
@@ -450,8 +450,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
         }
     ]]
     local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_insert)
-    local err_exp = 'Non-existent argument "insert"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    local exp_err = 'Non-existent argument "insert"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
         '"insert" argument is forbidden in a query')
 
     -- test "insert" argument is forbidden with object arguments
@@ -471,8 +471,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
     local gql_mutation_insert_3i = gql_wrapper:compile(mutation_insert_3i)
     local result = gql_mutation_insert_3i:execute({})
     local err = result.errors[1].message
-    local err_exp = '"insert" must be the only argument when it is present'
-    test:is(err, err_exp,
+    local exp_err = '"insert" must be the only argument when it is present'
+    test:is(err, exp_err,
         '"insert" argument is forbidden with other filters (object arguments)')
 
     -- test "insert" argument is forbidden with list arguments
@@ -492,8 +492,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
     local gql_mutation_insert_4i = gql_wrapper:compile(mutation_insert_4i)
     local result = gql_mutation_insert_4i:execute({})
     local err = result.errors[1].message
-    local err_exp = '"insert" must be the only argument when it is present'
-    test:is(err, err_exp,
+    local exp_err = '"insert" must be the only argument when it is present'
+    test:is(err, exp_err,
         '"insert" argument is forbidden with other filters (list arguments)')
 
     -- test "insert" argument is forbidden with other extra argument
@@ -513,8 +513,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
     local gql_mutation_insert_5i = gql_wrapper:compile(mutation_insert_5i)
     local result = gql_mutation_insert_5i:execute({})
     local err = result.errors[1].message
-    local err_exp = '"insert" must be the only argument when it is present'
-    test:is(err, err_exp,
+    local exp_err = '"insert" must be the only argument when it is present'
+    test:is(err, exp_err,
         '"insert" argument is forbidden with other filters (extra arguments)')
 
     -- test inserting an object into a collection with subrecord, union, array
@@ -977,8 +977,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
         }
     ]]
     local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_update)
-    local err_exp = 'Non-existent argument "update"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    local exp_err = 'Non-existent argument "update"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
         '"update" argument is forbidden in a query')
 
     -- test updating of a field by which a shard key is calculated (it is the
@@ -1137,9 +1137,9 @@ local function run_queries(gql_wrapper, virtbox, meta)
     }
     local result = gql_mutation_update_4:execute(variables_update_4)
     local err = result.errors[1].message
-    local err_exp = 'Unknown field "user_id" of the variable "xuser" ' ..
+    local exp_err = 'Unknown field "user_id" of the variable "xuser" ' ..
         'for the InputObject "user_collection_update"'
-    test:is(err, err_exp,
+    test:is(err, exp_err,
         'updating of a field of a primary key when it is NOT shard key field')
 
     local mutation_update_5 = [[
@@ -1162,9 +1162,9 @@ local function run_queries(gql_wrapper, virtbox, meta)
     }
     local result = gql_mutation_update_5:execute(variables_update_5)
     local err = result.errors[1].message
-    local err_exp = 'Unknown field "order_id" of the variable "xorder" ' ..
+    local exp_err = 'Unknown field "order_id" of the variable "xorder" ' ..
         'for the InputObject "order_collection_update"'
-    test:is(err, err_exp,
+    test:is(err, exp_err,
         'updating of a field of a primary key when it is shard key field')
 
     -- }}}
@@ -1278,8 +1278,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
         }
     ]]
     local ok, err = pcall(gql_wrapper.compile, gql_wrapper, query_delete)
-    local err_exp = 'Non-existent argument "delete"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+    local exp_err = 'Non-existent argument "delete"'
+    test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
         '"delete" argument is forbidden in a query')
 
     -- }}}
@@ -1305,9 +1305,9 @@ local function run_queries_avro_schema_2(test, enable_mutations, gql_wrapper,
     if enable_mutations then
         test:ok(ok, 'mutations are enabled with the enable_mutations flag')
     else
-        local err_exp = 'Variable specifies unknown type ' ..
+        local exp_err = 'Variable specifies unknown type ' ..
             '"user_collection_insert"'
-        test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+        test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
             'mutations are forbidden for avro-schema-2*')
     end
 end

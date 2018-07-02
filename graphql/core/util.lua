@@ -1,4 +1,7 @@
 local yaml = require('yaml')
+local graphql_error_codes = require('graphql.error_codes')
+
+local e = graphql_error_codes
 
 local util = {}
 
@@ -79,8 +82,8 @@ function util.coerceValue(node, schemaType, variables, opts)
   if schemaType.__type == 'NonNull' then
     local res = util.coerceValue(node, schemaType.ofType, variables, opts)
     if strict_non_null and res == nil then
-      error(('Expected non-null for "%s", got null'):format(
-        util.getTypeName(schemaType)))
+      error(e.wrong_value(('Expected non-null for "%s", got null'):format(
+        util.getTypeName(schemaType))))
     end
     return res
   end
@@ -95,7 +98,7 @@ function util.coerceValue(node, schemaType, variables, opts)
 
   if schemaType.__type == 'List' then
     if node.kind ~= 'list' then
-      error('Expected a list')
+      error(e.wrong_value('Expected a list'))
     end
 
     return util.map(node.values, function(value)
@@ -111,7 +114,7 @@ function util.coerceValue(node, schemaType, variables, opts)
 
   if isInputObject then
     if node.kind ~= 'inputObject' then
-      error('Expected an input object')
+      error(e.wrong_value('Expected an input object'))
     end
 
     -- check all fields: as from value as well as from schema
@@ -128,7 +131,8 @@ function util.coerceValue(node, schemaType, variables, opts)
     local inputObjectValue = {}
     for fieldName, _ in pairs(fieldNameSet) do
       if not schemaType.fields[fieldName] then
-        error('Unknown input object field "' .. fieldName .. '"')
+        error(e.wrong_value(('Unknown input object field "%s"'):format(
+          fieldName)))
       end
 
       local childValue = fieldValues[fieldName]
@@ -142,7 +146,7 @@ function util.coerceValue(node, schemaType, variables, opts)
 
   if isInputMap then
     if node.kind ~= 'inputObject' then
-      error('Expected an input object')
+      error(e.wrong_value('Expected an input object'))
     end
 
     local inputMapValue = {}
@@ -156,11 +160,11 @@ function util.coerceValue(node, schemaType, variables, opts)
 
   if schemaType.__type == 'Enum' then
     if node.kind ~= 'enum' then
-      error('Expected enum value, got ' .. node.kind)
+      error(e.wrong_value('Expected enum value, got %s'):format(node.kind))
     end
 
     if not schemaType.values[node.value] then
-      error('Invalid enum value "' .. node.value .. '"')
+      error(e.wrong_value('Invalid enum value "%s"'):format(node.value))
     end
 
     return node.value
@@ -173,7 +177,8 @@ function util.coerceValue(node, schemaType, variables, opts)
 
   if schemaType.__type == 'Scalar' then
     if schemaType.parseLiteral(node) == nil then
-      error('Could not coerce "' .. tostring(node.value) .. '" to "' .. schemaType.name .. '"')
+      error(e.wrong_value('Could not coerce "%s" to "%s"'):format(
+        tostring(node.value), schemaType.name))
     end
 
     return schemaType.parseLiteral(node)

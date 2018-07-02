@@ -2,9 +2,11 @@ local yaml = require('yaml')
 local core_types = require('graphql.core.types')
 local avro_helpers = require('graphql.avro_helpers')
 local helpers = require('graphql.convert_schema.helpers')
-
+local error_codes = require('graphql.error_codes')
 local utils = require('graphql.utils')
+
 local check = utils.check
+local e = error_codes
 
 local union = {}
 
@@ -303,28 +305,34 @@ function union.convert(avro_schema, opts)
         types = union_types,
         name = helpers.full_name(union_name, context),
         resolveType = function(result)
-            assert(type(result) == 'table',
-                'union value must be a map with one field, got ' ..
-                type(result))
-            assert(next(result) ~= nil and next(result, next(result)) == nil,
-                'union value must have only one field')
+            if type(result) ~= 'table' then
+                error(e.wrong_value('union value must be a map with one ' ..
+                    'field, got ' .. type(result)))
+            end
+            if next(result) == nil or next(result, next(result)) ~= nil then
+                error(e.wrong_value('union value must have only one field'))
+            end
             for determinant, type in pairs(determinant_to_type) do
                 if result[determinant] ~= nil then
                     return type
                 end
             end
             local field_name = tostring(next(result))
-            error(('unexpected union value field: %s'):format(field_name))
+            error(e.wrong_value(('unexpected union value field: %s'):format(
+                field_name)))
         end,
         resolveNodeType = function(node)
-            assert(#node.values == 1,
-                ('box object with more then one field: %d'):format(
-                #node.values))
+            if #node.values ~= 1 then
+                error(e.wrong_value('box object with more then one field: %d')
+                    :format(#node.values))
+            end
             local determinant = node.values[1].name
             check(determinant, 'determinant', 'string')
             local res = determinant_to_type[determinant]
-            assert(determinant ~= nil,
-                ('the union has no "%s" field'):format(determinant))
+            if res == nil then
+                error(e.wrong_value('the union has no "%s" field'):format(
+                    determinant))
+            end
             return res
         end,
     })

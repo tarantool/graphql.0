@@ -54,11 +54,11 @@ local test = tap.test('init_fail')
 test:plan(3)
 
 local ok, err = pcall(create_gql_wrapper, metadata)
-local err_exp = '1:1 connection "user_connection" of collection ' ..
+local exp_err = '1:1 connection "user_connection" of collection ' ..
     '"order_collection" has less fields than the index of ' ..
     '"user_str_num_index" collection (cannot prove uniqueness of the partial ' ..
     'index)'
-test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
     'not enough fields')
 
 -- restore back cut part
@@ -80,10 +80,10 @@ metadata.indexes.user_collection.user_str_index = {
 }
 
 local ok, err = pcall(create_gql_wrapper, metadata)
-local err_exp = 'several indexes were marked as primary in the ' ..
+local exp_err = 'several indexes were marked as primary in the ' ..
     '"user_collection" collection, at least "user_str_num_index" and ' ..
     '"user_str_index"'
-test:is_deeply({ok, utils.strip_error(err)}, {false, err_exp},
+test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
     'multiple primary indexes')
 
 -- restore metadata back
