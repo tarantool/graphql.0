@@ -359,8 +359,9 @@ function common_testdata.drop_spaces()
 end
 
 function common_testdata.run_queries(gql_wrapper)
+    local avro_version = test_utils.major_avro_schema_version()
     local test = tap.test('common')
-    test:plan(53)
+    test:plan(avro_version == 3 and 53 or 30)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -1301,6 +1302,11 @@ function common_testdata.run_queries(gql_wrapper)
     test:is(err, exp_err, 'Int for a String type')
 
     -- }}}
+
+    if avro_version == 2 then
+        assert(test:check(), 'check plan')
+        return
+    end
 
     local query_13 = [[
         mutation($xorder_metainfo: order_metainfo_collection_update) {
