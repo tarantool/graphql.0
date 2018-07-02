@@ -59,7 +59,7 @@ local function run_queries(gql_wrapper)
             first_name: Ivan
     ]]):strip())
 
-    test:is_deeply(result_1_1, exp_result_1_1, '1_1')
+    test:is_deeply(result_1_1.data, exp_result_1_1, '1_1')
 
     -- }}}
     -- {{{ 1_2
@@ -81,7 +81,7 @@ local function run_queries(gql_wrapper)
           description: first order of Ivan
     ]]):strip())
 
-    test:is_deeply(result_1_2, exp_result_1_2, '1_2')
+    test:is_deeply(result_1_2.data, exp_result_1_2, '1_2')
 
     -- }}}
 
@@ -122,7 +122,7 @@ local function run_queries(gql_wrapper)
           description: first order of Ivan
     ]]):strip())
 
-    test:is_deeply(result_2_1, exp_result_2_1, '2_1')
+    test:is_deeply(result_2_1.data, exp_result_2_1, '2_1')
 
     -- }}}
     -- {{{ 2_2
@@ -148,7 +148,7 @@ local function run_queries(gql_wrapper)
             first_name: Ivan
     ]]):strip())
 
-    test:is_deeply(result_2_2, exp_result_2_2, '2_2')
+    test:is_deeply(result_2_2.data, exp_result_2_2, '2_2')
 
     -- }}}
 

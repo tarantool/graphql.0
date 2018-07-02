@@ -1,4 +1,5 @@
 local json = require('json')
+local test_utils = require('test.test_utils')
 
 local bench_testdata = {}
 
@@ -174,27 +175,24 @@ function bench_testdata.init_spaces()
     end)
 end
 
-function bench_testdata.fill_test_data(shard)
+function bench_testdata.fill_test_data(shard, meta)
     local virtbox = shard or box.space
-
-    local NULL_T = 0
-    local STRING_T = 1 --luacheck: ignore
 
     for i = 1, 100 do
         local s = tostring(i)
-        virtbox.user:replace({
-            'user_id_' .. s,
-            'first name ' .. s,
-            NULL_T, box.NULL,
-            'last name ' .. s,
+        test_utils.replace_object(virtbox, meta, 'user', {
+            user_id = 'user_id_' .. s,
+            first_name = 'first name ' .. s,
+            middle_name = box.NULL,
+            last_name = 'last name ' .. s,
         })
-        virtbox.user_to_passport:replace({
-            'user_id_' .. s,
-            'passport_id_' .. s,
+        test_utils.replace_object(virtbox, meta, 'user_to_passport', {
+            user_id = 'user_id_' .. s,
+            passport_id = 'passport_id_' .. s,
         })
-        virtbox.passport:replace({
-            'passport_id_' .. s,
-            'number_' .. s,
+        test_utils.replace_object(virtbox, meta, 'passport', {
+            passport_id = 'passport_id_' .. s,
+            number = 'number_' .. s,
         })
     end
 end

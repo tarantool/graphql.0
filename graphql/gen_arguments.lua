@@ -72,7 +72,8 @@ local function get_primary_key_type(db_schema, collection_name)
 end
 
 --- Make schema types deep nullable down to scalar, union, array or map
---- (matches xflatten input syntax).
+--- (matches xflatten input syntax) and remove default values (from fields of
+--- record and record* types).
 ---
 --- @param e_schema (table or string) avro-schema with expanded references
 ---
@@ -97,6 +98,7 @@ local function recursive_nullable(e_schema, skip_cond)
             if new_type ~= nil then
                 local field = table.copy(field)
                 field.type = new_type
+                field.default = nil
                 table.insert(res.fields, field)
             end
         end
@@ -105,9 +107,60 @@ local function recursive_nullable(e_schema, skip_cond)
     elseif avro_t == 'union' or
             avro_t == 'array' or avro_t == 'array*' or
             avro_t == 'map' or avro_t == 'map*' then
+        -- it is non-recursive intentionally to match current xflatten semantics
         e_schema = table.copy(e_schema)
         return avro_helpers.make_avro_type_nullable(e_schema,
             {raise_on_nullable = false})
+    end
+
+    error('unrecognized avro-schema type: ' .. json.encode(e_schema))
+end
+
+--- Remove default values from passed avro-schema (from fields of record and
+--- record* types) and make they nullable.
+---
+--- @param e_schema (table or string) avro-schema with expanded references
+---
+--- @return transformed avro-schema
+local function recursive_replace_default_with_nullable(e_schema)
+    local avro_t = avro_helpers.avro_type(e_schema)
+
+    if avro_helpers.is_scalar_type(avro_t) then
+        return e_schema
+    elseif avro_t == 'record' or avro_t == 'record*' then
+        local res = table.copy(e_schema)
+        res.fields = {}
+
+        for _, field in ipairs(e_schema.fields) do
+            field = table.copy(field)
+            if type(field.default) ~= 'nil' then
+                field.default = nil
+                field.type = avro_helpers.make_avro_type_nullable(field.type,
+                    {raise_on_nullable = false})
+            end
+            field.type = recursive_replace_default_with_nullable(field.type)
+            table.insert(res.fields, field)
+        end
+
+        return res
+    elseif avro_t == 'union' then
+        local res = {}
+
+        for _, child in ipairs(e_schema) do
+            local new_child_type =
+                recursive_replace_default_with_nullable(child)
+            table.insert(res, new_child_type)
+        end
+
+        return res
+    elseif avro_t == 'array' or avro_t == 'array*' then
+        local res = table.copy(e_schema)
+        res.items = recursive_replace_default_with_nullable(e_schema.items)
+        return res
+    elseif avro_t == 'map' or avro_t == 'map*' then
+        local res = table.copy(e_schema)
+        res.values = recursive_replace_default_with_nullable(e_schema.values)
+        return res
     end
 
     error('unrecognized avro-schema type: ' .. json.encode(e_schema))
@@ -320,7 +373,7 @@ function gen_arguments.extra_args(db_schema, collection_name, opts)
         collection_name)
     local e_schema = db_schema.e_schemas[schema_name]
 
-    local schema_insert = table.copy(e_schema)
+    local schema_insert = recursive_replace_default_with_nullable(e_schema)
     schema_insert.name = collection_name .. '_insert'
     schema_insert.type = 'record*' -- make the record nullable
 

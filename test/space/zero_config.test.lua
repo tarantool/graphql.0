@@ -67,7 +67,7 @@ local function run_queries(gql_wrapper)
           age: 42
           name: Ivan
     ]]):strip())
-    test:is_deeply(result_1_1, exp_result_1_1, '1_1')
+    test:is_deeply(result_1_1.data, exp_result_1_1, '1_1')
 
     local result_1_2 = test_utils.show_trace(function()
         local cfg = gql_wrapper.internal.cfg

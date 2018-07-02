@@ -1,3 +1,8 @@
+local yaml = require('yaml')
+local graphql_error_codes = require('graphql.error_codes')
+
+local e = graphql_error_codes
+
 local util = {}
 
 function util.map(t, fn)
@@ -42,14 +47,45 @@ function util.bind1(func, x)
 end
 
 function util.trim(s)
-  return s:gsub('^%s+', ''):gsub('%s$', ''):gsub('%s%s+', ' ')
+  return s:gsub('^%s+', ''):gsub('%s+$', ''):gsub('%s%s+', ' ')
 end
 
-function util.coerceValue(node, schemaType, variables)
-  variables = variables or {}
+function util.getTypeName(t)
+  if t.name ~= nil then
+    if t.name == 'Scalar' and t.subtype == 'InputMap' then
+      return ('InputMap(%s)'):format(util.getTypeName(t.values))
+    elseif t.name == 'Scalar' and t.subtype == 'InputUnion' then
+      local typeNames = {}
+      for _, child in ipairs(t.types) do
+        table.insert(typeNames, util.getTypeName(child))
+      end
+      return ('InputUnion(%s)'):format(table.concat(typeNames, ','))
+    end
+    return t.name
+  elseif t.__type == 'NonNull' then
+    return ('NonNull(%s)'):format(util.getTypeName(t.ofType))
+  elseif t.__type == 'List' then
+    return ('List(%s)'):format(util.getTypeName(t.ofType))
+  end
+
+  local orig_encode_use_tostring = yaml.cfg.encode_use_tostring
+  local err = ('Internal error: unknown type:\n%s'):format(yaml.encode(t))
+  yaml.cfg({encode_use_tostring = orig_encode_use_tostring})
+  error(err)
+end
+
+function util.coerceValue(node, schemaType, variables, opts)
+  local variables = variables or {}
+  local opts = opts or {}
+  local strict_non_null = opts.strict_non_null or false
 
   if schemaType.__type == 'NonNull' then
-    return util.coerceValue(node, schemaType.ofType, variables)
+    local res = util.coerceValue(node, schemaType.ofType, variables, opts)
+    if strict_non_null and res == nil then
+      error(e.wrong_value(('Expected non-null for "%s", got null'):format(
+        util.getTypeName(schemaType))))
+    end
+    return res
   end
 
   if not node then
@@ -62,11 +98,11 @@ function util.coerceValue(node, schemaType, variables)
 
   if schemaType.__type == 'List' then
     if node.kind ~= 'list' then
-      error('Expected a list')
+      error(e.wrong_value('Expected a list'))
     end
 
     return util.map(node.values, function(value)
-      return util.coerceValue(value, schemaType.ofType, variables)
+      return util.coerceValue(value, schemaType.ofType, variables, opts)
     end)
   end
 
@@ -76,32 +112,59 @@ function util.coerceValue(node, schemaType, variables)
   local isInputUnion = schemaType.__type == 'Scalar' and
     schemaType.subtype == 'InputUnion'
 
-  if isInputObject or isInputMap then
+  if isInputObject then
     if node.kind ~= 'inputObject' then
-      error('Expected an input object')
+      error(e.wrong_value('Expected an input object'))
+    end
+
+    -- check all fields: as from value as well as from schema
+    local fieldNameSet = {}
+    local fieldValues = {}
+    for _, field in ipairs(node.values) do
+        fieldNameSet[field.name] = true
+        fieldValues[field.name] = field.value
+    end
+    for fieldName, _ in pairs(schemaType.fields) do
+        fieldNameSet[fieldName] = true
     end
 
     local inputObjectValue = {}
-    for _, field in pairs(node.values) do
-      if isInputObject and not schemaType.fields[field.name] then
-        error('Unknown input object field "' .. field.name .. '"')
+    for fieldName, _ in pairs(fieldNameSet) do
+      if not schemaType.fields[fieldName] then
+        error(e.wrong_value(('Unknown input object field "%s"'):format(
+          fieldName)))
       end
 
-      local child_type = isInputObject and schemaType.fields[field.name].kind or
-        schemaType.values
-      inputObjectValue[field.name] = util.coerceValue(field.value, child_type,
-        variables)
+      local childValue = fieldValues[fieldName]
+      local childType = schemaType.fields[fieldName].kind
+      inputObjectValue[fieldName] = util.coerceValue(childValue, childType,
+        variables, opts)
     end
+
     return inputObjectValue
+  end
+
+  if isInputMap then
+    if node.kind ~= 'inputObject' then
+      error(e.wrong_value('Expected an input object'))
+    end
+
+    local inputMapValue = {}
+    for _, field in pairs(node.values) do
+      local childType = schemaType.values
+      inputMapValue[field.name] = util.coerceValue(field.value, childType,
+        variables, opts)
+    end
+    return inputMapValue
   end
 
   if schemaType.__type == 'Enum' then
     if node.kind ~= 'enum' then
-      error('Expected enum value, got ' .. node.kind)
+      error(e.wrong_value('Expected enum value, got %s'):format(node.kind))
     end
 
     if not schemaType.values[node.value] then
-      error('Invalid enum value "' .. node.value .. '"')
+      error(e.wrong_value('Invalid enum value "%s"'):format(node.value))
     end
 
     return node.value
@@ -109,12 +172,13 @@ function util.coerceValue(node, schemaType, variables)
 
   if isInputUnion then
     local child_type = schemaType.resolveNodeType(node)
-    return util.coerceValue(node, child_type, variables)
+    return util.coerceValue(node, child_type, variables, opts)
   end
 
   if schemaType.__type == 'Scalar' then
     if schemaType.parseLiteral(node) == nil then
-      error('Could not coerce "' .. tostring(node.value) .. '" to "' .. schemaType.name .. '"')
+      error(e.wrong_value('Could not coerce "%s" to "%s"'):format(
+        tostring(node.value), schemaType.name))
     end
 
     return schemaType.parseLiteral(node)

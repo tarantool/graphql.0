@@ -40,9 +40,26 @@ local function gql_execute(qstate, variables, operation_name)
     check(operation_name, 'operation_name', 'string', 'nil')
 
     local root_value = {}
+    local qcontext = {}
 
-    return execute(state.schema, qstate.ast, root_value, variables,
-        operation_name)
+    local traceback
+    local ok, data = xpcall(function()
+        return execute(state.schema, qstate.ast, root_value, variables,
+            operation_name, {qcontext = qcontext})
+    end, function(err)
+        traceback = debug.traceback()
+        return err
+    end)
+    if not ok then
+        local err = utils.serialize_error(data, traceback)
+        return {errors = {err}}
+    end
+    return {
+        data = data,
+        meta = {
+            statistics = qcontext.statistics,
+        }
+    }
 end
 
 --- Compile a query and execute an operation.

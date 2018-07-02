@@ -114,7 +114,7 @@ local function run_common_queries(gql_wrapper)
             last_name: Ivanov
             first_name: Ivan
     ]]):strip())
-    test:is_deeply(result_1, exp_result_1, '1')
+    test:is_deeply(result_1.data, exp_result_1, '1')
 end
 
 local function run_emails_queries(gql_wrapper)
@@ -162,7 +162,7 @@ local function run_emails_queries(gql_wrapper)
             in_reply_to:
               body: a
     ]]):strip())
-    test:is_deeply(result_upside, exp_result_upside, 'upside')
+    test:is_deeply(result_upside.data, exp_result_upside, 'upside')
 end
 
 run_common_queries(common_gql_wrapper)

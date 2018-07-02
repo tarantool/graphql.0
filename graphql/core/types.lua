@@ -1,3 +1,4 @@
+local ffi = require('ffi')
 local path = (...):gsub('%.[^%.]+$', '')
 local util = require(path .. '.util')
 
@@ -55,7 +56,8 @@ function types.scalar(config)
     description = config.description,
     serialize = config.serialize,
     parseValue = config.parseValue,
-    parseLiteral = config.parseLiteral
+    parseLiteral = config.parseLiteral,
+    isValueOfTheType = config.isValueOfTheType,
   }
 
   instance.nonNull = types.nonNull(instance)
@@ -247,12 +249,14 @@ function types.inputUnion(config)
     __type = 'Scalar',
     subtype = 'InputUnion',
     name = config.name,
+    types = config.types,
     serialize = function(value) return value end,
     parseValue = function(value) return value end,
     parseLiteral = function(node)
       error('Literal parsing is implemented in util.coerceValue; ' ..
         'we should not go here')
     end,
+    resolveType = config.resolveType,
     resolveNodeType = config.resolveNodeType,
   }
 
@@ -261,39 +265,85 @@ function types.inputUnion(config)
   return instance
 end
 
-local coerceInt = function(value)
-  value = tonumber(value)
-
-  if not value then return end
-
-  if value == value and value < 2 ^ 32 and value >= -2 ^ 32 then
-    return value < 0 and math.ceil(value) or math.floor(value)
+-- Based on the code from tarantool/checks.
+local function isInt(value)
+  if type(value) == 'number' then
+    return value >= -2^31 and value < 2^31 and math.floor(value) == value
   end
+
+  if type(value) == 'cdata' then
+    if ffi.istype('int64_t', value) then
+      return value >= -2^31 and value < 2^31
+    elseif ffi.istype('uint64_t', value) then
+      return value < 2^31
+    end
+  end
+
+  return false
+end
+
+-- The code from tarantool/checks.
+local function isLong(value)
+  if type(value) == 'number' then
+    -- Double floating point format has 52 fraction bits. If we want to keep
+    -- integer precision, the number must be less than 2^53.
+    return value > -2^53 and value < 2^53 and math.floor(value) == value
+  end
+
+  if type(value) == 'cdata' then
+    if ffi.istype('int64_t', value) then
+      return true
+    elseif ffi.istype('uint64_t', value) then
+      return value < 2^63
+    end
+  end
+
+  return false
+end
+
+local function coerceInt(value)
+  local value = tonumber(value)
+
+  if value == nil then return end
+  if not isInt(value) then return end
+
+  return value
+end
+
+local function coerceLong(value)
+  local value = tonumber64(value)
+
+  if value == nil then return end
+  if not isLong(value) then return end
+
+  return value
 end
 
 types.int = types.scalar({
   name = 'Int',
-  description = "The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. ",
+  description = "The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.",
   serialize = coerceInt,
   parseValue = coerceInt,
   parseLiteral = function(node)
     if node.kind == 'int' then
       return coerceInt(node.value)
     end
-  end
+  end,
+  isValueOfTheType = isInt,
 })
 
 types.long = types.scalar({
   name = 'Long',
-  description = 'Long is non-bounded integral type',
-  serialize = function(value) return tonumber(value) end,
-  parseValue = function(value) return tonumber(value) end,
+  description = "The `Long` scalar type represents non-fractional signed whole numeric values. Long can represent values between -(2^63) and 2^63 - 1.",
+  serialize = coerceLong,
+  parseValue = coerceLong,
   parseLiteral = function(node)
    -- 'int' is name of the immediate value type
    if node.kind == 'int' then
-     return tonumber(node.value)
+     return coerceLong(node.value)
    end
-  end
+  end,
+  isValueOfTheType = isLong,
 })
 
 types.float = types.scalar({
@@ -304,7 +354,10 @@ types.float = types.scalar({
     if node.kind == 'float' or node.kind == 'int' then
       return tonumber(node.value)
     end
-  end
+  end,
+  isValueOfTheType = function(value)
+    return type(value) == 'number'
+  end,
 })
 
 types.double = types.scalar({
@@ -316,7 +369,10 @@ types.double = types.scalar({
     if node.kind == 'float' or node.kind == 'int' then
       return tonumber(node.value)
     end
-  end
+  end,
+  isValueOfTheType = function(value)
+    return type(value) == 'number'
+  end,
 })
 
 types.string = types.scalar({
@@ -328,7 +384,10 @@ types.string = types.scalar({
     if node.kind == 'string' then
       return node.value
     end
-  end
+  end,
+  isValueOfTheType = function(value)
+    return type(value) == 'string'
+  end,
 })
 
 local function toboolean(x)
@@ -346,7 +405,10 @@ types.boolean = types.scalar({
     else
       return nil
     end
-  end
+  end,
+  isValueOfTheType = function(value)
+    return type(value) == 'boolean'
+  end,
 })
 
 types.id = types.scalar({
@@ -355,7 +417,10 @@ types.id = types.scalar({
   parseValue = tostring,
   parseLiteral = function(node)
     return node.kind == 'string' or node.kind == 'int' and node.value or nil
-  end
+  end,
+  isValueOfTheType = function(value)
+    error('NIY')
+  end,
 })
 
 function types.directive(config)

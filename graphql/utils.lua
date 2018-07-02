@@ -1,8 +1,16 @@
 --- Various utility function used across the graphql module sources and tests.
 
+local json = require('json')
 local log = require('log')
+local ffi = require('ffi')
 
 local utils = {}
+
+--- Return an error w/o file name and line number.
+function utils.strip_error(err)
+    local res = tostring(err):gsub('^.-:.-: (.*)$', '%1')
+    return res
+end
 
 --- Recursively checks whether `sub` fields values are match `t` ones.
 function utils.is_subtable(t, sub)
@@ -31,9 +39,8 @@ end
 --- case)
 --- @return[2] `false` otherwise
 function utils.is_array(table)
-    if type(table) ~= 'table' then
-        return false
-    end
+    utils.check(table, 'table', 'table')
+
     local max = 0
     local count = 0
     for k, _ in pairs(table) do
@@ -215,6 +222,58 @@ function utils.optional_require_rex()
         rex, is_pcre2 = utils.optional_require('rex_pcre'), false
     end
     return rex, is_pcre2
+end
+
+function utils.serialize_error(err, traceback)
+    local def_extensions = {traceback = traceback}
+    if type(err) == 'string' then
+        return {
+            message = utils.strip_error(err),
+            extensions = def_extensions,
+        }
+    elseif type(err) == 'cdata' and
+            tostring(ffi.typeof(err)) == 'ctype<const struct error &>' then
+        return {
+            message = tostring(err),
+            extensions = def_extensions,
+        }
+    elseif type(err) == 'table' then
+        local res = {}
+        local ok = true
+        for k, v in pairs(err) do
+            if k == 'message' then
+                ok = ok and type(v) == 'string'
+                res.message = v
+            elseif k == 'extensions' then
+                ok = ok and type(v) == 'table'
+                res.extensions = table.copy(v)
+                -- add def_extensions fields to res.extensions
+                for k, v in pairs(def_extensions) do
+                    if res.extensions[k] == nil then
+                        res.extensions[k] = v
+                    end
+                end
+            else
+                ok = false
+            end
+        end
+        if ok then
+            return res
+        end
+    end
+
+    local message = 'internal error: unknown error format'
+    local encode_use_tostring_orig = json.cfg.encode_use_tostring
+    json.cfg({encode_use_tostring = true})
+    local orig_error = json.encode(err)
+    json.cfg({encode_use_tostring = encode_use_tostring_orig})
+
+    local res = {
+        message = message,
+        extensions = def_extensions,
+    }
+    res.extensions.orig_error = orig_error
+    return res
 end
 
 return utils

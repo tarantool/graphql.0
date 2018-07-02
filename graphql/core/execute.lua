@@ -1,8 +1,8 @@
 local path = (...):gsub('%.[^%.]+$', '')
-local types = require(path .. '.types')
 local util = require(path .. '.util')
 local introspection = require(path .. '.introspection')
 local query_util = require(path .. '.query_util')
+local validate_variables = require(path .. '.validate_variables')
 
 local function defaultResolver(object, arguments, info)
   return object[info.fieldASTs[1].name.value]
@@ -10,13 +10,21 @@ end
 
 local evaluateSelections
 
--- @param[opt] resolvedType a type to be used instead of one returned by
--- `fieldType.resolveType(result)` in case when the `fieldType` is Interface or
--- Union; that is needed to increase flexibility of an union type resolving
--- (e.g. resolving by a parent object instead of a current object) via
--- returning it from the `fieldType.resolve` function, which called before
--- `resolvedType` and may need to determine the type itself for its needs
-local function completeValue(fieldType, result, subSelections, context, resolvedType)
+-- @tparam[opt] table opts the following options:
+--
+-- * fieldName (string; optional)
+--
+-- * resolvedType (table; optional) resolvedType a type to be used instead of
+--   one returned by `fieldType.resolveType(result)` in case when the
+--   `fieldType` is Interface or Union; that is needed to increase flexibility
+--   of an union type resolving (e.g. resolving by a parent object instead of a
+--   current object) via returning it from the `fieldType.resolve` function,
+--   which called before `resolvedType` and may need to determine the type
+--   itself for its needs
+local function completeValue(fieldType, result, subSelections, context, opts)
+  local opts = opts or {}
+  local resolvedType = opts.resolvedType
+  local fieldName = opts.fieldName or '???'
   local fieldTypeName = fieldType.__type
 
   if fieldTypeName == 'NonNull' then
@@ -65,13 +73,13 @@ local function completeValue(fieldType, result, subSelections, context, resolved
     return evaluateSelections(objectType, result, subSelections, context)
   end
 
-  error('Unknown type "' .. fieldTypeName .. '" for field "' .. field.name .. '"')
+  error('Unknown type "' .. fieldTypeName .. '" for field "' .. fieldName .. '"')
 end
 
 local function getFieldEntry(objectType, object, fields, context)
   local firstField = fields[1]
   local fieldName = firstField.name.value
-  local responseKey = query_util.getFieldResponseKey(firstField)
+  -- local responseKey = query_util.getFieldResponseKey(firstField)
   local fieldType = introspection.fieldMap[fieldName] or objectType.fields[fieldName]
 
   if fieldType == nil then
@@ -85,7 +93,8 @@ local function getFieldEntry(objectType, object, fields, context)
 
   local arguments = util.map(fieldType.arguments or {}, function(argument, name)
     local supplied = argumentMap[name] and argumentMap[name].value
-    supplied =  supplied and util.coerceValue(supplied, argument, context.variables)
+    supplied = util.coerceValue(supplied, argument, context.variables,
+      {strict_non_null = true})
     if supplied ~= nil then
         return supplied
     else
@@ -110,7 +119,8 @@ local function getFieldEntry(objectType, object, fields, context)
   local resolvedObject, resolvedType = (fieldType.resolve or defaultResolver)(object, arguments, info)
   local subSelections = query_util.mergeSelectionSets(fields)
 
-  return completeValue(fieldType.kind, resolvedObject, subSelections, context, resolvedType)
+  return completeValue(fieldType.kind, resolvedObject, subSelections, context,
+    {resolvedType = resolvedType})
 end
 
 evaluateSelections = function(objectType, object, selections, context)
@@ -125,16 +135,19 @@ evaluateSelections = function(objectType, object, selections, context)
   return result
 end
 
-return function(schema, tree, rootValue, variables, operationName)
+return function(schema, tree, rootValue, variables, operationName, opts)
+  local opts = opts or {}
   local context = query_util.buildContext(schema, tree, rootValue, variables, operationName)
   -- The field is passed to resolve function within info attribute.
   -- Can be used to store any data within one query.
-  context.qcontext = {}
+  context.qcontext = opts.qcontext or {}
   local rootType = schema[context.operation.operation]
 
   if not rootType then
     error('Unsupported operation "' .. context.operation.operation .. '"')
   end
+
+  validate_variables.validate_variables(context)
 
   return evaluateSelections(rootType, rootValue, context.operation.selectionSet.selections, context)
 end

@@ -7,8 +7,11 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
 
 local tap = require('tap')
-local utils = require('test.test_utils')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.user_order_item_testdata')
+local graphql = require('graphql')
+
+local e = graphql.error_codes
 
 local function run_queries(gql_wrapper)
     local test = tap.test('result cnt')
@@ -30,18 +33,21 @@ local function run_queries(gql_wrapper)
     ]]
 
     local gql_query = gql_wrapper:compile(query)
-    local variables = {
-    }
-    local ok, result = pcall(gql_query.execute, gql_query, variables)
-    assert(ok == false, 'this test should fail')
-    test:like(result, 'query execution timeout exceeded', 'timeout test')
+    local variables = {}
+    local result = gql_query:execute(variables)
+    assert(result.data == nil, "this test should fail")
+    assert(result.errors ~= nil, "this test should fail")
+    local exp_err = 'query execution timeout exceeded timeout_ms limit (0.001 ms)'
+    local err = result.errors[1].message
+    local code = result.errors[1].extensions.error_code
+    test:is_deeply({err, code}, {exp_err, e.TIMEOUT_EXCEEDED}, 'timeout test')
 
     assert(test:check(), 'check plan')
 end
 
 box.cfg({})
 
-utils.run_testdata(testdata, {
+test_utils.run_testdata(testdata, {
     run_queries = run_queries,
     graphql_opts = {
         timeout_ms = 0.001,

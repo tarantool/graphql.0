@@ -34,11 +34,20 @@ local accessor_general = require('graphql.accessor_general')
 local accessor_space = require('graphql.accessor_space')
 local accessor_shard = require('graphql.accessor_shard')
 local impl = require('graphql.impl')
+local error_codes = require('graphql.error_codes')
 
 local graphql = {}
 
 -- constants
 graphql.TIMEOUT_INFINITY = accessor_general.TIMEOUT_INFINITY
+
+-- error codes
+graphql.error_codes = {}
+for k, v in pairs(error_codes) do
+    if type(v) == 'number' then
+        graphql.error_codes[k] = v
+    end
+end
 
 -- for backward compatibility
 graphql.accessor_general = accessor_general

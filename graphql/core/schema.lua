@@ -50,7 +50,8 @@ function schema:generateTypeMap(node)
   node.fields = type(node.fields) == 'function' and node.fields() or node.fields
   self.typeMap[node.name] = node
 
-  if node.__type == 'Union' then
+  if node.__type == 'Union' or (node.__type == 'Scalar' and
+      node.subtype == 'InputUnion') then
     for _, type in ipairs(node.types) do
       self:generateTypeMap(type)
     end
@@ -76,6 +77,10 @@ function schema:generateTypeMap(node)
 
       self:generateTypeMap(field.kind)
     end
+  end
+
+  if node.type == 'Scalar' and node.subtype == 'InputMap' then
+    self:generateTypeMap(node.values)
   end
 end
 

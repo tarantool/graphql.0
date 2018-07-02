@@ -222,7 +222,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
           user_num: 12
     ]]):strip())
 
-    test:is_deeply(result_1_1, exp_result_1_1, '1_1')
+    test:is_deeply(result_1_1.data, exp_result_1_1, '1_1')
 
     -- }}}
     -- {{{ get a top-level object by a full compound primary key plus filter
@@ -241,7 +241,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
         user_collection: []
     ]]):strip())
 
-    test:is_deeply(result_1_2, exp_result_1_2, '1_2')
+    test:is_deeply(result_1_2.data, exp_result_1_2, '1_2')
 
     -- }}}
     -- {{{ select top-level objects by a partial compound primary key (or maybe
@@ -277,7 +277,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
           user_num: 12
     ]]):strip())
 
-    test:is_deeply(result_1_3, exp_result_1_3, '1_3')
+    test:is_deeply(result_1_3.data, exp_result_1_3, '1_3')
 
     local result_1_4 = test_utils.show_trace(function()
         local variables_1_4 = {user_str = 'user_str_b'}
@@ -369,7 +369,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
           user_num: 20
     ]]):strip())
 
-    test:is_deeply(result_1_4, exp_result_1_4, '1_4')
+    test:is_deeply(result_1_4.data, exp_result_1_4, '1_4')
 
     -- }}}
     -- {{{ select top-level objects by a partial compound primary key plus
@@ -388,7 +388,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
         user_collection: []
     ]]):strip())
 
-    test:is_deeply(result_1_5, exp_result_1_5, '1_5')
+    test:is_deeply(result_1_5.data, exp_result_1_5, '1_5')
 
     local result_1_6 = test_utils.show_trace(function()
         local variables_1_6 = {
@@ -403,7 +403,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
         user_collection: []
     ]]):strip())
 
-    test:is_deeply(result_1_6, exp_result_1_6, '1_6')
+    test:is_deeply(result_1_6.data, exp_result_1_6, '1_6')
 
     -- }}}
     -- {{{ select objects by a connection by a full compound index
@@ -473,7 +473,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
           last_name: last name b
     ]]):strip())
 
-    test:is_deeply(result_2_1, exp_result_2_1, '2_1')
+    test:is_deeply(result_2_1.data, exp_result_2_1, '2_1')
 
     -- }}}
     -- {{{ select objects by a connection by a full compound index plus filter
@@ -497,7 +497,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
           last_name: last name b
     ]]):strip())
 
-    test:is_deeply(result_2_2, exp_result_2_2, '2_2')
+    test:is_deeply(result_2_2.data, exp_result_2_2, '2_2')
 
     -- }}}
     -- {{{ select object by a connection by a partial compound index
@@ -1139,9 +1139,10 @@ function compound_index_testdata.run_queries(gql_wrapper)
     local function comparator(a, b)
         return a.order_num < b.order_num
     end
-    table.sort(result_3.user_collection[1].order_str_connection, comparator)
+    table.sort(result_3.data.user_collection[1].order_str_connection,
+        comparator)
     table.sort(exp_result_3.user_collection[1].order_str_connection, comparator)
-    test:is_deeply(result_3, exp_result_3, '3')
+    test:is_deeply(result_3.data, exp_result_3, '3')
 
     -- }}}
     -- {{{ offset on top-level by a full compound primary key
@@ -1217,7 +1218,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
           user_num: 2
     ]]):strip())
 
-    test:is_deeply(result_4_1, exp_result_4_1, '4_1')
+    test:is_deeply(result_4_1.data, exp_result_4_1, '4_1')
 
     -- }}}
     -- {{{ offset on top-level by a partial compound primary key (expected to
@@ -1229,19 +1230,10 @@ function compound_index_testdata.run_queries(gql_wrapper)
             user_str = 'user_str_b',
         }
     }
-    local ok, err = pcall(function()
-        return gql_query_4:execute(variables_4_2)
-    end)
-
-    local result_4_2 = {ok = ok, err = test_utils.strip_error(err)}
-
-    local exp_result_4_2 = yaml.decode(([[
-        ---
-        ok: false
-        err: offset by a partial key is forbidden
-    ]]):strip())
-
-    test:is_deeply(result_4_2, exp_result_4_2, '4_2')
+    local result = gql_query_4:execute(variables_4_2)
+    local err = result.errors[1].message
+    local exp_err = 'Variable "offset.user_num" expected to be non-null'
+    test:is(err, exp_err, '4_2')
 
     -- }}}
     -- {{{ offset when using a connection by a full compound primary key
@@ -1302,7 +1294,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
           last_name: last name b
     ]]):strip())
 
-    test:is_deeply(result_5_1, exp_result_5_1, '5_1')
+    test:is_deeply(result_5_1.data, exp_result_5_1, '5_1')
 
     -- }}}
     -- {{{ offset when using a connection by a partial compound primary key
@@ -1316,26 +1308,17 @@ function compound_index_testdata.run_queries(gql_wrapper)
             order_str = 'order_str_b_2',
         }
     }
-    local ok, err = pcall(function()
-        return gql_query_5:execute(variables_5_2)
-    end)
-
-    local result_5_2 = {ok = ok, err = test_utils.strip_error(err)}
-
-    local exp_result_5_2 = yaml.decode(([[
-        ---
-        ok: false
-        err: 'offset by a partial key is forbidden: expected "order_num" field'
-    ]]):strip())
-
-    test:is_deeply(result_5_2, exp_result_5_2, '5_2')
+    local result = gql_query_5:execute(variables_5_2)
+    local err = result.errors[1].message
+    local exp_err = 'Variable "offset.order_num" expected to be non-null'
+    test:is(err, exp_err, '5_2')
 
     -- }}}
     -- {{{ compound offset argument constructed from separate variables
     -- (top-level collection, full primary key)
 
     local query_6 = [[
-        query users($limit: Int, $user_str: String, $user_num: Long) {
+        query users($limit: Int, $user_str: String!, $user_num: Long!) {
             user_collection(limit: $limit, offset: {user_str: $user_str,
                     user_num: $user_num}) {
                 user_str
@@ -1401,7 +1384,7 @@ function compound_index_testdata.run_queries(gql_wrapper)
           user_num: 2
     ]]):strip())
 
-    test:is_deeply(result_6, exp_result_6, '6')
+    test:is_deeply(result_6.data, exp_result_6, '6')
 
     -- }}}
 

@@ -7,10 +7,10 @@ local query_util = {}
 function query_util.typeFromAST(node, schema)
   local innerType
   if node.kind == 'listType' then
-    innerType = query_util.typeFromAST(node.type)
+    innerType = query_util.typeFromAST(node.type, schema)
     return innerType and types.list(innerType)
   elseif node.kind == 'nonNullType' then
-    innerType = query_util.typeFromAST(node.type)
+    innerType = query_util.typeFromAST(node.type, schema)
     return innerType and types.nonNull(innerType)
   else
     assert(node.kind == 'namedType', 'Variable must be a named type')
@@ -111,7 +111,8 @@ function query_util.buildContext(schema, tree, rootValue, variables, operationNa
         rootValue = rootValue,
         variables = variables,
         operation = nil,
-        fragmentMap = {}
+        fragmentMap = {},
+        variableTypes = {},
     }
 
     for _, definition in ipairs(tree.definitions) do
@@ -134,6 +135,12 @@ function query_util.buildContext(schema, tree, rootValue, variables, operationNa
         else
             error('Must provide an operation')
         end
+    end
+
+    -- Save variableTypes for the operation.
+    for _, definition in ipairs(context.operation.variableDefinitions or {}) do
+        context.variableTypes[definition.variable.name.value] =
+            query_util.typeFromAST(definition.type, context.schema)
     end
 
     return context

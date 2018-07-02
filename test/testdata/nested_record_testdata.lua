@@ -122,7 +122,7 @@ function testdata.run_queries(gql_wrapper)
             y: 2005
     ]]):strip())
 
-    test:is_deeply(result_1, exp_result_1, '1')
+    test:is_deeply(result_1.data, exp_result_1, '1')
 
     local query_2 = [[
         query getUserByX($x: Long) {
@@ -155,7 +155,7 @@ function testdata.run_queries(gql_wrapper)
             y: 2005
     ]]):strip())
 
-    test:is_deeply(result_2, exp_result_2, '2')
+    test:is_deeply(result_2.data, exp_result_2, '2')
 
     assert(test:check(), 'check plan')
 end

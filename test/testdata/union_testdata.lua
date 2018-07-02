@@ -190,13 +190,13 @@ function union_testdata.run_queries(gql_wrapper)
             - {'salary': 'string salary', 'deposit': 'string deposit'}
     ]]):strip())
 
-    test:is_deeply(result_1, exp_result_1, '1')
+    test:is_deeply(result_1.data, exp_result_1, '1')
 
     -- validating results with initial avro-schema
     local schemas = union_testdata_schemas
     local ok, schema = avro.create(schemas.user_collection)
     assert(ok)
-    for i, user in ipairs(result_1.user_collection) do
+    for i, user in ipairs(result_1.data.user_collection) do
         local ok, res = avro.validate(schema, user)
         test:ok(ok, ('validate %dth user'):format(i), res)
     end

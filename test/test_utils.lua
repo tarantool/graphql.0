@@ -99,12 +99,6 @@ function test_utils.major_avro_schema_version()
     return model.get_types == nil and 2 or 3
 end
 
--- return an error w/o file name and line number
-function test_utils.strip_error(err)
-    local res = tostring(err):gsub('^.-:.-: (.*)$', '%1')
-    return res
-end
-
 function test_utils.graphql_from_testdata(testdata, shard, graphql_opts)
     local graphql_opts = graphql_opts or {}
     local meta = testdata.meta or testdata.get_test_metadata()

@@ -90,7 +90,7 @@ local function run_queries(gql_wrapper)
             order_id: order_id_1
             description: Ivan order
     ]]):strip())
-    test:is_deeply(result_1_1, exp_result_1_1, '1_1')
+    test:is_deeply(result_1_1.data, exp_result_1_1, '1_1')
 
     local cfg = gql_wrapper.internal.cfg
     cfg.accessor = nil

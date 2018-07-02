@@ -16,7 +16,8 @@ local testdata = require('test.testdata.bench_testdata')
 -- ---------
 
 local function bench_prepare(state)
-    state.gql_wrapper = bench.bench_prepare_helper(testdata, state.shard)
+    local meta = testdata.meta or testdata.get_test_metadata()
+    state.gql_wrapper = bench.bench_prepare_helper(testdata, state.shard, meta)
     local query = [[
         query match_by_passport($number: String) {
             user(user_to_passport_c: {passport_c: {number: $number}}) {
@@ -58,8 +59,8 @@ bench.run('nesting-3-100-100-1', {
         shard = 1000,
     },
     checksums = {
-        space = 922069577,
-        shard = 1286959955,
+        space = 4073260869,
+        shard = 538565788,
     },
 })
 

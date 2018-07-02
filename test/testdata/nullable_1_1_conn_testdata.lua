@@ -324,7 +324,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
           body: a
     ]]):strip())
 
-    test:is_deeply(result, exp_result, 'downside_a')
+    test:is_deeply(result.data, exp_result, 'downside_a')
 
     local result = test_utils.show_trace(function()
         local variables_downside_h = {body = 'h'}
@@ -344,7 +344,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
           body: h
     ]]):strip())
 
-    test:is_deeply(result, exp_result, 'downside_h')
+    test:is_deeply(result.data, exp_result, 'downside_h')
 
     -- }}}
     -- {{{ upside traversal (1:1 connections)
@@ -383,7 +383,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
               body: a
     ]]):strip())
 
-    test:is_deeply(result, exp_result, 'upside')
+    test:is_deeply(result.data, exp_result, 'upside')
 
     -- }}}
     -- {{{ FULL MATCH constraint
@@ -392,70 +392,36 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
     -- to fail
 
     local variables_upside_x = {body = 'x'}
-    local ok, err = pcall(function()
-        return gql_query_upside:execute(variables_upside_x)
-    end)
-
-    local result = {ok = ok, err = test_utils.strip_error(err)}
-    local exp_result = yaml.decode(([[
-        ---
-        ok: false
-        err: 'FULL MATCH constraint was failed: connection key parts must be
-          all non-nulls or all nulls; object: {"domain":"graphql.tarantool.org",
-          "localpart":"062b56b1885c71c51153ccb880ac7315","body":"x",
-          "in_reply_to_domain":"graphql.tarantool.org",
-          "in_reply_to_localpart":null}'
-    ]]):strip())
-    exp_result.err = exp_result.err:gsub(', ', ',')
-    test:is_deeply(result, exp_result, 'upside_x')
+    local result = gql_query_upside:execute(variables_upside_x)
+    local err = result.errors[1].message
+    local exp_err = 'FULL MATCH constraint was failed: connection key parts ' ..
+        'must be all non-nulls or all nulls; object: ' ..
+        '{"domain":"graphql.tarantool.org",' ..
+        '"localpart":"062b56b1885c71c51153ccb880ac7315","body":"x",' ..
+        '"in_reply_to_domain":"graphql.tarantool.org",' ..
+        '"in_reply_to_localpart":null}'
+    test:is(err, exp_err, 'upside_x')
 
     local variables_upside_y = {body = 'y'}
-    local ok, err = pcall(function()
-        return gql_query_upside:execute(variables_upside_y)
-    end)
+    local result = gql_query_upside:execute(variables_upside_y)
+    local err = result.errors[1].message
+    local exp_err = 'FULL MATCH constraint was failed: connection key parts ' ..
+        'must be all non-nulls or all nulls; object: ' ..
+        '{"domain":"graphql.tarantool.org",' ..
+        '"localpart":"1f70391f6ba858129413bd801b12acbf","body":"y",' ..
+        '"in_reply_to_domain":null,' ..
+        '"in_reply_to_localpart":"1f70391f6ba858129413bd801b12acbf"}'
+    test:is(err, exp_err, 'upside_y')
 
-    local result = {ok = ok, err = test_utils.strip_error(err)}
-    local exp_result = yaml.decode(([[
-        ---
-        ok: false
-        err: 'FULL MATCH constraint was failed: connection key parts must be
-          all non-nulls or all nulls; object: {"domain":"graphql.tarantool.org",
-          "localpart":"1f70391f6ba858129413bd801b12acbf","body":"y",
-          "in_reply_to_domain":null,
-          "in_reply_to_localpart":"1f70391f6ba858129413bd801b12acbf"}'
-    ]]):strip())
-    exp_result.err = exp_result.err:gsub(', ', ',')
-    test:is_deeply(result, exp_result, 'upside_y')
-
-    -- Check we get an error when trying to use dangling 1:1 connection. Check
-    -- we don't get this error when `disable_dangling_check` is set.
-    if gql_wrapper.disable_dangling_check then
-        local variables_upside_z = {body = 'z'}
-        local result = test_utils.show_trace(function()
-            return gql_query_upside:execute(variables_upside_z)
-        end)
-
-        local exp_result = yaml.decode(([[
-            ---
-            email:
-            - body: z
-        ]]):strip())
-
-        test:is_deeply(result, exp_result, 'upside_z disabled constraint check')
-    else
-        local variables_upside_z = {body = 'z'}
-        local ok, err = pcall(function()
-            return gql_query_upside:execute(variables_upside_z)
-        end)
-
-        local result = {ok = ok, err = test_utils.strip_error(err)}
-        local exp_result = yaml.decode(([[
-            ---
-            ok: false
-            err: "FULL MATCH constraint was failed: we expect 1 tuples, got 0"
-        ]]):strip())
-        test:is_deeply(result, exp_result, 'upside_z constraint violation')
-    end
+    -- Check we get an error when trying to use dangling 1:1 connection.
+    -- See nullable_1_1_conn_nocheck.test.lua for the case when
+    -- `disable_dangling_check` is set.
+    local variables_upside_z = {body = 'z'}
+    local result = gql_query_upside:execute(variables_upside_z)
+    local err = result.errors[1].message
+    local exp_err = 'FULL MATCH constraint was failed: we expect 1 ' ..
+        'tuples, got 0'
+    test:is(err, exp_err, 'upside_z constraint violation')
 
     -- We can got zero objects by 1:1 connection when use filters, it is not
     -- violation of FULL MATCH constraint, because we found corresponding
@@ -471,7 +437,7 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
         - body: f
     ]]):strip())
 
-    test:is_deeply(result, exp_result, 'upside_f filter child')
+    test:is_deeply(result.data, exp_result, 'upside_f filter child')
 
     assert(test:check(), 'check plan')
 end
