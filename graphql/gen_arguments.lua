@@ -21,7 +21,7 @@ local gen_arguments = {}
 --- key (and, then, offset) type
 ---
 --- @treturn table `offset_type` is a record in case of compound (multi-part)
---- primary key
+--- primary key (is not nil)
 local function get_primary_key_type(db_schema, collection_name)
     -- get name of field of primary key
     local _, index_meta = db_schema_helpers.get_primary_index_meta(
@@ -47,10 +47,12 @@ local function get_primary_key_type(db_schema, collection_name)
         assert(type(field_type) == 'string',
             'field type must be a string, got ' ..
             type(field_type))
-        offset_fields[#offset_fields + 1] = {
-            name = field_name,
-            type = field_type,
-        }
+        if field_type ~= nil then
+            offset_fields[#offset_fields + 1] = {
+                name = field_name,
+                type = field_type,
+            }
+        end
     end
 
     local offset_type
@@ -79,7 +81,8 @@ end
 ---
 --- @tparam[opt] function skip_cond
 ---
---- @return transformed avro-schema or nil (when mathed by skip_cond)
+--- @return transformed avro-schema or nil (when the type or all its fields are
+--- matched by skip_cond)
 local function recursive_nullable(e_schema, skip_cond)
     local avro_t = avro_helpers.avro_type(e_schema)
 
@@ -103,6 +106,7 @@ local function recursive_nullable(e_schema, skip_cond)
             end
         end
 
+        if #res.fields == 0 then return nil end
         return res
     elseif avro_t == 'union' or
             avro_t == 'array' or avro_t == 'array*' or
@@ -121,7 +125,7 @@ end
 ---
 --- @param e_schema (table or string) avro-schema with expanded references
 ---
---- @return transformed avro-schema
+--- @return transformed avro-schema or nil (empty fields case)
 local function recursive_replace_default_with_nullable(e_schema)
     local avro_t = avro_helpers.avro_type(e_schema)
 
@@ -142,6 +146,7 @@ local function recursive_replace_default_with_nullable(e_schema)
             table.insert(res.fields, field)
         end
 
+        if #res.fields == 0 then return nil end
         return res
     elseif avro_t == 'union' then
         local res = {}
@@ -152,14 +157,17 @@ local function recursive_replace_default_with_nullable(e_schema)
             table.insert(res, new_child_type)
         end
 
+        if #res == 0 then return nil end
         return res
     elseif avro_t == 'array' or avro_t == 'array*' then
         local res = table.copy(e_schema)
         res.items = recursive_replace_default_with_nullable(e_schema.items)
+        if res.items == nil then return nil end
         return res
     elseif avro_t == 'map' or avro_t == 'map*' then
         local res = table.copy(e_schema)
         res.values = recursive_replace_default_with_nullable(e_schema.values)
+        if res.values == nil then return nil end
         return res
     end
 
@@ -223,6 +231,7 @@ local function get_pcre_argument_type(db_schema, collection_name)
         return is_non_string_scalar or is_non_record_compound
 
     end)
+    if res == nil then return nil end
     res.name = collection_name .. '_pcre'
     return res
 end
@@ -268,9 +277,13 @@ local function get_update_argument_type(db_schema, collection_name)
         if not is_field_part_of_primary_key then
             local field = table.copy(field)
             field.type = recursive_nullable(field.type)
-            table.insert(schema_update.fields, field)
+            if field.type ~= nil then
+                table.insert(schema_update.fields, field)
+            end
         end
     end
+
+    if schema_update.fields == nil then return nil end
 
     return schema_update
 end
@@ -303,6 +316,9 @@ function gen_arguments.object_args(db_schema, collection_name)
             and (avro_t ~= 'record' and avro_t ~= 'record*')
         return is_non_comparable_scalar or is_non_record_compound
     end)
+
+    if res == nil then return {} end
+
     return res.fields
 end
 
@@ -324,7 +340,9 @@ function gen_arguments.list_args(db_schema, collection_name)
     local pcre_field
     if rex ~= nil then
         local pcre_type = get_pcre_argument_type(db_schema, collection_name)
-        pcre_field = {name = 'pcre', type = pcre_type}
+        if pcre_type ~= nil then
+            pcre_field = {name = 'pcre', type = pcre_type}
+        end
     end
 
     return {
@@ -374,30 +392,42 @@ function gen_arguments.extra_args(db_schema, collection_name, opts)
     local e_schema = db_schema.e_schemas[schema_name]
 
     local schema_insert = recursive_replace_default_with_nullable(e_schema)
-    schema_insert.name = collection_name .. '_insert'
-    schema_insert.type = 'record*' -- make the record nullable
+    if schema_insert ~= nil then
+        schema_insert.name = collection_name .. '_insert'
+        schema_insert.type = 'record*' -- make the record nullable
+    end
 
     local schema_update = get_update_argument_type(db_schema, collection_name)
     local schema_delete = 'boolean*'
 
-    return {
-        {name = 'insert', type = schema_insert},
-        {name = 'update', type = schema_update},
-        {name = 'delete', type = schema_delete},
-    }, {
-        insert = {
+    local args = {}
+    local args_meta = {}
+
+    if schema_insert ~= nil then
+        table.insert(args, {name = 'insert', type = schema_insert})
+        args_meta.insert = {
             add_to_mutations_only = true,
             add_to_top_fields_only = true,
-        },
-        update = {
+        }
+    end
+
+    if schema_update ~= nil then
+        table.insert(args, {name = 'update', type = schema_update})
+        args_meta.update = {
             add_to_mutations_only = true,
             add_to_top_fields_only = false,
-        },
-        delete = {
+        }
+    end
+
+    if schema_delete ~= nil then
+        table.insert(args, {name = 'delete', type = schema_delete})
+        args_meta.delete = {
             add_to_mutations_only = true,
             add_to_top_fields_only = false,
-        },
-    }
+        }
+    end
+
+    return args, args_meta
 end
 
 return gen_arguments
