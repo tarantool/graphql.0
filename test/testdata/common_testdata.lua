@@ -12,22 +12,6 @@ local common_testdata = {}
 -- forward declaration
 local type_mismatch_cases
 
--- needed to compare a dump with floats/doubles, because, say,
--- `tonumber(tostring(1/3)) == 1/3` is `false`
-local function deeply_number_tostring(t)
-    if type(t) == 'table' then
-        local res = {}
-        for k, v in pairs(t) do
-            res[k] = deeply_number_tostring(v)
-        end
-        return res
-    elseif type(t) == 'number' then
-        return tostring(t)
-    else
-        return table.deepcopy(t)
-    end
-end
-
 function common_testdata.get_test_metadata()
     local schemas = json.decode([[{
         "user": {
@@ -1004,8 +988,8 @@ function common_testdata.run_queries(gql_wrapper)
     test_utils.show_trace(function()
         local variables_6_1 = {limit = 10}
         local result = gql_query_6:execute(variables_6_1)
-        local exp_result_6_1 = deeply_number_tostring(exp_result_6_1)
-        local result = deeply_number_tostring(result)
+        local exp_result_6_1 = test_utils.deeply_number_tostring(exp_result_6_1)
+        local result = test_utils.deeply_number_tostring(result)
         test:is_deeply(result.data, exp_result_6_1, '6_1')
     end)
 
@@ -1065,16 +1049,16 @@ function common_testdata.run_queries(gql_wrapper)
     ]]):strip())
 
     test_utils.show_trace(function()
-        local exp_result_6_2 = deeply_number_tostring(exp_result_6_2)
+        local exp_result_6_2 = test_utils.deeply_number_tostring(exp_result_6_2)
 
         local variables_6_2 = {limit = 10, in_stock = true}
         local result = gql_query_6:execute(variables_6_2)
-        local result = deeply_number_tostring(result)
+        local result = test_utils.deeply_number_tostring(result)
         test:is_deeply(result.data, exp_result_6_2, '6_2')
 
         local variables_6_2 = {limit = 10}
         local result = gql_query_6_i_true:execute(variables_6_2)
-        local result = deeply_number_tostring(result)
+        local result = test_utils.deeply_number_tostring(result)
         test:is_deeply(result.data, exp_result_6_2, '6_2')
     end)
 
@@ -1134,16 +1118,16 @@ function common_testdata.run_queries(gql_wrapper)
     ]]):strip())
 
     test_utils.show_trace(function()
-        local exp_result_6_3 = deeply_number_tostring(exp_result_6_3)
+        local exp_result_6_3 = test_utils.deeply_number_tostring(exp_result_6_3)
 
         local variables_6_3 = {limit = 10, in_stock = false}
         local result = gql_query_6:execute(variables_6_3)
-        local result = deeply_number_tostring(result)
+        local result = test_utils.deeply_number_tostring(result)
         test:is_deeply(result.data, exp_result_6_3, '6_3')
 
         local variables_6_3 = {limit = 10}
         local result = gql_query_6_i_false:execute(variables_6_3)
-        local result = deeply_number_tostring(result)
+        local result = test_utils.deeply_number_tostring(result)
         test:is_deeply(result.data, exp_result_6_3, '6_3')
     end)
 

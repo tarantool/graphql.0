@@ -163,4 +163,20 @@ function test_utils.show_trace(func, ...)
     ))
 end
 
+-- needed to compare a dump with floats/doubles, because, say,
+-- `tonumber(tostring(1/3)) == 1/3` is `false`
+function test_utils.deeply_number_tostring(t)
+    if type(t) == 'table' then
+        local res = {}
+        for k, v in pairs(t) do
+            res[k] = test_utils.deeply_number_tostring(v)
+        end
+        return res
+    elseif type(t) == 'number' then
+        return tostring(t)
+    else
+        return table.deepcopy(t)
+    end
+end
+
 return test_utils
