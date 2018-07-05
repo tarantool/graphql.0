@@ -8,6 +8,8 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local log = require('log')
 local avro_schema = require('avro_schema')
+local digest = require('digest')
+local shard = require('shard')
 local graphql = require('graphql')
 local multirunner = require('test.common.multirunner')
 local utils = require('graphql.utils')
@@ -177,6 +179,12 @@ function test_utils.deeply_number_tostring(t)
     else
         return table.deepcopy(t)
     end
+end
+
+function test_utils.get_shard_key_hash(key)
+    local shards_n = #shard.shards
+    local num = type(key) == 'number' and key or digest.crc32(key)
+    return 1 + digest.guava(num, shards_n)
 end
 
 return test_utils
