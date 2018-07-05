@@ -3,6 +3,7 @@
 
 local accessor_space = require('graphql.accessor_space')
 local accessor_shard = require('graphql.accessor_shard')
+local accessor_general = require('graphql.accessor_general')
 local parse = require('graphql.core.parse')
 local validate = require('graphql.core.validate')
 local execute = require('graphql.core.execute')
@@ -39,8 +40,11 @@ local function gql_execute(qstate, variables, operation_name)
     check(variables, 'variables', 'table')
     check(operation_name, 'operation_name', 'string', 'nil')
 
+    assert(qstate.query_settings)
     local root_value = {}
-    local qcontext = {}
+    local qcontext = {
+        query_settings = qstate.query_settings,
+    }
 
     local traceback
     local ok, data = xpcall(function()
@@ -67,15 +71,17 @@ end
 --- See @{gql_compile} and @{gql_execute} for parameters description.
 ---
 --- @treturn table result of the operation
-local function compile_and_execute(state, query, variables, operation_name)
+local function compile_and_execute(state, query, variables, operation_name,
+        opts)
     assert(type(state) == 'table', 'use :gql_execute(...) instead of ' ..
         '.execute(...)')
     assert(state.schema ~= nil, 'have not compiled schema')
     check(query, 'query', 'string')
     check(variables, 'variables', 'table', 'nil')
     check(operation_name, 'operation_name', 'string', 'nil')
+    check(opts, 'opts', 'table', 'nil')
 
-    local compiled_query = state:compile(query)
+    local compiled_query = state:compile(query, opts)
     return compiled_query:execute(variables, operation_name)
 end
 
@@ -87,12 +93,22 @@ end
 ---
 --- @tparam string query text of a GraphQL query
 ---
+--- @tparam[opt] table opts the following options (described in
+--- @{accessor_general.new}):
+---
+--- * resulting_object_cnt_max
+--- * fetched_object_cnt_max
+--- * timeout_ms
+---
 --- @treturn table compiled query with `execute` and `avro_schema` functions
-local function gql_compile(state, query)
+local function gql_compile(state, query, opts)
     assert(type(state) == 'table' and type(query) == 'string',
         'use :validate(...) instead of .validate(...)')
     assert(state.schema ~= nil, 'have not compiled schema')
     check(query, 'query', 'string')
+    check(opts, 'opts', 'table', 'nil')
+
+    local opts = opts or {}
 
     local ast = parse(query)
     validate(state.schema, ast)
@@ -100,7 +116,15 @@ local function gql_compile(state, query)
     local qstate = {
         state = state,
         ast = ast,
+        query_settings = {
+            resulting_object_cnt_max = opts.resulting_object_cnt_max,
+            fetched_object_cnt_max = opts.fetched_object_cnt_max,
+            timeout_ms = opts.timeout_ms,
+        }
     }
+
+    accessor_general.validate_query_settings(qstate.query_settings,
+        {allow_nil = true})
 
     local gql_query = setmetatable(qstate, {
         __index = {
