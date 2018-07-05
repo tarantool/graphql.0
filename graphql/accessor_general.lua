@@ -867,7 +867,7 @@ local function process_tuple(self, state, tuple, opts)
     if clock.monotonic64() > qcontext.deadline_clock then
         error(e.timeout_exceeded((
             'query execution timeout exceeded timeout_ms limit (%s ms)'):format(
-            tostring(self.settings.timeout_ms))))
+            tostring(state.qcontext.query_settings.timeout_ms))))
     end
     local collection_name = opts.collection_name
     local pcre = opts.pcre
@@ -1038,21 +1038,23 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         collection_name))
 
     -- read-write variables for process_tuple
+    local qcontext = extra.qcontext
     local select_state = {
         count = 0,
         objs = {},
         pivot_found = false,
-        qcontext = extra.qcontext
+        qcontext = qcontext
     }
 
     -- read only process_tuple options
+    local query_settings = qcontext.query_settings
     local select_opts = {
         limit = args.limit,
         filter = filter,
         do_filter = not full_match,
         pivot_filter = nil, -- filled later if needed
-        resulting_object_cnt_max = self.settings.resulting_object_cnt_max,
-        fetched_object_cnt_max = self.settings.fetched_object_cnt_max,
+        resulting_object_cnt_max = query_settings.resulting_object_cnt_max,
+        fetched_object_cnt_max = query_settings.fetched_object_cnt_max,
         collection_name = collection_name,
         unflatten_tuple = self.funcs.unflatten_tuple,
         use_tomap = self.collection_use_tomap[collection_name] or false,
@@ -1079,10 +1081,10 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             collection_name)
 
         -- count full scan select request
-        extra.qcontext.statistics.select_requests_cnt =
-            extra.qcontext.statistics.select_requests_cnt + 1
-        extra.qcontext.statistics.full_scan_select_requests_cnt =
-            extra.qcontext.statistics.full_scan_select_requests_cnt + 1
+        qcontext.statistics.select_requests_cnt =
+            qcontext.statistics.select_requests_cnt + 1
+        qcontext.statistics.full_scan_select_requests_cnt =
+            qcontext.statistics.full_scan_select_requests_cnt + 1
 
         for _, tuple in primary_index:pairs() do
             assert(pivot == nil,
@@ -1127,10 +1129,10 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         local tuple_count = 0
 
         -- count index select request
-        extra.qcontext.statistics.select_requests_cnt =
-            extra.qcontext.statistics.select_requests_cnt + 1
-        extra.qcontext.statistics.index_select_requests_cnt =
-            extra.qcontext.statistics.index_select_requests_cnt + 1
+        qcontext.statistics.select_requests_cnt =
+            qcontext.statistics.select_requests_cnt + 1
+        qcontext.statistics.index_select_requests_cnt =
+            qcontext.statistics.index_select_requests_cnt + 1
 
         for _, tuple in index:pairs(index_value, iterator_opts) do
             tuple_count = tuple_count + 1
@@ -1307,6 +1309,34 @@ local function validate_funcs(funcs)
         type(funcs.delete_tuple))
 end
 
+local function validate_query_settings(query_settings, opts)
+    local opts = opts or {}
+    local allow_nil = opts.allow_nil or false
+
+    local resulting_object_cnt_max = query_settings.resulting_object_cnt_max
+    local fetched_object_cnt_max = query_settings.fetched_object_cnt_max
+    local timeout_ms = query_settings.timeout_ms
+
+    if not allow_nil or type(resulting_object_cnt_max) ~= 'nil' then
+        assert(type(resulting_object_cnt_max) == 'number' and
+            resulting_object_cnt_max > 0,
+            'resulting_object_cnt_max must be natural number')
+    end
+    if not allow_nil or type(fetched_object_cnt_max) ~= 'nil' then
+        assert(type(fetched_object_cnt_max) == 'number' and
+            fetched_object_cnt_max > 0,
+            'fetched_object_cnt_max must be natural number')
+    end
+    if not allow_nil or type(timeout_ms) ~= 'nil' then
+        assert(type(timeout_ms) == 'number' or (type(timeout_ms) == 'cdata' and
+            tostring(ffi.typeof(timeout_ms)) == 'ctype<uint64_t>'),
+            'timeout_ms must a number, got ' .. type(timeout_ms))
+        assert(timeout_ms <= TIMEOUT_INFINITY,
+            ('timeouts more then graphql.TIMEOUT_INFINITY (%s) ' ..
+            'do not supported'):format(tostring(TIMEOUT_INFINITY)))
+    end
+end
+
 --- This function is called on first select related to a query. Its purpose is
 --- to initialize qcontext table.
 --- @tparam table accessor
@@ -1314,7 +1344,16 @@ end
 --- all neccessary initialization of this parameter should be performed by this
 --  function
 local function init_qcontext(accessor, qcontext)
-    local settings = accessor.settings
+    for k, v in pairs(accessor.query_settings_default) do
+        if qcontext.query_settings[k] == nil then
+            qcontext.query_settings[k] = v
+        end
+    end
+    validate_query_settings(qcontext.query_settings)
+
+    qcontext.deadline_clock = clock.monotonic64() +
+        qcontext.query_settings.timeout_ms * 1000 * 1000
+
     qcontext.statistics = {
         resulting_object_cnt = 0,
         fetched_object_cnt = 0,
@@ -1322,8 +1361,6 @@ local function init_qcontext(accessor, qcontext)
         full_scan_select_requests_cnt = 0,
         index_select_requests_cnt = 0,
     }
-    qcontext.deadline_clock = clock.monotonic64() +
-        settings.timeout_ms * 1000 * 1000
 end
 
 --- Create default unflatten/flatten/xflatten functions, that can be called
@@ -1474,12 +1511,24 @@ function accessor_general.new(opts, funcs)
     local collections = opts.collections
     local service_fields = opts.service_fields
     local indexes = opts.indexes
+
+    check(schemas, 'schemas', 'table')
+    check(collections, 'collections', 'table')
+    check(service_fields, 'service_fields', 'table')
+    check(indexes, 'indexes', 'table')
+
     local resulting_object_cnt_max = opts.resulting_object_cnt_max or
-                                     DEF_RESULTING_OBJECT_CNT_MAX
+        DEF_RESULTING_OBJECT_CNT_MAX
     local fetched_object_cnt_max = opts.fetched_object_cnt_max or
-                                   DEF_FETCHED_OBJECT_CNT_MAX
-    -- TODO: move this setting to `tgql.compile` after #59
+        DEF_FETCHED_OBJECT_CNT_MAX
     local timeout_ms = opts.timeout_ms or DEF_TIMEOUT_MS
+    local query_settings_default = {
+        resulting_object_cnt_max = resulting_object_cnt_max,
+        fetched_object_cnt_max = fetched_object_cnt_max,
+        timeout_ms = timeout_ms,
+    }
+    validate_query_settings(query_settings_default)
+
     -- Mutations are disabled for avro-schema-2*, because it can work
     -- incorrectly for schemas with nullable types.
     local enable_mutations
@@ -1488,27 +1537,6 @@ function accessor_general.new(opts, funcs)
     else
         enable_mutations = opts.enable_mutations
     end
-
-    assert(type(schemas) == 'table',
-        'schemas must be a table, got ' .. type(schemas))
-    assert(type(collections) == 'table',
-        'collections must be a table, got ' .. type(collections))
-    assert(type(service_fields) == 'table',
-        'service_fields must be a table, got ' .. type(service_fields))
-    assert(type(indexes) == 'table',
-        'indexes must be a table, got ' .. type(indexes))
-    assert(type(resulting_object_cnt_max) == 'number' and
-                resulting_object_cnt_max > 0,
-        'resulting_object_cnt_max must be natural number')
-    assert(type(fetched_object_cnt_max) == 'number' and
-                fetched_object_cnt_max > 0,
-        'fetched_object_cnt_max must be natural number')
-    assert(type(timeout_ms) == 'number' or (type(timeout_ms) == 'cdata' and
-        tostring(ffi.typeof(timeout_ms)) == 'ctype<uint64_t>'),
-        'timeout_ms must a number, got ' .. type(timeout_ms))
-    assert(timeout_ms <= TIMEOUT_INFINITY,
-        ('timeouts more then graphql.TIMEOUT_INFINITY (%s) ' ..
-        'do not supported'):format(tostring(TIMEOUT_INFINITY)))
     check(enable_mutations, 'enable_mutations', 'boolean')
 
     local models, service_fields_defaults = compile_schemas(schemas,
@@ -1537,11 +1565,9 @@ function accessor_general.new(opts, funcs)
         index_cache = index_cache,
         funcs = funcs,
         settings = {
-            resulting_object_cnt_max = resulting_object_cnt_max,
-            fetched_object_cnt_max = fetched_object_cnt_max,
-            timeout_ms = timeout_ms,
             enable_mutations = enable_mutations,
-        }
+        },
+        query_settings_default = query_settings_default,
     }, {
         __index = {
             select = function(self, parent, collection_name, from,
@@ -1575,5 +1601,8 @@ function accessor_general.new(opts, funcs)
         }
     })
 end
+
+-- export the function
+accessor_general.validate_query_settings = validate_query_settings
 
 return accessor_general

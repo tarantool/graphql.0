@@ -10,8 +10,17 @@ local tap = require('tap')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.user_order_item_testdata')
 local graphql = require('graphql')
+local graphql_utils = require('graphql.utils')
+local test_run = graphql_utils.optional_require('test_run')
+test_run = test_run and test_run.new()
 
 local e = graphql.error_codes
+
+local apply_settings_to = test_run and test_run:get_cfg('apply_settings_to') or
+    'graphql'
+local settings = {
+    timeout_ms = 0.001,
+}
 
 local function run_queries(gql_wrapper)
     local test = tap.test('result cnt')
@@ -32,7 +41,8 @@ local function run_queries(gql_wrapper)
         }
     ]]
 
-    local gql_query = gql_wrapper:compile(query)
+    local query_opts = apply_settings_to == 'query' and settings or nil
+    local gql_query = gql_wrapper:compile(query, query_opts)
     local variables = {}
     local result = gql_query:execute(variables)
     assert(result.data == nil, "this test should fail")
@@ -47,11 +57,10 @@ end
 
 box.cfg({})
 
+local graphql_opts = apply_settings_to == 'graphql' and settings or nil
 test_utils.run_testdata(testdata, {
     run_queries = run_queries,
-    graphql_opts = {
-        timeout_ms = 0.001,
-    }
+    graphql_opts = graphql_opts,
 })
 
 os.exit()
