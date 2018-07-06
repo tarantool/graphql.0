@@ -7,48 +7,68 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../../?.lua' .. ';' ..
     package.path
 
+local fiber = require('fiber')
 local net_box = require('net.box')
-local utils = require('graphql.utils')
+local log = require('log')
+local shard = require('shard')
 
-local function instance_uri(instance_id)
+local function instance_uri(instance_type, instance_id)
     local socket_dir = require('fio').cwd()
-    local uri = ('%s/shard%s.sock'):format(socket_dir, instance_id)
+    local uri = ('%s/%s_%s.sock'):format(socket_dir, instance_type, instance_id)
     return uri
 end
 
 -- list on server names (server name + '.lua' is a server script) to pass to
 -- test_run:create_cluster()
-local SERVERS_DEFAULT = {'shard1', 'shard2', 'shard3', 'shard4'}
+local SERVERS_DEFAULT = {
+    shard_2x2 = {'shard_2x2_1', 'shard_2x2_2', 'shard_2x2_3', 'shard_2x2_4'},
+    shard_4x1 = {'shard_4x1_1', 'shard_4x1_2', 'shard_4x1_3', 'shard_4x1_4'},
+}
+
+local CLUSTER_SERVERS_DEFAULT = {
+    shard_2x2 = {
+        { uri = instance_uri('shard_2x2', '1'), zone = '0' },
+        { uri = instance_uri('shard_2x2', '2'), zone = '1' },
+        { uri = instance_uri('shard_2x2', '3'), zone = '2' },
+        { uri = instance_uri('shard_2x2', '4'), zone = '3' },
+    },
+    shard_4x1 = {
+        { uri = instance_uri('shard_4x1', '1'), zone = '0' },
+        { uri = instance_uri('shard_4x1', '2'), zone = '1' },
+        { uri = instance_uri('shard_4x1', '3'), zone = '2' },
+        { uri = instance_uri('shard_4x1', '4'), zone = '3' },
+    },
+}
 
 -- configuration to pass to shard.init(); `servers` variable contains a listen
 -- URI of each storage and zone names
 local SHARD_CONF_DEFAULT = {
-    servers = {
-        { uri = instance_uri('1'), zone = '0' },
-        { uri = instance_uri('2'), zone = '1' },
-        { uri = instance_uri('3'), zone = '2' },
-        { uri = instance_uri('4'), zone = '3' },
+    shard_2x2 = {
+        servers = CLUSTER_SERVERS_DEFAULT['shard_2x2'],
+        login = 'guest',
+        password = '',
+        redundancy = 2,
+        monitor = false,
     },
-    login = 'guest',
-    password = '',
-    redundancy = 1,
-    monitor = false,
+    shard_4x1 = {
+        servers = CLUSTER_SERVERS_DEFAULT['shard_4x1'],
+        login = 'guest',
+        password = '',
+        redundancy = 1,
+        monitor = false,
+    },
 }
 
 local CONFS = {
     shard_2x2 = {
         type = 'shard',
-        servers = SERVERS_DEFAULT,
-        shard_conf = utils.merge_tables(SHARD_CONF_DEFAULT, {
-            redundancy = 2,
-        }),
+        servers = SERVERS_DEFAULT['shard_2x2'],
+        shard_conf = SHARD_CONF_DEFAULT['shard_2x2'],
     },
     shard_4x1 = {
         type = 'shard',
-        servers = SERVERS_DEFAULT,
-        shard_conf = utils.merge_tables(SHARD_CONF_DEFAULT, {
-            redundancy = 1,
-        }),
+        servers = SERVERS_DEFAULT['shard_4x1'],
+        shard_conf = SHARD_CONF_DEFAULT['shard_4x1'],
     },
     space = {
         type = 'space',
@@ -74,6 +94,25 @@ local function init_shard(test_run, servers, config, use_tcp)
         end
     end
 
+    -- wait for execute grant
+    for _, node in ipairs(config.servers) do
+        local iter = 0
+        while true do
+            local c = net_box.connect(node.uri)
+            local ok, res = pcall(c.eval, c, 'return 1 + 1')
+            if ok then
+                assert(res == 2)
+                break
+            end
+            fiber.sleep(0.001)
+            iter = iter + 1
+            if iter % 1000 == 0 then
+                log.info(('waiting for execute grant for %s; iter: %d'):format(
+                    node.uri, iter))
+            end
+        end
+    end
+
     local shard = require('shard')
     shard.init(config)
     shard.wait_connection()
@@ -85,12 +124,41 @@ local function shard_cleanup(test_run, servers)
     test_run:drop_cluster(servers)
 end
 
-local function for_each_server(shard, func)
+local function major_shard_version()
+    return type(shard.wait_for_shards_to_go_online) == 'function' and 2 or 1
+end
+
+local function for_each_replicaset(shard, func)
+    local only_master = major_shard_version() == 2 or
+        shard.pool.configuration.replication
+
     for _, zone in ipairs(shard.shards) do
-        for _, node in ipairs(zone) do
+        for i = #zone, 1, -1 do
+            local node = zone[i]
             func(node.uri)
+            if only_master then
+                break
+            end
         end
     end
+end
+
+local function log_file(str)
+    local ffi = require('ffi')
+    ffi.cdef([[
+        int getpid(void);
+    ]])
+    local pid = ffi.C.getpid()
+    local SCRIPT_DIR = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
+        :gsub('/./', '/'):gsub('/+$', ''))
+    local file_name = 'log.log'
+    local file_path = fio.abspath(fio.pathjoin(SCRIPT_DIR, '../..', file_name))
+    local open_flags = {'O_WRONLY', 'O_CREAT', 'O_APPEND'}
+    local fh, err = fio.open(file_path, open_flags, tonumber('644', 8))
+    assert(fh ~= nil, ('open("%s", ...) error: %s'):format(file_path,
+        tostring(err)))
+    fh:write(('[%d] %s\n'):format(pid, str))
+    fh:close()
 end
 
 local function run_conf(conf_name, opts)
@@ -141,16 +209,30 @@ local function run_conf(conf_name, opts)
 
         local shard = init_shard(test_run, servers, shard_conf, use_tcp)
 
-        for_each_server(shard, function(uri)
+        for_each_replicaset(shard, function(uri)
             local c = net_box.connect(uri)
             c:eval(init_script, init_function_params)
+            -- XXX: make sync on the node where changes are made when we'll
+            --      use stored procedures instead of box.space bindings
+            if conf_name == 'shard_2x2' then
+                log_file('init_script: call wait_for_replicas')
+                c:call('wait_for_replicas')
+                log_file('init_script: done wait_for_replicas')
+            end
         end)
 
         result = workload(conf_name, shard)
 
-        for_each_server(shard, function(uri)
+        for_each_replicaset(shard, function(uri)
             local c = net_box.connect(uri)
             c:eval(cleanup_script, cleanup_function_params)
+            -- XXX: make sync on the node where changes are made when we'll
+            --      use stored procedures instead of box.space bindings
+            if conf_name == 'shard_2x2' then
+                log_file('cleanup_script: call wait_for_replicas')
+                c:call('wait_for_replicas')
+                log_file('cleanup_script: done wait_for_replicas')
+            end
         end)
 
         shard_cleanup(test_run, servers)

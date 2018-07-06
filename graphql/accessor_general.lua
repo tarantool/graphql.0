@@ -1438,7 +1438,8 @@ end
 ---   both)_,
 --- * `timeout_ms` _(default is 1000)_,
 --- * `enable_mutations`: boolean flag _(default is `false` for avro-schema-2*
----    and `true` for avro-schema-3*)_.
+---    and `true` for avro-schema-3*)_,
+--- * `shard_use_q_select`: boolean flag _(default is `false`)_.
 ---
 --- For examples of `opts.schemas` and `opts.collections` consider the
 --- @{impl.new} function description.
@@ -1537,7 +1538,10 @@ function accessor_general.new(opts, funcs)
     else
         enable_mutations = opts.enable_mutations
     end
+    local shard_use_q_select = opts.shard_use_q_select or false
+
     check(enable_mutations, 'enable_mutations', 'boolean')
+    check(shard_use_q_select, 'shard_use_q_select', 'boolean')
 
     local models, service_fields_defaults = compile_schemas(schemas,
         service_fields)
@@ -1566,6 +1570,7 @@ function accessor_general.new(opts, funcs)
         funcs = funcs,
         settings = {
             enable_mutations = enable_mutations,
+            shard_use_q_select = shard_use_q_select,
         },
         query_settings_default = query_settings_default,
     }, {

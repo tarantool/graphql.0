@@ -8,6 +8,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local tap = require('tap')
 local yaml = require('yaml')
+local net_box = require('net.box')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
@@ -25,6 +26,22 @@ local function get_tuple(virtbox, collection_name, key)
     return tuples[1]
 end
 
+local function wait_for_replicas_all(virtbox)
+    if type(virtbox.init) ~= 'function' then -- box.space
+        return
+    end
+
+    local shard = virtbox
+
+    if shard.pool.configuration.redundancy > 1 then
+        for _, zone in ipairs(shard.shards) do
+            local node = zone[#zone]
+            local c = net_box.connect(node.uri)
+            c:call('wait_for_replicas')
+        end
+    end
+end
+
 local function delete_tuple(virtbox, collection_name, key)
     if virtbox[collection_name].get ~= nil then
         return virtbox[collection_name]:delete(key)
@@ -37,6 +54,8 @@ local function delete_tuple(virtbox, collection_name, key)
             end)
         end
     end
+
+    wait_for_replicas_all(virtbox)
 end
 
 local function replace_tuple(virtbox, collection_name, key, tuple)
@@ -50,6 +69,8 @@ local function replace_tuple(virtbox, collection_name, key, tuple)
         delete_tuple(virtbox, collection_name, key)
         virtbox[collection_name]:insert(tuple)
     end
+
+    wait_for_replicas_all(virtbox)
 end
 
 -- replace back tuples & check

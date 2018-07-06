@@ -185,6 +185,7 @@ local function create_default_accessor(cfg)
         fetched_object_cnt_max = cfg.fetched_object_cnt_max,
         timeout_ms = cfg.timeout_ms,
         enable_mutations = cfg.enable_mutations,
+        shard_use_q_select = cfg.shard_use_q_select,
     }
 
     if cfg.accessor == 'space' then
@@ -272,6 +273,7 @@ end
 ---     fetched_object_cnt_max = <number>,
 ---     timeout_ms = <number>,
 ---     enable_mutations = <boolean>,
+---     shard_use_q_select = <boolean>,
 ---     disable_dangling_check = <boolean>,
 --- })
 function impl.new(cfg)

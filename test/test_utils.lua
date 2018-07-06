@@ -105,12 +105,16 @@ function test_utils.graphql_from_testdata(testdata, shard, graphql_opts)
     local graphql_opts = graphql_opts or {}
     local meta = testdata.meta or testdata.get_test_metadata()
 
+    local shard_use_q_select = test_run and
+        test_run:get_cfg('shard_use_q_select') or false
+
     local default_graphql_opts = {
         schemas = meta.schemas,
         collections = meta.collections,
         service_fields = meta.service_fields,
         indexes = meta.indexes,
         accessor = shard and 'shard' or 'space',
+        shard_use_q_select = shard_use_q_select,
     }
 
     local gql_wrapper = graphql.new(utils.merge_tables(
@@ -120,6 +124,35 @@ function test_utils.graphql_from_testdata(testdata, shard, graphql_opts)
 end
 
 function test_utils.run_testdata(testdata, opts)
+    --[[
+    local bit = require('bit')
+    local RND_SEED_LEN = 4 -- in bytes
+
+    local function string_to_unsigned(str)
+        local byte_list = {string.byte(str, 1, #str)}
+        local res = 0
+        for i = 1, #byte_list do
+            res = bit.lshift(res, 8)
+            res = bit.bor(res, byte_list[i])
+        end
+        -- fix bitop's numbers range: signed 32-bit to unsigned 32-bit
+        -- http://bitop.luajit.org/semantics.html
+        res = (res < 0) and -res + 0x7fffffff or res
+        return res
+    end
+
+    -- initialize random number generator
+    local function init_rng()
+        local fh = fio.open('/dev/urandom', {'O_RDONLY'})
+        local seed_raw = fh:read(RND_SEED_LEN)
+        fh:close()
+        local seed = string_to_unsigned(seed_raw)
+        math.randomseed(seed)
+    end
+    init_rng()
+    require('console').listen('localhost:' .. tostring(math.random(2000, 20000)))
+    ]]--
+
     local opts = opts or {}
     local run_queries = opts.run_queries or testdata.run_queries
     -- custom workload for, say, test different options on several graphql
@@ -147,7 +180,12 @@ function test_utils.run_testdata(testdata, opts)
             end
             test_utils.clear_models_cache()
         end,
-        servers = {'shard1', 'shard2', 'shard3', 'shard4'},
+        servers = {
+            conf_name .. '_1',
+            conf_name .. '_2',
+            conf_name .. '_3',
+            conf_name .. '_4',
+        },
         use_tcp = false,
     })
 end
@@ -161,6 +199,8 @@ function test_utils.show_trace(func, ...)
         function(err)
             log.info('ERROR: ' .. tostring(err))
             log.info(debug.traceback())
+            print('ERROR: ' .. tostring(err))
+            print(debug.traceback())
         end
     ))
 end

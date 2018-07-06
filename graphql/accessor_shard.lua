@@ -5,6 +5,7 @@
 local json = require('json')
 local yaml = require('yaml')
 local digest = require('digest')
+local net_box = require('net.box')
 local utils = require('graphql.utils')
 local shard = utils.optional_require('shard')
 local accessor_general = require('graphql.accessor_general')
@@ -221,8 +222,22 @@ local function space_operation(collection_name, nodes, operation, ...)
         if master_result == nil then
             master_result = result
         end
+        -- wait for replicas -- XXX: only whne the option / shard version /
+        -- redundancy > 1
         if only_master then
+            if shard.pool.configuration.redundancy > 1 then
+                local c = net_box.connect(node.uri)
+                c:call('wait_for_replicas')
+            end
             break
+        end
+    end
+    -- XXX: just to check
+    if shard.pool.configuration.redundancy > 1 then
+        for _, zone in ipairs(shard.shards) do
+            local node = zone[#zone]
+            local c = net_box.connect(node.uri)
+            c:call('wait_for_replicas')
         end
     end
     return master_result
@@ -278,14 +293,24 @@ local function get_index(self, collection_name, index_name)
         return nil
     end
 
+    local accessor_instance = self
     local index = setmetatable({}, {
         __index = {
             pairs = function(self, value, opts)
                 local func_name = 'accessor_shard.get_index.<index>.pairs'
                 local opts = opts or {}
                 opts.limit = opts.limit or LIMIT
-                local tuples, err = shard:secondary_select(collection_name,
-                    index_name, opts, value, 0)
+                local tuples
+                local err
+                if accessor_instance.settings.shard_use_q_select then
+                    opts.sort_index_id = 0 -- sort by a primary key
+                    tuples, err = shard:q_select(collection_name, index_name,
+                        value, opts)
+                else
+                    local sort_index_id = 0 -- sort by a primary key
+                    tuples, err = shard:secondary_select(collection_name,
+                        index_name, opts, value, sort_index_id)
+                end
                 shard_check_error(func_name, tuples, err)
                 local cur = 1
                 local function gen()
@@ -399,6 +424,16 @@ local function insert_tuple(self, collection_name, tuple)
 
     local result, err = shard:insert(collection_name, tuple)
     shard_check_error(func_name, result, err)
+    -- wait for replicas -- XXX: only whne the option / shard version /
+    -- redundancy > 1
+    -- XXX: we know the node here, because have a tuple
+    if shard.pool.configuration.redundancy > 1 then
+        for _, zone in ipairs(shard.shards) do
+            local node = zone[#zone]
+            local c = net_box.connect(node.uri)
+            c:call('wait_for_replicas')
+        end
+    end
 
     if major_shard_version() == 2 then
         -- result is the inserted tuple
