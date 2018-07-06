@@ -11,6 +11,8 @@ local yaml = require('yaml')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
+local test_run = utils.optional_require('test_run')
+test_run = test_run and test_run.new()
 
 box.cfg({})
 
@@ -145,6 +147,7 @@ local function check_insert_order_metainfo(test, gql_wrapper, virtbox,
         local exp_tuple = {
             'order metainfo 4000',
             'order_metainfo_id_4000',
+            'order_metainfo_id_4000',
             'order_id_4000',
             'store 4000',
             'street 4000',
@@ -269,10 +272,10 @@ local function check_update_order_metainfo(test, gql_wrapper, virtbox,
         local orig_tuple = get_tuple(virtbox, 'order_metainfo_collection',
             {order_metainfo_id})
         local exp_orig_tuple = {
-            'order metainfo 1', order_metainfo_id, 'order_id_1', 'store 1',
-            'street 1', 'city 1', 'state 1', 'zip 1', 'second street 1',
-            'second city 1', 'second state 1', 'second zip 1',
-            EXTERNAL_ID_INT, 1, {'fast', 'new'}, {
+            'order metainfo 1', order_metainfo_id, order_metainfo_id,
+            'order_id_1', 'store 1', 'street 1', 'city 1', 'state 1',
+            'zip 1', 'second street 1', 'second city 1', 'second state 1',
+            'second zip 1', EXTERNAL_ID_INT, 1, {'fast', 'new'}, {
                 size = 'medium',
                 since = '2018-01-01',
             },
@@ -291,12 +294,12 @@ local function check_update_order_metainfo(test, gql_wrapper, virtbox,
         test:ok(tuple ~= nil, 'updated tuple exists')
         local exp_tuple = table.copy(exp_orig_tuple)
         exp_tuple[1] = 'changed'
-        exp_tuple[6] = 'changed city'
-        exp_tuple[10] = 'second changed city'
-        exp_tuple[13] = EXTERNAL_ID_STRING
-        exp_tuple[14] = 'eid changed'
-        exp_tuple[15] = {'slow'}
-        exp_tuple[16] = {size = 'small'}
+        exp_tuple[7] = 'changed city'
+        exp_tuple[11] = 'second changed city'
+        exp_tuple[14] = EXTERNAL_ID_STRING
+        exp_tuple[15] = 'eid changed'
+        exp_tuple[16] = {'slow'}
+        exp_tuple[17] = {size = 'small'}
         test:is_deeply(tuple:totable(), exp_tuple, 'updated tuple is correct')
 
         -- replace back updated tuples & check
@@ -353,9 +356,13 @@ local function check_delete(test, gql_wrapper, virtbox, mutation_delete,
     end)
 end
 
+local function extract_storage_error(err)
+    return err:gsub('^failed to execute operation on[^:]+: *', '')
+end
+
 local function run_queries(gql_wrapper, virtbox, meta)
     local test = tap.test('mutation')
-    test:plan(22)
+    test:plan(23)
 
     -- {{{ insert
 
@@ -524,6 +531,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
             order_metainfo_collection(insert: {
                 metainfo: "order metainfo 4000"
                 order_metainfo_id: "order_metainfo_id_4000"
+                order_metainfo_id_copy: "order_metainfo_id_4000"
                 order_id: "order_id_4000"
                 store: {
                     name: "store 4000"
@@ -548,6 +556,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
             }) {
                 metainfo
                 order_metainfo_id
+                order_metainfo_id_copy
                 order_id
                 store {
                     name
@@ -577,6 +586,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
         order_metainfo_collection:
         - metainfo: order metainfo 4000
           order_metainfo_id: order_metainfo_id_4000
+          order_metainfo_id_copy: order_metainfo_id_4000
           order_id: order_id_4000
           store:
             name: store 4000
@@ -604,6 +614,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
             order_metainfo_collection(insert: $order_metainfo) {
                 metainfo
                 order_metainfo_id
+                order_metainfo_id_copy
                 order_id
                 store {
                     name
@@ -635,6 +646,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
                 order_metainfo = {
                     metainfo = 'order metainfo 4000',
                     order_metainfo_id = 'order_metainfo_id_4000',
+                    order_metainfo_id_copy = 'order_metainfo_id_4000',
                     order_id = 'order_id_4000',
                     store = {
                         name = 'store 4000',
@@ -1166,6 +1178,74 @@ local function run_queries(gql_wrapper, virtbox, meta)
         'for the InputObject "order_collection_update"'
     test:is(err, exp_err,
         'updating of a field of a primary key when it is shard key field')
+
+    -- violation of an unique index constraint
+    local mutation_update_6 = [[
+        mutation {
+            order_metainfo_collection(
+                order_metainfo_id: "order_metainfo_id_1"
+                update: {
+                    metainfo: "updated"
+                    order_metainfo_id_copy: "order_metainfo_id_2"
+                }
+            ) {
+                metainfo
+                order_metainfo_id
+                order_metainfo_id_copy
+                order_id
+                store {
+                    name
+                }
+            }
+        }
+    ]]
+    local conf_name = test_run and test_run:get_cfg('conf') or 'space'
+    if conf_name:startswith('shard') then
+        local old_shard_key_hash = test_utils.get_shard_key_hash(
+            'order_metainfo_id_1')
+        local new_shard_key_hash = test_utils.get_shard_key_hash(
+            'order_metainfo_id_2')
+        -- check the case is really involving moving a tuple from one storage
+        -- to an another
+        assert(old_shard_key_hash ~= new_shard_key_hash)
+    end
+    local gql_mutation_update_6 = gql_wrapper:compile(mutation_update_6)
+    test:test('unique constraint violation', function(test)
+        test_utils.show_trace(function()
+            test:plan(4)
+            local order_metainfo_id = 'order_metainfo_id_1'
+
+            -- save the original tuple
+            local orig_tuple = get_tuple(virtbox, 'order_metainfo_collection',
+                {order_metainfo_id})
+
+            -- check mutation result from graphql
+            local result = gql_mutation_update_6:execute({})
+            local exp_err = "Duplicate key exists in unique index " ..
+                "'order_metainfo_id_copy_index' in space " ..
+                "'order_metainfo_collection'"
+            local err = extract_storage_error(result.errors[1].message)
+            test:is(err, exp_err, 'update result')
+
+            -- check the user was not changed
+            local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+                {order_metainfo_id})
+            test:ok(tuple ~= nil, 'updated tuple exists')
+            test:is_deeply((tuple or box.tuple.new({})):totable(),
+                orig_tuple:totable(), 'tuple was not changed')
+
+            -- replace back the tuple & check (in case the test fails and it
+            -- was updated)
+            replace_tuple(virtbox, 'order_metainfo_collection',
+                {order_metainfo_id}, orig_tuple)
+            local tuple = get_tuple(virtbox, 'order_metainfo_collection',
+                {order_metainfo_id})
+            test:is_deeply(tuple:totable(), orig_tuple:totable(),
+                'tuple was replaced back')
+
+            -- test:check() will be called automatically by the tap module
+        end)
+    end)
 
     -- }}}
 

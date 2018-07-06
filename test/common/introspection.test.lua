@@ -350,6 +350,10 @@ local function run_queries(gql_wrapper)
               - type:
                   name: String
                   kind: SCALAR
+                name: order_metainfo_id_copy
+              - type:
+                  name: String
+                  kind: SCALAR
                 name: metainfo
               - type:
                   name: order_metainfo_collection_update
@@ -796,6 +800,14 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
+              name: order_metainfo_id_copy
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
               name: metainfo
             - isDeprecated: false
               args: *0
@@ -857,6 +869,12 @@ local function run_queries(gql_wrapper)
                   kind: SCALAR
                 kind: NON_NULL
               name: order_metainfo_id
+            - type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_metainfo_id_copy
             - type:
                 ofType:
                   name: String
@@ -1030,13 +1048,17 @@ local function run_queries(gql_wrapper)
                   kind: SCALAR
                 name: offset
               - type:
+                  name: Int
+                  kind: SCALAR
+                name: limit
+              - type:
                   name: String
                   kind: SCALAR
                 name: order_metainfo_id
               - type:
-                  name: Int
+                  name: String
                   kind: SCALAR
-                name: limit
+                name: order_metainfo_id_copy
               - type:
                   name: String
                   kind: SCALAR
@@ -1439,6 +1461,10 @@ local function run_queries(gql_wrapper)
             - type:
                 name: String
                 kind: SCALAR
+              name: order_metainfo_id_copy
+            - type:
+                name: String
+                kind: SCALAR
               name: metainfo
             - type:
                 name: String
@@ -1453,9 +1479,13 @@ local function run_queries(gql_wrapper)
           - kind: INPUT_OBJECT
             inputFields:
             - type:
-                name: arguments___order_metainfo_collection___store___store
-                kind: INPUT_OBJECT
-              name: store
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id_copy
             - type:
                 name: String
                 kind: SCALAR
@@ -1465,9 +1495,9 @@ local function run_queries(gql_wrapper)
                 kind: SCALAR
               name: order_id
             - type:
-                name: String
-                kind: SCALAR
-              name: order_metainfo_id
+                name: arguments___order_metainfo_collection___store___store
+                kind: INPUT_OBJECT
+              name: store
             name: order_metainfo_connection
             description: generated from the connection "order_metainfo_connection" of collection
               "order_collection" using collection "order_metainfo_collection"
@@ -1555,11 +1585,15 @@ local function run_queries(gql_wrapper)
               - type:
                   name: String
                   kind: SCALAR
+                name: metainfo
+              - type:
+                  name: String
+                  kind: SCALAR
                 name: order_metainfo_id
               - type:
                   name: String
                   kind: SCALAR
-                name: metainfo
+                name: order_metainfo_id_copy
               - type:
                   name: String
                   kind: SCALAR
@@ -1692,6 +1726,10 @@ local function run_queries(gql_wrapper)
               same among all values type
           - kind: INPUT_OBJECT
             inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id_copy
             - type:
                 name: String
                 kind: SCALAR
@@ -2038,13 +2076,17 @@ local function run_queries(gql_wrapper)
                   kind: SCALAR
                 name: offset
               - type:
+                  name: Int
+                  kind: SCALAR
+                name: limit
+              - type:
                   name: String
                   kind: SCALAR
                 name: order_metainfo_id
               - type:
-                  name: Int
+                  name: String
                   kind: SCALAR
-                name: limit
+                name: order_metainfo_id_copy
               - type:
                   name: String
                   kind: SCALAR
@@ -2275,9 +2317,13 @@ local function run_queries(gql_wrapper)
           - kind: INPUT_OBJECT
             inputFields:
             - type:
-                name: arguments___order_metainfo_collection___store___store
-                kind: INPUT_OBJECT
-              name: store
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id_copy
             - type:
                 name: String
                 kind: SCALAR
@@ -2287,9 +2333,9 @@ local function run_queries(gql_wrapper)
                 kind: SCALAR
               name: order_id
             - type:
-                name: String
-                kind: SCALAR
-              name: order_metainfo_id
+                name: arguments___order_metainfo_collection___store___store
+                kind: INPUT_OBJECT
+              name: store
             name: order_metainfo_connection
             description: generated from the connection "order_metainfo_connection" of collection
               "order_collection" using collection "order_metainfo_collection"
@@ -2439,13 +2485,17 @@ local function run_queries(gql_wrapper)
                   kind: SCALAR
                 name: offset
               - type:
+                  name: Int
+                  kind: SCALAR
+                name: limit
+              - type:
                   name: String
                   kind: SCALAR
                 name: order_metainfo_id
               - type:
-                  name: Int
+                  name: String
                   kind: SCALAR
-                name: limit
+                name: order_metainfo_id_copy
               - type:
                   name: String
                   kind: SCALAR
@@ -2610,9 +2660,9 @@ local function run_queries(gql_wrapper)
               description: A list of all directives supported by this server.
             kind: OBJECT
             name: __Schema
-            description: A GraphQL Schema defines the capabilities of a GraphQL server. It
-              exposes all available types and directives on the server, as well as the entry
-              points for query and mutation operations.
+            description: A GraphQL Schema defines the capabilities of a GraphQL server.
+              It exposes all available types and directives on the server, as well as the
+              entry points for query and mutation operations.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2646,8 +2696,8 @@ local function run_queries(gql_wrapper)
             kind: OBJECT
             name: __EnumValue
             description: One possible value for a given Enum. Enum values are unique values,
-              not a placeholder for a string or numeric value. However an Enum value is returned
-              in a JSON response as a string.
+              not a placeholder for a string or numeric value. However an Enum value is
+              returned in a JSON response as a string.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2742,15 +2792,19 @@ local function run_queries(gql_wrapper)
               many kinds of types in GraphQL as represented by the `__TypeKind` enum. Depending
               on the kind of a type, certain fields describe information about that type.
               Scalar types provide no information beyond a name and description, while Enum
-              types provide their values. Object and Interface types provide the fields they
-              describe. Abstract types, Union and Interface, provide the Object types possible
-              at runtime. List and NonNull types compose other types.
+              types provide their values. Object and Interface types provide the fields
+              they describe. Abstract types, Union and Interface, provide the Object types
+              possible at runtime. List and NonNull types compose other types.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
                 name: String
                 kind: SCALAR
               name: order_metainfo_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id_copy
             - type:
                 name: String
                 kind: SCALAR
@@ -2795,8 +2849,8 @@ local function run_queries(gql_wrapper)
                 name: String
                 kind: SCALAR
               name: defaultValue
-              description: A GraphQL-formatted string representing the default value for this
-                input value.
+              description: A GraphQL-formatted string representing the default value for
+                this input value.
             kind: OBJECT
             name: __InputValue
             description: Arguments provided to Fields or Directives and the input fields
@@ -2887,6 +2941,14 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
+              name: order_metainfo_id_copy
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
               name: metainfo
             - isDeprecated: false
               args: *0
@@ -2965,9 +3027,13 @@ local function run_queries(gql_wrapper)
             - isDeprecated: false
               args:
               - type:
-                  name: arguments___order_metainfo_collection___store___store
-                  kind: INPUT_OBJECT
-                name: store
+                  name: String
+                  kind: SCALAR
+                name: order_metainfo_id
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: order_metainfo_id_copy
               - type:
                   name: String
                   kind: SCALAR
@@ -2977,9 +3043,9 @@ local function run_queries(gql_wrapper)
                   kind: SCALAR
                 name: order_id
               - type:
-                  name: String
-                  kind: SCALAR
-                name: order_metainfo_id
+                  name: arguments___order_metainfo_collection___store___store
+                  kind: INPUT_OBJECT
+                name: store
               type:
                 name: order_metainfo_collection
                 kind: OBJECT

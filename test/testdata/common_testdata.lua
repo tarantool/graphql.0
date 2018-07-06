@@ -42,6 +42,7 @@ function common_testdata.get_test_metadata()
             "fields": [
                 { "name": "metainfo", "type": "string" },
                 { "name": "order_metainfo_id", "type": "string" },
+                { "name": "order_metainfo_id_copy", "type": "string" },
                 { "name": "order_id", "type": "string" },
                 { "name": "store", "type": {
                     "type": "record",
@@ -163,6 +164,13 @@ function common_testdata.get_test_metadata()
                 unique = true,
                 primary = true,
             },
+            order_metainfo_id_copy_index = {
+                service_fields = {},
+                fields = {'order_metainfo_id_copy'},
+                index_type = 'tree',
+                unique = true,
+                primary = false,
+            },
             order_id_index = {
                 service_fields = {},
                 fields = {'order_id'},
@@ -191,7 +199,8 @@ function common_testdata.init_spaces()
 
     -- order_metainfo_collection fields
     local M_ORDER_METAINFO_ID_FN = 2
-    local M_ORDER_ID_FN = 3
+    local M_ORDER_METAINFO_ID_COPY_FN = 3
+    local M_ORDER_ID_FN = 4
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('user_collection')
@@ -216,6 +225,12 @@ function common_testdata.init_spaces()
             'order_metainfo_id_index',
             {type = 'tree', parts = {
                 M_ORDER_METAINFO_ID_FN, 'string'
+            }}
+        )
+        box.space.order_metainfo_collection:create_index(
+            'order_metainfo_id_copy_index',
+            {type = 'tree', parts = {
+                M_ORDER_METAINFO_ID_COPY_FN, 'string'
             }}
         )
         box.space.order_metainfo_collection:create_index('order_id_index',
@@ -314,6 +329,7 @@ function common_testdata.fill_test_data(virtbox, meta)
         test_utils.replace_object(virtbox, meta, 'order_metainfo_collection', {
             metainfo = 'order metainfo ' .. s,
             order_metainfo_id = 'order_metainfo_id_' .. s,
+            order_metainfo_id_copy = 'order_metainfo_id_' .. s,
             order_id = 'order_id_' .. s,
             store = {
                 name = 'store ' .. s,
@@ -1520,6 +1536,7 @@ type_mismatch_cases = function(gql_wrapper, test)
         order_metainfo = {
             metainfo = 'order metainfo',
             order_metainfo_id = 'order_metainfo_id_14_1',
+            order_metainfo_id_copy = 'order_metainfo_id_14_1',
             order_id = 'order_id',
             store = {
                 name = 'store',
