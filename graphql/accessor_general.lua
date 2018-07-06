@@ -35,8 +35,8 @@ local DEF_TIMEOUT_MS = 1000
 -- save start time at start, calculate current time on each iteration and
 -- substract the start time from it, compare with the timeout. With such
 -- approch we don't add the timeout in nanoseconds to a start time and can
--- remove the divide by two below.
-local TIMEOUT_INFINITY = 18446744073709551615ULL / (2 * 10^6) -- microseconds
+-- remove the divide by two below. The value is roughly equal to 292 years.
+local TIMEOUT_INFINITY = 18446744073709551615ULL / (2 * 10^6) -- milliseconds
 
 accessor_general.TIMEOUT_INFINITY = TIMEOUT_INFINITY
 
