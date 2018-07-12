@@ -25,10 +25,6 @@ local e = error_codes
 
 local accessor_general = {}
 
-local DEF_RESULTING_OBJECT_CNT_MAX = 10000
-local DEF_FETCHED_OBJECT_CNT_MAX = 10000
-local DEF_TIMEOUT_MS = 1000
-
 -- We shold be able to multiply `timeout_ms` to 10^6 (convert to nanoseconds)
 -- and add it to a `clock.monotonic64()` value; the result of that arithmetic
 -- must not overflows. We can consider another approach to handle time limits:
@@ -39,6 +35,10 @@ local DEF_TIMEOUT_MS = 1000
 local TIMEOUT_INFINITY = 18446744073709551615ULL / (2 * 10^6) -- milliseconds
 
 accessor_general.TIMEOUT_INFINITY = TIMEOUT_INFINITY
+
+local DEF_RESULTING_OBJECT_CNT_MAX = 10000
+local DEF_FETCHED_OBJECT_CNT_MAX = 10000
+local DEF_TIMEOUT_MS = TIMEOUT_INFINITY
 
 --- Validate and compile set of avro schemas (with respect to service fields).
 ---
@@ -1436,7 +1436,7 @@ end
 ---   positive numbers which help to control query behaviour in case it
 ---   requires more resources than expected _(default value is 10,000 for
 ---   both)_,
---- * `timeout_ms` _(default is 1000)_,
+--- * `timeout_ms` _(default is ~292 years)_,
 --- * `enable_mutations`: boolean flag _(default is `false` for avro-schema-2*
 ---    and `true` for avro-schema-3*)_,
 --- * `shard_use_q_select`: boolean flag _(default is `false`)_.

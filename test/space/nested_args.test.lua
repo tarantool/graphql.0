@@ -55,8 +55,6 @@ local common_gql_wrapper = graphql.new({
     service_fields = common_metadata.service_fields,
     indexes = common_metadata.indexes,
     accessor = 'space',
-    -- gh-137: timeout exceeded
-    timeout_ms = 10000, -- 10 seconds
 })
 
 local emails_gql_wrapper = graphql.new({
@@ -65,8 +63,6 @@ local emails_gql_wrapper = graphql.new({
     service_fields = emails_metadata.service_fields,
     indexes = emails_metadata.indexes,
     accessor = 'space',
-    -- gh-137: timeout exceeded
-    timeout_ms = 10000, -- 10 seconds
 })
 
 -- run queries

@@ -13,7 +13,6 @@ local clock = require('clock')
 local fiber = require('fiber')
 local digest = require('digest')
 local multirunner = require('test.common.multirunner')
-local graphql = require('graphql')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 local test_run = utils.optional_require('test_run')
@@ -159,11 +158,7 @@ end
 -- helper for preparing benchmarking environment
 function bench.bench_prepare_helper(testdata, shard, meta)
     testdata.fill_test_data(shard or box.space, meta)
-    return test_utils.graphql_from_testdata(testdata, shard, {
-        graphql_opts = {
-            timeout_ms = graphql.TIMEOUT_INFINITY,
-        }
-    })
+    return test_utils.graphql_from_testdata(testdata, shard)
 end
 
 return bench
