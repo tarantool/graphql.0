@@ -124,6 +124,12 @@ local compiled_query = graphql_lib.compile(query)
 local result = compiled_query:execute(variables)
 ```
 
+### Shard
+
+One need to call `require('graphql.storage').init()` on each storage server to
+use graphql with shard and BFS executor. Alternatively one can use
+`graphql.new({..., use_bfs_executor = 'never'})` on a frontend server.
+
 ### Multi-head connections
 A parent object is matching against a multi-head connection variants in the
 order of the variants. The parent object should match with a determinant of
@@ -403,6 +409,14 @@ TEST_RUN_TESTS=common/mutation make test
   * tarantool/http.
 * For building apidoc (additionally to 'for use'):
   * ldoc.
+
+## Hacking
+
+Enable debug log:
+
+```sh
+export TARANTOOL_GRAPHQL_DEBUG=1
+```
 
 ## License
 

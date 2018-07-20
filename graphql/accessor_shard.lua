@@ -3,11 +3,13 @@
 --- `accessor_shard.new` function to create a new shard data accessor instance.
 
 local json = require('json')
-local yaml = require('yaml')
 local digest = require('digest')
 local utils = require('graphql.utils')
 local shard = utils.optional_require('shard')
 local accessor_general = require('graphql.accessor_general')
+local accessor_shard_helpers = require('graphql.accessor_shard_helpers')
+local accessor_shard_index_info = require('graphql.accessor_shard_index_info')
+local accessor_shard_cache = require('graphql.accessor_shard_cache')
 
 local check = utils.check
 
@@ -17,26 +19,7 @@ local LIMIT = 100000 -- XXX: we need to raise an error when a limit reached
 -- shard module calculates sharding key by the first field of a tuple
 local SHARD_KEY_FIELD_NO = 1
 
-local index_info_cache = {}
-
 -- {{{ helpers
-
-local function shard_check_error(func_name, result, err)
-    if result ~= nil then return end
-
-    -- avoid json encoding of an error message (when the error is in the known
-    -- format)
-    if type(err) == 'table' and type(err.error) == 'string' then
-        error({
-            message = err.error,
-            extensions = {
-                shard_error = err,
-            }
-        })
-    end
-
-    error(('%s: %s'):format(func_name, json.encode(err)))
-end
 
 -- Should work for shard-1.2 and shard-2.1 both.
 local function shard_check_status(func_name)
@@ -52,89 +35,6 @@ local function shard_check_status(func_name)
     end
 end
 
---- Determines whether certain fields of two tables are the same.
----
---- Table fields of t1 and t2 are compared recursively by all its fields.
----
---- @tparam table t1
----
---- @tparam table t2
----
---- @tparam table fields list of fields like {'a', 'b', 'c'}
----
---- @treturn boolean
-local function compare_table_by_fields(t1, t2, fields)
-    for _, field_name in ipairs(fields) do
-        local v1 = t1[field_name]
-        local v2 = t2[field_name]
-        if type(v1) ~= type(v2) then
-            return false
-        elseif type(v1) == 'table' then
-            local ok = utils.is_subtable(v1, v2)
-            ok = ok and utils.is_subtable(v2, v1)
-            if not ok then return false end
-        else
-            if v1 ~= v2 then return false end
-        end
-    end
-    return true
-end
-
---- Get index object from net_box under the shard module.
----
---- The function performs some optimistic consistency checks and raises an
---- error in the case. It caches results and returns a result from the cache
---- for succeeding calls.
----
---- XXX: Implement some cache clean up strategy and a way to manual cache
---- purge.
----
---- @tparam string collection_name
----
---- @tparam string index_name
----
---- @return index object
-local function get_index_info(collection_name, index_name)
-    local func_name = 'accessor_shard.get_index_info'
-    local index_info
-
-    -- get from the cache if exists
-    if index_info_cache[collection_name] ~= nil then
-        index_info = index_info_cache[collection_name][index_name]
-        if index_info ~= nil then
-            return index_info
-        end
-    end
-
-    local fields_to_compare = {'unique', 'parts', 'id', 'type', 'name'}
-
-    for _, zone in ipairs(shard.shards) do
-        for _, node in ipairs(zone) do
-            local result, err = shard:space_call(collection_name, node,
-                function(space_obj)
-                    return space_obj.index[index_name]
-                end)
-            shard_check_error(func_name, result, err)
-            if index_info == nil then
-                index_info = result
-            end
-            local ok = compare_table_by_fields(index_info, result,
-                fields_to_compare)
-            assert(ok, ('index %s of space "%s" is different between ' ..
-                'nodes:\n%s\n%s'):format(json.encode(index_name),
-                collection_name, yaml.encode(index_info), yaml.encode(result)))
-        end
-    end
-
-    -- write to the cache
-    if index_info_cache[collection_name] == nil then
-        index_info_cache[collection_name] = {}
-    end
-    index_info_cache[collection_name][index_name] = index_info
-
-    return index_info
-end
-
 --- Internal function to use in @{get_index}; it is necessary because
 --- determining whether the index exists within a shard cluster is
 --- not-so-trivial as for local spaces.
@@ -147,7 +47,7 @@ local function is_index_exists(collection_name, index_name)
                 function(space_obj)
                     return space_obj.index[index_name] ~= nil
                 end)
-            shard_check_error(func_name, cur, err)
+            accessor_shard_helpers.shard_check_error(func_name, cur, err)
             assert(exists == nil or cur == exists,
                 ('index "%s" of space "%s" exists on some shards, ' ..
                 'but does not on others'):format(index_name, collection_name))
@@ -178,9 +78,11 @@ local function get_tuple(self, collection_name, key)
     check(self, 'self', 'table')
     local index = self.funcs.get_primary_index(self, collection_name)
     local tuples = {}
-    for _, t in index:pairs(key, {limit = 2}) do
+    local out = {} -- XXX: count fetched_tuples_cnt in statistics
+    for _, t in index:pairs(key, {limit = 2}, out) do
         table.insert(tuples, t)
     end
+    check(out.fetched_tuples_cnt, 'out.fetched_tuples_cnt', 'number')
     assert(#tuples ~= 0,
         ('%s: expected one tuple by the primary key %s, got 0'):format(
         func_name, json.encode(key)))
@@ -217,7 +119,7 @@ local function space_operation(collection_name, nodes, operation, ...)
     for _, node in ipairs(nodes) do
         local result, err = shard:single_call(collection_name, node, operation,
             ...)
-        shard_check_error(func_name, result, err)
+        accessor_shard_helpers.shard_check_error(func_name, result, err)
         if master_result == nil then
             master_result = result
         end
@@ -253,7 +155,7 @@ local function is_collection_exists(self, collection_name)
                 function(space_obj)
                     return space_obj ~= nil
                 end)
-            shard_check_error(func_name, cur, err)
+            accessor_shard_helpers.shard_check_error(func_name, cur, err)
             assert(exists == nil or cur == exists,
                 ('space "%s" exists on some shards, ' ..
                 'but does not on others'):format(collection_name))
@@ -278,15 +180,23 @@ local function get_index(self, collection_name, index_name)
         return nil
     end
 
+    -- XXX: wrap all data into the table, don't create the capture
     local index = setmetatable({}, {
         __index = {
-            pairs = function(self, value, opts)
+            pairs = function(_, value, opts, out)
                 local func_name = 'accessor_shard.get_index.<index>.pairs'
+
+                -- perform select
                 local opts = opts or {}
                 opts.limit = opts.limit or LIMIT
                 local tuples, err = shard:secondary_select(collection_name,
                     index_name, opts, value, 0)
-                shard_check_error(func_name, tuples, err)
+                accessor_shard_helpers.shard_check_error(func_name,
+                    tuples, err)
+                out.fetches_cnt = 1
+                out.fetched_tuples_cnt = #tuples
+
+                -- create iterator
                 local cur = 1
                 local function gen()
                     if cur > #tuples then return nil end
@@ -294,6 +204,7 @@ local function get_index(self, collection_name, index_name)
                     cur = cur + 1
                     return cur, res
                 end
+
                 return gen, nil, nil
             end
         }
@@ -398,7 +309,7 @@ local function insert_tuple(self, collection_name, tuple)
     shard_check_status(func_name)
 
     local result, err = shard:insert(collection_name, tuple)
-    shard_check_error(func_name, result, err)
+    accessor_shard_helpers.shard_check_error(func_name, result, err)
 
     if major_shard_version() == 2 then
         -- result is the inserted tuple
@@ -480,7 +391,8 @@ local function update_tuple(self, collection_name, key, statements, opts)
     shard_check_status(func_name)
 
     -- We follow tarantool convention and disallow update of primary key parts.
-    local primary_index_info = get_index_info(collection_name, 0)
+    local primary_index_info = accessor_shard_index_info.get_index_info(
+        collection_name, 0)
     for _, statement in ipairs(statements) do
         -- statement is {operator, field_no, value}
         local field_no = statement[2]
@@ -565,6 +477,57 @@ local function delete_tuple(self, collection_name, key, opts)
     return tuple
 end
 
+--- Fetch data to the cache.
+---
+--- @tparam table self accessor_general instance
+---
+--- @tparam table batches see @{accessor_shard_cache.cache_fetch}
+---
+--- @treturn table see @{accessor_shard_cache.cache_fetch}
+local function cache_fetch(self, batches)
+    return self.data_cache:fetch(batches)
+end
+
+-- Unused for now.
+-- --- Delete fetched data by fetch_id.
+-- ---
+-- --- @tparam table self accessor_general instance
+-- ---
+-- --- @tparam number fetch_id identifier of the fetched data
+-- ---
+-- --- @return nothing
+-- local function cache_delete(self, fetch_id)
+--     self.data_cache:delete(fetch_id)
+-- end
+
+--- Delete all fetched data.
+---
+--- @tparam table self accessor_general instance
+---
+--- @return nothing
+local function cache_truncate(self)
+    self.data_cache:truncate()
+end
+
+--- Lookup for data in the cache.
+---
+--- @tparam table self accessor_general instance
+---
+--- @tparam string collection_name
+---
+--- @tparam string index_name
+---
+--- @param key
+---
+--- @tparam table iterator_opts e.g. {} or {iterator = 'GT'}
+---
+--- @return luafun iterator (one value) to fetched data or nil
+local function cache_lookup(self, collection_name, index_name,
+        key, iterator_opts)
+    return self.data_cache:lookup(collection_name, index_name, key,
+        iterator_opts)
+end
+
 --- Create a new shard data accessor instance.
 function accessor_shard.new(opts, funcs)
     local funcs = funcs or {}
@@ -588,8 +551,15 @@ function accessor_shard.new(opts, funcs)
         insert_tuple = funcs.insert_tuple or insert_tuple,
         update_tuple = funcs.update_tuple or update_tuple,
         delete_tuple = funcs.delete_tuple or delete_tuple,
+        cache_fetch = funcs.cache_fetch or cache_fetch,
+        -- cache_delete = funcs.cache_delete or cache_delete,
+        cache_truncate = funcs.cache_truncate or cache_truncate,
+        cache_lookup = funcs.cache_lookup or cache_lookup,
     }
 
+    local opts = table.copy(opts)
+    opts.name = 'shard'
+    opts.data_cache = accessor_shard_cache.new()
     return accessor_general.new(opts, res_funcs)
 end
 

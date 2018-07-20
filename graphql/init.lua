@@ -35,6 +35,7 @@ local accessor_space = require('graphql.accessor_space')
 local accessor_shard = require('graphql.accessor_shard')
 local impl = require('graphql.impl')
 local error_codes = require('graphql.error_codes')
+local storage = require('graphql.storage')
 
 local graphql = {}
 
@@ -48,6 +49,9 @@ for k, v in pairs(error_codes) do
         graphql.error_codes[k] = v
     end
 end
+
+-- submodules
+graphql.storage = storage
 
 -- for backward compatibility
 graphql.accessor_general = accessor_general

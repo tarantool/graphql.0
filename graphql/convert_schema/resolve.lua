@@ -121,6 +121,8 @@ function resolve.gen_resolve_function(collection_name, connection,
                 ('performing a subrequest by the non-existent ' ..
                 'field "%s" of the collection "%s"'):format(field_name,
                 c.destination_collection))
+            local opts = table.copy(opts or {})
+            opts.is_hidden = true
             return bare_destination_type.fields[field_name].resolve(
                 object, filter, info, opts)
         end
@@ -130,9 +132,9 @@ function resolve.gen_resolve_function(collection_name, connection,
     -- genResolveField, arguments, accessor
     return function(parent, args_instance, info, opts)
         local opts = opts or {}
-        assert(type(opts) == 'table',
-            'opts must be nil or a table, got ' .. type(opts))
-        -- no opts for now
+        check(opts, 'opts', 'table')
+        local is_hidden = opts.is_hidden or false
+        check(is_hidden, 'is_hidden', 'boolean')
 
         local from = gen_from_parameter(collection_name, parent, c)
 
@@ -168,6 +170,7 @@ function resolve.gen_resolve_function(collection_name, connection,
             resolveField = resolveField, -- for subrequests
             extra_args = {},
             exp_tuple_count = exp_tuple_count,
+            is_hidden = opts.is_hidden,
         }
 
         -- object_args_instance will be passed to 'filter'
@@ -240,7 +243,12 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
         return res_var, var_idx, box_field_name
     end
 
-    return function(parent, _, info)
+    return function(parent, _, info, opts)
+        local opts = opts or {}
+        check(opts, 'opts', 'table')
+        local is_hidden = opts.is_hidden or false
+        check(is_hidden, 'is_hidden', 'boolean')
+
         -- If a parent object does not have all source fields (for any of
         -- variants) non-null then we do not resolve variant and just return
         -- box.NULL.
@@ -273,7 +281,7 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
             name = c.name,
             destination_collection = v.destination_collection,
         }
-        local opts = {
+        local gen_opts = {
             disable_dangling_check = disable_dangling_check,
             gen_prepare = gen_prepare,
         }
@@ -281,8 +289,8 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
         -- variant once at schema generation time
         if gen_prepare then
             local result = resolve.gen_resolve_function(collection_name,
-                quazi_connection, destination_type, {}, accessor, opts)(
-                parent, {}, info)
+                quazi_connection, destination_type, {}, accessor, gen_opts)(
+                parent, {}, info, opts)
             result.connection = quazi_connection
             result.invoke = function(prepared_resolve)
                 local result = invoke_resolve(prepared_resolve)
@@ -292,8 +300,8 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
             return result
         else
             local result = resolve.gen_resolve_function(collection_name,
-                quazi_connection, destination_type, {}, accessor, opts)(
-                parent, {}, info)
+                quazi_connection, destination_type, {}, accessor, gen_opts)(
+                parent, {}, info, opts)
             -- This 'wrapping' is needed because we use 'select' on 'collection'
             -- GraphQL type and the result of the resolve function must be in
             -- {'collection_name': {result}} format to be avro-valid.
