@@ -85,11 +85,33 @@ local function separate_args_instance(args_instance, arguments)
     }
 end
 
+local function invoke_resolve(prepared_resolve)
+    if prepared_resolve.is_calculated then
+        return prepared_resolve.objs
+    end
+
+    local prepared_select = prepared_resolve.prepared_select
+    -- local opts = prepared_resolve.opts
+    local accessor = prepared_resolve.accessor
+    local c = prepared_resolve.connection
+
+    local objs = accessor:invoke_select(prepared_select)
+    assert(type(objs) == 'table',
+        'objs list received from an accessor ' ..
+        'must be a table, got ' .. type(objs))
+    if c.type == '1:1' then
+        return objs[1] -- nil for empty list of matching objects
+    else -- c.type == '1:N'
+        return objs
+    end
+end
+
 function resolve.gen_resolve_function(collection_name, connection,
         destination_type, arguments, accessor, opts)
     local c = connection
     local opts = opts or {}
     local disable_dangling_check = opts.disable_dangling_check or false
+    local gen_prepare = opts.gen_prepare or false
     local bare_destination_type = core_types.bare(destination_type)
 
     -- capture `bare_destination_type`
@@ -120,7 +142,19 @@ function resolve.gen_resolve_function(collection_name, connection,
         -- * return {} for 1:N connection (except the case when source
         --   collection is the query or the mutation pseudo-collection).
         if collection_name ~= nil and are_all_parts_null(parent, c.parts) then
-            return c.type == '1:N' and {} or nil
+            local objs = c.type == '1:N' and {} or nil
+            if gen_prepare then
+                return {
+                    is_calculated = true,
+                    objs = objs,
+                    invoke = function()
+                        -- error('internal error: should not be called') -- XXX: remove it?
+                        return objs
+                    end,
+                }
+            else
+                return objs
+            end
         end
 
         local exp_tuple_count
@@ -143,16 +177,30 @@ function resolve.gen_resolve_function(collection_name, connection,
             arguments)
         extra.extra_args = arguments_instance.extra
 
-        local objs = accessor:select(parent,
-            c.destination_collection, from,
-            arguments_instance.object, arguments_instance.list, extra)
-        assert(type(objs) == 'table',
-            'objs list received from an accessor ' ..
-            'must be a table, got ' .. type(objs))
-        if c.type == '1:1' then
-            return objs[1] -- nil for empty list of matching objects
-        else -- c.type == '1:N'
-            return objs
+        if gen_prepare then
+            local prepared_select = accessor:prepare_select(parent,
+                c.destination_collection, from,
+                arguments_instance.object, arguments_instance.list, extra)
+            return {
+                is_calculated = false,
+                prepared_select = prepared_select,
+                -- opts = opts,
+                accessor = accessor,
+                connection = c,
+                invoke = invoke_resolve,
+            }
+        else
+            local objs = accessor:select(parent,
+                c.destination_collection, from,
+                arguments_instance.object, arguments_instance.list, extra)
+            assert(type(objs) == 'table',
+                'objs list received from an accessor ' ..
+                'must be a table, got ' .. type(objs))
+            if c.type == '1:1' then
+                return objs[1] -- nil for empty list of matching objects
+            else -- c.type == '1:N'
+                return objs
+            end
         end
     end
 end
@@ -161,6 +209,7 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
         union_types, var_num_to_box_field_name, accessor, opts)
     local opts = opts or {}
     local disable_dangling_check = opts.disable_dangling_check or false
+    local gen_prepare = opts.gen_prepare or false
     local c = connection
 
     local determinant_keys = utils.get_keys(c.variants[1].determinant)
@@ -205,7 +254,14 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
         end
 
         if not is_source_fields_found then
-            return box.NULL, nil
+            if gen_prepare then
+                return {
+                    is_calculated = true,
+                    objs = box.NULL,
+                }
+            else
+                return box.NULL, nil
+            end
         end
 
         local v, variant_num, box_field_name = resolve_variant(parent)
@@ -219,16 +275,30 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
         }
         local opts = {
             disable_dangling_check = disable_dangling_check,
+            gen_prepare = gen_prepare,
         }
-        -- XXX: generate a function for each variant at schema generation time
-        local result = resolve.gen_resolve_function(collection_name,
-            quazi_connection, destination_type, {}, accessor, opts)(
-            parent, {}, info)
-
-        -- This 'wrapping' is needed because we use 'select' on 'collection'
-        -- GraphQL type and the result of the resolve function must be in
-        -- {'collection_name': {result}} format to be avro-valid.
-        return {[box_field_name] = result}, destination_type
+        -- XXX: generate a function (using gen_resolve_function) for each
+        -- variant once at schema generation time
+        if gen_prepare then
+            local result = resolve.gen_resolve_function(collection_name,
+                quazi_connection, destination_type, {}, accessor, opts)(
+                parent, {}, info)
+            result.connection = quazi_connection
+            result.invoke = function(prepared_resolve)
+                local result = invoke_resolve(prepared_resolve)
+                -- see comment below
+                return {[box_field_name] = result}, destination_type
+            end
+            return result
+        else
+            local result = resolve.gen_resolve_function(collection_name,
+                quazi_connection, destination_type, {}, accessor, opts)(
+                parent, {}, info)
+            -- This 'wrapping' is needed because we use 'select' on 'collection'
+            -- GraphQL type and the result of the resolve function must be in
+            -- {'collection_name': {result}} format to be avro-valid.
+            return {[box_field_name] = result}, destination_type
+        end
     end
 end
 

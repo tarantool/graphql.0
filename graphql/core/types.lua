@@ -132,7 +132,9 @@ function initFields(kind, fields)
       description = field.description,
       deprecationReason = field.deprecationReason,
       arguments = field.arguments or {},
-      resolve = kind == 'Object' and field.resolve or nil
+      resolve = kind == 'Object' and field.resolve or nil,
+      prepare_resolve = kind == 'Object' and field.prepare_resolve or nil,
+      invoke_resolve = kind == 'Object' and field.invoke_resolve or nil,
     }
   end
 

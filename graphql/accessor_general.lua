@@ -975,8 +975,8 @@ local function perform_primary_key_operation(self, collection_name, schema_name,
     return new_objects
 end
 
---- The function is core of this module and implements logic of fetching and
---- filtering requested objects.
+--- The function prepares context for tuples selection, postprocessing and
+--- filtering.
 ---
 --- @tparam table self the data accessor created by the `new` function
 --- (directly or indirectly using the `accessor_space.new` or the
@@ -996,8 +996,10 @@ end
 --- @tparam table extra table which contains extra information related to
 --- current select and the whole query
 ---
---- @treturn table list of matching objects
-local function select_internal(self, collection_name, from, filter, args, extra)
+--- @treturn table `res` with `request_opts`, `select_state`, `select_opts` and
+--- `args` fields
+local function prepare_select_internal(self, collection_name, from, filter,
+        args, extra)
     check(self, 'self', 'table')
     check(collection_name, 'collection_name', 'string')
     check(from, 'from', 'table')
@@ -1028,7 +1030,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             index_name, collection_name))
     end
 
-    -- lookup functions for unflattening
+    -- lookup function for unflattening
     local schema_name = collection.schema_name
     assert(type(schema_name) == 'string',
         'schema_name must be a string, got ' .. type(schema_name))
@@ -1075,27 +1077,17 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             pivot.filter ~= nil), err)
     end
 
+    local iterator_opts = nil
+    local is_full_scan
+
     if index == nil then
-        -- fullscan
-        local primary_index = self.funcs.get_primary_index(self,
-            collection_name)
-
-        -- count full scan select request
-        qcontext.statistics.select_requests_cnt =
-            qcontext.statistics.select_requests_cnt + 1
-        qcontext.statistics.full_scan_select_requests_cnt =
-            qcontext.statistics.full_scan_select_requests_cnt + 1
-
-        for _, tuple in primary_index:pairs() do
-            assert(pivot == nil,
-                'offset for top-level objects must use a primary index')
-            local continue = process_tuple(self, select_state, tuple,
-                select_opts)
-            if not continue then break end
-        end
+        assert(pivot == nil,
+            'offset for top-level objects must use a primary index')
+        index = self.funcs.get_primary_index(self, collection_name)
+        index_value = nil
+        is_full_scan = true
     else
-        -- select by index
-        local iterator_opts = {}
+        iterator_opts = iterator_opts or {}
         if pivot ~= nil then
             -- handle case when there is pivot item (offset was passed)
             if pivot.value_list ~= nil then
@@ -1126,33 +1118,80 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             iterator_opts.limit = args.limit
         end
 
-        local tuple_count = 0
+        is_full_scan = false
+    end
 
+    -- request options can be changed below
+    local request_opts = {
+        index = index,
+        index_value = index_value,
+        iterator_opts = iterator_opts,
+        is_full_scan = is_full_scan,
+    }
+
+    return {
+        request_opts = request_opts,
+        select_state = select_state,
+        select_opts = select_opts,
+        collection_name = collection_name,
+        from = from,
+        filter = filter,
+        args = args,
+        extra = extra,
+    }
+end
+
+--- XXX
+local function invoke_select_internal(self, prepared_select)
+    local request_opts = prepared_select.request_opts
+    local select_state = prepared_select.select_state
+    local select_opts = prepared_select.select_opts
+    local args = prepared_select.args
+    local extra = prepared_select.extra
+
+    local index = request_opts.index
+    local index_value = request_opts.index_value
+    local iterator_opts = request_opts.iterator_opts
+    local is_full_scan = request_opts.is_full_scan
+
+    local qcontext = extra.qcontext
+
+    -- count all select request
+    qcontext.statistics.select_requests_cnt =
+        qcontext.statistics.select_requests_cnt + 1
+
+    if is_full_scan then
+        -- count full scan select request
+        qcontext.statistics.full_scan_select_requests_cnt =
+            qcontext.statistics.full_scan_select_requests_cnt + 1
+    else
         -- count index select request
-        qcontext.statistics.select_requests_cnt =
-            qcontext.statistics.select_requests_cnt + 1
         qcontext.statistics.index_select_requests_cnt =
             qcontext.statistics.index_select_requests_cnt + 1
+    end
 
-        for _, tuple in index:pairs(index_value, iterator_opts) do
-            tuple_count = tuple_count + 1
-            -- check full match constraint
-            if extra.exp_tuple_count ~= nil and
-                    tuple_count > extra.exp_tuple_count then
-                error(('FULL MATCH constraint was failed: we got more then ' ..
-                    '%d tuples'):format(extra.exp_tuple_count))
-            end
-            local continue = process_tuple(self, select_state, tuple,
-                select_opts)
-            if not continue then break end
-        end
+    local tuple_count = 0
+
+    for _, tuple in index:pairs(index_value, iterator_opts) do
+        tuple_count = tuple_count + 1
 
         -- check full match constraint
         if extra.exp_tuple_count ~= nil and
-                tuple_count ~= extra.exp_tuple_count then
-            error(('FULL MATCH constraint was failed: we expect %d tuples, ' ..
-                'got %d'):format(extra.exp_tuple_count, tuple_count))
+                tuple_count > extra.exp_tuple_count then
+            error(('FULL MATCH constraint was failed: we got more then ' ..
+                '%d tuples'):format(extra.exp_tuple_count))
         end
+
+        local continue = process_tuple(self, select_state, tuple,
+            select_opts)
+        if not continue then break end
+    end
+
+    -- check full match constraint
+    if extra.exp_tuple_count ~= nil and
+            tuple_count ~= extra.exp_tuple_count then
+        error(('FULL MATCH constraint was failed: we expect %d tuples, ' ..
+            'got %d'):format(extra.exp_tuple_count, tuple_count))
     end
 
     local count = select_state.count
@@ -1344,6 +1383,8 @@ end
 --- all neccessary initialization of this parameter should be performed by this
 --  function
 local function init_qcontext(accessor, qcontext)
+    if qcontext.initialized then return end
+
     for k, v in pairs(accessor.query_settings_default) do
         if qcontext.query_settings[k] == nil then
             qcontext.query_settings[k] = v
@@ -1361,6 +1402,8 @@ local function init_qcontext(accessor, qcontext)
         full_scan_select_requests_cnt = 0,
         index_select_requests_cnt = 0,
     }
+
+    qcontext.initialized = true
 end
 
 --- Create default unflatten/flatten/xflatten functions, that can be called
@@ -1479,9 +1522,8 @@ end
 --- `accessor_space` and the `accessor_shard` modules documentation for these
 --- functions description.
 ---
---- @treturn table data accessor instance, a table with the two methods
---- (`select` and `arguments`) as described in the @{impl.new} function
---- description.
+--- @treturn table data accessor instance, a table with the methods as
+--- described in the @{impl.new} function description.
 ---
 --- Brief explanation of some select function parameters:
 ---
@@ -1572,21 +1614,13 @@ function accessor_general.new(opts, funcs)
         __index = {
             select = function(self, parent, collection_name, from,
                     filter, args, extra)
-                check(parent, 'parent', 'table')
-                validate_from_parameter(from)
-
-                --`qcontext` initialization
-                if extra.qcontext.initialized ~= true then
-                    init_qcontext(self, extra.qcontext)
-                    extra.qcontext.initialized = true
-                end
-
                 local inserted = insert_internal(self, collection_name, from,
                     filter, args, extra)
                 if inserted ~= nil then return inserted end
 
-                local selected = select_internal(self, collection_name, from, filter,
-                    args, extra)
+                local prepared_select = self:prepare_select(parent,
+					collection_name, from, filter, args, extra)
+                local selected = self:invoke_select(prepared_select)
 
                 local updated = update_internal(self, collection_name, extra,
                     selected)
@@ -1598,6 +1632,17 @@ function accessor_general.new(opts, funcs)
 
                 return selected
             end,
+            prepare_select = function(self, parent, collection_name, from,
+                        filter, args, extra)
+                check(parent, 'parent', 'table')
+                validate_from_parameter(from)
+
+                init_qcontext(self, extra.qcontext)
+
+                return prepare_select_internal(self, collection_name, from,
+                    filter, args, extra)
+            end,
+            invoke_select = invoke_select_internal,
         }
     })
 end
