@@ -13,8 +13,6 @@ git:
     depth: 100500
 
 env:
-    global:
-      - PRODUCT=tarantool-graphql
     matrix:
       - OS=el DIST=6
       - OS=el DIST=7

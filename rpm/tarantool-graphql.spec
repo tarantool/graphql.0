@@ -24,12 +24,16 @@ BuildRequires: tarantool-lrexlib-pcre2
 
 # Dependencies for a user
 Requires: tarantool >= 1.9.0.0
-Requires: tarantool-avro-schema >= 2.0.0
+Requires: tarantool-avro-schema >= 2.0.71
 Requires: tarantool-lulpeg
+# Dependencies below are not mandatory, they extend tarantool-graphql
+# functionality. Currently we build packages for distros which do not have
+# package manager versions which supports Suggests tag. We left section
+# below commented till all actual distros will have necessary package manager
+# versions.
 #Suggests: tarantool-lrexlib-pcre2
-#Suggests: tarantool-shard
+#Suggests: tarantool-shard >= 2.1.0
 #Suggests: tarantool-http
-#Suggests: tarantool-avro-schema
 
 %description
 Set of adapters for GraphQL query language to the Tarantool data model
