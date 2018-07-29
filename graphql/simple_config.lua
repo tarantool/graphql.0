@@ -1,27 +1,26 @@
 --- The simple config module provides an ability to generate config (cfg) for
 --- tarantool_graphql using tarantool meta-information.
 ---
------- Explanation:
+--- Explanation:
 ---
---- * To make use of it you must specify tarantool tuples' format during space
----  creation passing or after it using space_object:format(). Spaces with no
----  formats (both 'name and 'type' fields must be filled) will be ignored.
----  Resulting schemas lack fields of the following types: 'record', 'array'
----  and 'map'. Resulting collections have no connections. Schemas and
----  collections may be complemented.
+--- To make use of it you must specify tarantool tuples' format during space
+--- creation passing or after it using space_object:format(). Spaces with no
+--- formats (both 'name and 'type' fields must be filled) will be ignored.
+--- Resulting schemas lack fields of the following types: 'record', 'array'
+--- and 'map'. Resulting collections have no connections. Schemas and
+--- collections may be complemented.
 
 local check = require('graphql.utils').check
 
 local simple_config = {}
 
---- The functions tells if given space is a tarantool system space or not.
---- It relies on tarantool implementation's details. The source of the function is
---- space_is_system() in tarantool/src/box/schema.cc
-local function is_system_space(space)
-    local BOX_SYSTEM_ID_MIN = 256
-    local BOX_SYSTEM_ID_MAX = 511
+--- The functions tells wheter given space is a tarantool system space.
+---
+--- Based on space_is_system() from ${TARANTOOL_REPO}/src/box/schema.cc.
+local function space_is_system(space)
     local space_id = space[1]
-    return (BOX_SYSTEM_ID_MIN < space_id and space_id < BOX_SYSTEM_ID_MAX)
+    return box.schema.SYSTEM_ID_MIN < space_id and
+        space_id < box.schema.SYSTEM_ID_MAX
 end
 
 --- The functions converts given tarantool tuple's (received from space:format())
@@ -159,7 +158,7 @@ function simple_config.get_spaces_formats()
     local FORMAT = 7
     local NAME = 3
     for _, s in box.space._space:pairs() do
-        if not is_system_space(s) then
+        if not space_is_system(s) then
             local space_format = unify_format(s[FORMAT])
             if is_fully_defined(space_format) then
                 spaces_formats[s[NAME]] = space_format
