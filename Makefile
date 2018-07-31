@@ -69,3 +69,7 @@ serve-apidoc: apidoc
 .PHONY: demo
 demo:
 	./demo/demo.lua $(TESTDATA)
+
+.PHONY: rpm
+rpm:
+	OS=el DIST=7 ./3rd_party/packpack/packpack

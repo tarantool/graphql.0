@@ -1,3 +1,6 @@
 [submodule "test-run"]
 	path = test-run
 	url = https://github.com/tarantool/test-run.git
+[submodule "3rd_party/packpack"]
+	path = 3rd_party/packpack
+	url = https://github.com/packpack/packpack.git

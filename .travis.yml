@@ -1,65 +1,76 @@
 language: c
 
-sudo: true
+sudo: required
 
-dist: trusty
+services:
+  - docker
+
+cache:
+    directories:
+      - $HOME/.cache
+
+git:
+    depth: 100500
 
 env:
-    - SHARD_VERSION=1.2 AVRO_SCHEMA=2.3.2
-    - SHARD_VERSION=2.1 AVRO_SCHEMA=2.3.2
-    - SHARD_VERSION=1.2 AVRO_SCHEMA=3.0.0
-    - SHARD_VERSION=2.1 AVRO_SCHEMA=3.0.0
-
-branches:
-  only:
-    - master
-
-before_install:
-  - sudo apt-get -qq update
-  - curl http://download.tarantool.org/tarantool/1.9/gpgkey |
-    sudo apt-key add -release=`lsb_release -c -s`
-
-  # install https download transport for APT
-  - sudo apt-get -y install apt-transport-https
-
-  # append two lines to a list of source repositories
-  - sudo rm -f /etc/apt/sources.list.d/*tarantool*.list
-  - echo "deb http://download.tarantool.org/tarantool/1.9/ubuntu/ trusty main" |
-    sudo tee /etc/apt/sources.list.d/tarantool_1_9.list
-  - echo "deb-src http://download.tarantool.org/tarantool/1.9/ubuntu/ trusty main" |
-    sudo tee -a /etc/apt/sources.list.d/tarantool_1_9.list
-
-install:
-  - sudo apt-get update
-  - sudo apt-get -y install tarantool tarantool-dev
-  - cd ..
-  - git clone https://github.com/rtsisyk/msgpuck
-  - cd msgpuck
-  - cmake .
-  - sudo make install
-  - cd ..
-  - tarantoolctl rocks install shard "${SHARD_VERSION}"
-  - tarantoolctl rocks install avro-schema "${AVRO_SCHEMA}"
-  - cd graphql
-  - git submodule update --recursive --init
-  - tarantoolctl rocks install lulpeg
-  - tarantoolctl rocks install lrexlib-pcre
-  - tarantoolctl rocks install http
-  - cd ..
-  # lua (with dev headers) is necessary for luacheck
-  - sudo apt-get install lua5.1
-  - sudo apt-get install liblua5.1-0-dev
-  - wget "http://luarocks.github.io/luarocks/releases/luarocks-2.4.4.tar.gz"
-  - tar xf luarocks-2.4.4.tar.gz
-  - cd luarocks-2.4.4
-  - ./configure
-  - make build
-  - sudo make install
-  - cd ../graphql
-  - sudo luarocks install luacheck
-  - sudo pip install virtualenv
-  - sudo luarocks install ldoc
+    matrix:
+      - OS=el DIST=6
+      - OS=el DIST=7
+      - OS=fedora DIST=26
+      - OS=fedora DIST=27
+      - SHARD_VERSION=1.2 AVRO_SCHEMA=2.3.2
+      - SHARD_VERSION=2.1 AVRO_SCHEMA=2.3.2
+      - SHARD_VERSION=1.2 AVRO_SCHEMA=3.0.0
+      - SHARD_VERSION=2.1 AVRO_SCHEMA=3.0.0
 
 script:
-  - make apidoc-lint
-  - make test
+  - git describe --long
+  - |
+    if [ -n "${OS}" ]; then
+        git submodule update --recursive --init
+        ./3rd_party/packpack/packpack
+    else
+        ./tools/ubuntu.trusty.test.sh
+    fi
+
+before_deploy:
+  - ls -l build/
+
+deploy:
+  # Deploy packages to PackageCloud
+  - provider: packagecloud
+    username: ${PACKAGECLOUD_USER}
+    repository: "1_9"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}"
+  - provider: packagecloud
+    username: ${PACKAGECLOUD_USER}
+    repository: "1_10"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}"
+  - provider: packagecloud
+    username: ${PACKAGECLOUD_USER}
+    repository: "2_0"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}"
+notifications:
+  email:
+    recipients:
+      - build@tarantool.org
+    on_success: change
+    on_failure: always
