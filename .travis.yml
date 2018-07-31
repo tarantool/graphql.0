@@ -27,11 +27,12 @@ script:
   - git describe --long
   - |
     if [ -n "${OS}" ]; then
-        git clone https://github.com/packpack/packpack.git
-        packpack/packpack
+        git submodule update --recursive --init
+        ./3rd_party/packpack/packpack
     else
         ./tools/ubuntu.trusty.test.sh
-    fi;
+    fi
+
 before_deploy:
   - ls -l build/
 

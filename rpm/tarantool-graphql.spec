@@ -13,26 +13,27 @@ Source0: https://github.com/tarantool/graphql/archive/%{version}/graphql-%{versi
 BuildArch: noarch
 
 # Dependencies for `make test`
-BuildRequires: tarantool >= 1.9.0.0
-BuildRequires: tarantool-avro-schema >= 2.2.2.4
-BuildRequires: tarantool-shard >= 2.1.0
-BuildRequires: tarantool-http
 BuildRequires: python-virtualenv
 BuildRequires: tarantool-luacheck
+BuildRequires: tarantool >= 1.9.0.0
 BuildRequires: tarantool-lulpeg
+BuildRequires: tarantool-avro-schema >= 2.2.2.4
+BuildRequires: tarantool-shard >= 1.1.92
 BuildRequires: tarantool-lrexlib-pcre2
+BuildRequires: tarantool-http
+
+# Weak references are not supported in RHEL / CentOS.
+#
+# https://fedoraproject.org/wiki/Packaging:WeakDependencies
+# https://bugzilla.redhat.com/show_bug.cgi?id=91458
+# https://bugzilla.redhat.com/show_bug.cgi?id=1427674
 
 # Dependencies for a user
 Requires: tarantool >= 1.9.0.0
-Requires: tarantool-avro-schema >= 2.0.71
 Requires: tarantool-lulpeg
-# Dependencies below are not mandatory, they extend tarantool-graphql
-# functionality. Currently we build packages for distros which do not have
-# package manager versions which supports Suggests tag. We left section
-# below commented till all actual distros will have necessary package manager
-# versions.
+Requires: tarantool-avro-schema >= 2.0.71
+#Suggests: tarantool-shard >= 1.1.91
 #Suggests: tarantool-lrexlib-pcre2
-#Suggests: tarantool-shard >= 2.1.0
 #Suggests: tarantool-http
 
 %description

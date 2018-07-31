@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-set -euxo pipefail  # Strict shell
+set -exu  # Strict shell (w/o -o pipefail)
 
 sudo apt-get -qq update
 curl http://download.tarantool.org/tarantool/1.9/gpgkey | \
@@ -18,14 +18,16 @@ echo "deb-src http://download.tarantool.org/tarantool/1.9/ubuntu/ ${release} mai
     sudo tee -a /etc/apt/sources.list.d/tarantool_1_9.list
 
 sudo apt-get update
-sudo apt-get -y install tarantool tarantool-dev libmsgpuck-dev
-git submodule update --recursive --init
+sudo apt-get -y install tarantool tarantool-dev libmsgpuck-dev luarocks
+
 tarantoolctl rocks install lulpeg
 tarantoolctl rocks install lrexlib-pcre
 tarantoolctl rocks install http
 tarantoolctl rocks install shard "${SHARD_VERSION}"
 tarantoolctl rocks install avro-schema "${AVRO_SCHEMA}"
-sudo apt-get install luarocks
+
 sudo luarocks install luacheck
 sudo pip install virtualenv
+
+git submodule update --recursive --init
 make test

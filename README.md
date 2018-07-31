@@ -374,18 +374,19 @@ make test
 * For use:
   * tarantool,
   * lulpeg,
-  * >=tarantool/avro-schema-2.0-71-gfea0ead,
-  * >=tarantool/shard-1.1-91-gfa88bf8 (but < 2.0) or
-    >=tarantool/shard-2.1-0-g0a7d98f (optional),
+  * \>=tarantool/avro-schema-2.0-71-gfea0ead,
+  * \>=tarantool/shard-1.1-91-gfa88bf8 (but < 2.0) or
+    \>=tarantool/shard-2.1-0-g0a7d98f (optional),
   * lrexlib-pcre2 or lrexlib-pcre (optional),
   * tarantool/http (optional, for GraphiQL).
 * For test (additionally to 'for use'):
   * python 2.7,
   * virtualenv,
   * luacheck,
-  * >=tarantool/avro-schema-2.2.2-4-g1145e3e,
-  * >=tarantool/shard-1.1-92-gec1a27e (but < 2.0) or
-    >=tarantool/shard-2.1-0-g0a7d98f,
+  * \>=tarantool/avro-schema-2.2.2-4-g1145e3e,
+  * \>=tarantool/shard-1.1-92-gec1a27e (but < 2.0) or
+    \>=tarantool/shard-2.1-0-g0a7d98f,
+  * lrexlib-pcre2 or lrexlib-pcre,
   * tarantool/http.
 * For building apidoc (additionally to 'for use'):
   * ldoc.
