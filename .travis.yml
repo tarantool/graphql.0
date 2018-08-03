@@ -47,7 +47,7 @@ deploy:
     skip_cleanup: true
     on:
       branch: master
-      condition: -n "${OS}"
+      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
   - provider: packagecloud
     username: ${PACKAGECLOUD_USER}
     repository: "1_10"
@@ -57,7 +57,7 @@ deploy:
     skip_cleanup: true
     on:
       branch: master
-      condition: -n "${OS}"
+      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
   - provider: packagecloud
     username: ${PACKAGECLOUD_USER}
     repository: "2_0"
@@ -67,7 +67,7 @@ deploy:
     skip_cleanup: true
     on:
       branch: master
-      condition: -n "${OS}"
+      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
 notifications:
   email:
     recipients:
