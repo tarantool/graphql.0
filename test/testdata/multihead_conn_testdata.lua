@@ -228,7 +228,7 @@ end
 
 function multihead_conn_testdata.init_spaces()
     local ID_FIELD_NUM = 2
-    local HERO_ID_FIELD_NUM =3
+    local HERO_ID_FIELD_NUM = 3
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('hero_collection')
@@ -251,7 +251,8 @@ function multihead_conn_testdata.init_spaces()
             { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
         )
         box.space.credit_account_collection:create_index('credit_hero_id_index',
-            { type = 'tree', unique = false, parts = { HERO_ID_FIELD_NUM, 'string' }}
+            { type = 'tree', unique = false,
+              parts = { HERO_ID_FIELD_NUM, 'string' }}
         )
 
         box.schema.create_space('dublon_account_collection')
@@ -259,7 +260,8 @@ function multihead_conn_testdata.init_spaces()
             { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
         )
         box.space.dublon_account_collection:create_index('dublon_hero_id_index',
-            { type = 'tree', unique = false, parts = { HERO_ID_FIELD_NUM, 'string' }}
+            { type = 'tree', unique = false,
+              parts = { HERO_ID_FIELD_NUM, 'string' }}
         )
     end)
 end
@@ -346,14 +348,12 @@ function multihead_conn_testdata.run_queries(gql_wrapper)
                             hero_id
                         }
                     }
-
                     ... on box_array_dublon_account_collection {
                         dublon_account_collection {
                             account_id
                             hero_id
                         }
                     }
-
                 }
             }
         }
