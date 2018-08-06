@@ -16,6 +16,7 @@ local query_to_avro = {}
 
 -- forward declaration
 local object_to_avro
+local map_to_avro
 
 local gql_scalar_to_avro_index = {
     String = "string",
@@ -29,7 +30,9 @@ local gql_scalar_to_avro_index = {
 
 local function gql_scalar_to_avro(fieldType)
     assert(fieldType.__type == "Scalar", "GraphQL scalar field expected")
-    assert(fieldType.name ~= "Map", "Map type is not supported")
+    if fieldType.subtype == "Map" then
+        return map_to_avro(fieldType)
+    end
     local result = gql_scalar_to_avro_index[fieldType.name]
     assert(result ~= nil, "Unexpected scalar type: " .. fieldType.name)
     return result
@@ -83,6 +86,15 @@ local function gql_type_to_avro(fieldType, subSelections, context)
         })
     end
     return result
+end
+
+--- The function converts a GraphQL Map type to avro-schema map type.
+map_to_avro = function(mapType)
+    assert(mapType.values ~= nil, "GraphQL Map type must have 'values' field")
+    return {
+        type = "map",
+        values = gql_type_to_avro(mapType.values),
+    }
 end
 
 --- The function converts a single Object field to avro format.
