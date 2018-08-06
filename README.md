@@ -124,6 +124,15 @@ local compiled_query = graphql_lib.compile(query)
 local result = compiled_query:execute(variables)
 ```
 
+### Multi-head connections
+A parent object is matching against a multi-head connection variants in the
+order of the variants. The parent object should match with a determinant of
+at least one variant except the following case. When source fields of all 
+variants are null the multi-head connection obligated to give null object as 
+the result. In this case the parent object is allowed to don’t match any variant. 
+One can use this feature to avoid to set any specific determinant value when a 
+multi-head connection is known to have no connected object.
+
 ### Mutations
 
 Mutations are disabled for avro-schema-2\*, because it can work incorrectly for
