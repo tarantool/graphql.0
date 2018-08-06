@@ -200,6 +200,28 @@ local function field_to_avro(object_type, fields, context)
 
     local fieldTypeAvro = gql_type_to_avro(fieldType.kind, subSelections,
         context)
+    -- Currently we support only 'include' and 'skip' directives. Both of them
+    -- affect resulting avro-schema the same way: field with directive becomes
+    -- nullable, if it's already not. Nullable field does not change.
+    --
+    -- If it is a 1:N connection then it's 'array' field becomes 'array*'.
+    -- If it is avro-schema union, then 'null' will be added to the union
+    -- types. If there are more then one directive on a field then all works
+    -- the same way, like it is only one directive. (But we still check all
+    -- directives to be 'include' or 'skip').
+    if firstField.directives ~= nil then
+        for _, d in ipairs(firstField.directives) do
+            check(d.name, "directive.name", "table")
+            check(d.arguments, "directive.arguments", "table")
+            check(d.kind, "directive.kind", "string")
+            assert(d.kind == "directive")
+            check(d.name.value, "directive.name.value", "string")
+            assert(d.name.value == "include" or d.name.value == "skip",
+                "Only 'include' and 'skip' directives are supported for now")
+        end
+        fieldTypeAvro = avro_helpers.make_avro_type_nullable(fieldTypeAvro)
+    end
+
     return {
         name = convert_schema_helpers.base_name(fieldName),
         type = fieldTypeAvro,
