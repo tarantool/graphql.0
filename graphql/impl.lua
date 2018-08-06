@@ -73,8 +73,8 @@ end
 --- @treturn table result of the operation
 local function compile_and_execute(state, query, variables, operation_name,
         opts)
-    assert(type(state) == 'table', 'use :gql_execute(...) instead of ' ..
-        '.execute(...)')
+    assert(type(state) == 'table', 'use :compile_and_execute(...) ' ..
+        'instead of .compile_and_execute(...)')
     assert(state.schema ~= nil, 'have not compiled schema')
     check(query, 'query', 'string')
     check(variables, 'variables', 'table', 'nil')
@@ -103,7 +103,7 @@ end
 --- @treturn table compiled query with `execute` and `avro_schema` functions
 local function gql_compile(state, query, opts)
     assert(type(state) == 'table' and type(query) == 'string',
-        'use :validate(...) instead of .validate(...)')
+        'use :gql_compile(...) instead of .gql_compile(...)')
     assert(state.schema ~= nil, 'have not compiled schema')
     check(query, 'query', 'string')
     check(opts, 'opts', 'table', 'nil')
