@@ -368,6 +368,10 @@ git clone https://github.com/tarantool/graphql.git
 git submodule update --recursive --init
 make test
 ```
+To run specific test:
+```
+TEST_RUN_TESTS=common/mutation make test
+```
 
 ## Requirements
 
