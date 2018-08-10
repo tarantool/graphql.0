@@ -117,8 +117,62 @@ local function run_queries(gql_wrapper)
         ---
         __schema:
           mutationType:
-            name: Mutation
+            name: results___Mutation
           types:
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: state
+            - type:
+                name: String
+                kind: SCALAR
+              name: zip
+            - type:
+                name: String
+                kind: SCALAR
+              name: city
+            - type:
+                name: String
+                kind: SCALAR
+              name: street
+            name: arguments___order_metainfo_collection___store___store___address___address
+            description: generated from avro-schema for address
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: arguments___order_metainfo_collection___store___store___address___address
+                kind: INPUT_OBJECT
+              name: address
+            - type:
+                name: String
+                kind: SCALAR
+              name: name
+            - type:
+                name: arguments___order_metainfo_collection___store___store___second_address___address
+                kind: INPUT_OBJECT
+              name: second_address
+            name: arguments___order_metainfo_collection___store___store
+            description: generated from avro-schema for store
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___address___address
+                kind: INPUT_OBJECT
+              name: address
+            - type:
+                name: String
+                kind: SCALAR
+              name: name
+            - type:
+                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___second_address___address
+                kind: INPUT_OBJECT
+              name: second_address
+            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store
+            description: generated from avro-schema for store
+          - name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___external_id___external_id
+            kind: SCALAR
           - interfaces: &0 []
             fields:
             - isDeprecated: false
@@ -171,7 +225,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_collection
+                      name: results___order_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -208,24 +262,8 @@ local function run_queries(gql_wrapper)
                 kind: SCALAR
               name: middle_name
             kind: OBJECT
-            name: user_collection
+            name: results___user_collection
             description: generated from avro-schema for user
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: arguments___order_metainfo_collection___store___store___address___address
-                kind: INPUT_OBJECT
-              name: address
-            - type:
-                name: String
-                kind: SCALAR
-              name: name
-            - type:
-                name: arguments___order_metainfo_collection___store___store___second_address___address
-                kind: INPUT_OBJECT
-              name: second_address
-            name: arguments___order_metainfo_collection___store___store
-            description: generated from avro-schema for store
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -235,7 +273,57 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: state
+              name: description
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: Double
+                  kind: SCALAR
+                kind: NON_NULL
+              name: price
+            - isDeprecated: false
+              args:
+              - type:
+                  name: Boolean
+                  kind: SCALAR
+                name: delete
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: metainfo
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: order_metainfo_id
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: order_metainfo_id_copy
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: order_id
+              - type:
+                  name: order_metainfo_collection_update
+                  kind: INPUT_OBJECT
+                name: update
+              - type:
+                  name: arguments___order_metainfo_collection___store___store
+                  kind: INPUT_OBJECT
+                name: store
+              type:
+                name: results___order_metainfo_collection
+                kind: OBJECT
+              name: order_metainfo_connection
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: Boolean
+                  kind: SCALAR
+                kind: NON_NULL
+              name: in_stock
             - isDeprecated: false
               args: *0
               type:
@@ -243,7 +331,7 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: zip
+              name: user_id
             - isDeprecated: false
               args: *0
               type:
@@ -251,18 +339,150 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: city
+              name: order_id
             - isDeprecated: false
               args: *0
               type:
                 ofType:
-                  name: String
+                  name: Float
                   kind: SCALAR
                 kind: NON_NULL
-              name: street
+              name: discount
+            - isDeprecated: false
+              args:
+              - type:
+                  name: Boolean
+                  kind: SCALAR
+                name: delete
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: first_name
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: user_id
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: last_name
+              - type:
+                  name: user_collection_update
+                  kind: INPUT_OBJECT
+                name: update
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: middle_name
+              type:
+                name: results___user_collection
+                kind: OBJECT
+              name: user_connection
             kind: OBJECT
-            name: order_metainfo_collection___store___store___second_address___address
-            description: generated from avro-schema for address
+            name: results___order_collection
+            description: generated from avro-schema for order
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_metainfo_id
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_metainfo_id_copy
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: metainfo
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_id
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store
+                  kind: OBJECT
+                kind: NON_NULL
+              name: store
+            kind: OBJECT
+            name: results___order_metainfo_collection
+            description: generated from avro-schema for order_metainfo
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store___address___address
+                  kind: OBJECT
+                kind: NON_NULL
+              name: address
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store___second_address___address
+                  kind: OBJECT
+                kind: NON_NULL
+              name: second_address
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  ofType:
+                    ofType:
+                      name: String
+                      kind: SCALAR
+                    kind: NON_NULL
+                  kind: LIST
+                kind: NON_NULL
+              name: tags
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store___external_id___external_id
+                  kind: UNION
+                kind: NON_NULL
+              name: external_id
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: name
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store___parametrized_tags___Map
+                  kind: SCALAR
+                kind: NON_NULL
+              name: parametrized_tags
+            kind: OBJECT
+            name: results___order_metainfo_collection___store___store
+            description: generated from avro-schema for store
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -311,7 +531,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: user_collection
+                      name: results___user_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -367,7 +587,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_metainfo_collection
+                      name: results___order_metainfo_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -427,55 +647,15 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_collection
+                      name: results___order_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
                 kind: NON_NULL
               name: order_collection
             kind: OBJECT
-            name: Mutation
+            name: results___Mutation
             description: generated from avro-schema for Mutation
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___address___address
-                kind: INPUT_OBJECT
-              name: address
-            - type:
-                name: String
-                kind: SCALAR
-              name: name
-            - type:
-                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___second_address___address
-                kind: INPUT_OBJECT
-              name: second_address
-            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store
-            description: generated from avro-schema for store
-          - name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___external_id___external_id
-            kind: SCALAR
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: state
-            - type:
-                name: String
-                kind: SCALAR
-              name: zip
-            - type:
-                name: String
-                kind: SCALAR
-              name: city
-            - type:
-                name: String
-                kind: SCALAR
-              name: street
-            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___address___address
-            description: generated from avro-schema for address
-          - name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___parametrized_tags___InputMap
-            kind: SCALAR
           - kind: ENUM
             enumValues:
             - isDeprecated: false
@@ -499,53 +679,6 @@ local function run_queries(gql_wrapper)
             name: __DirectiveLocation
             description: A Directive can be adjacent to many parts of the GraphQL language,
               a __DirectiveLocation describes one such possible adjacencies.
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                name: String
-                kind: SCALAR
-              name: description
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  ofType:
-                    ofType:
-                      name: __DirectiveLocation
-                      kind: ENUM
-                    kind: NON_NULL
-                  kind: LIST
-                kind: NON_NULL
-              name: locations
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: name
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  ofType:
-                    ofType:
-                      name: __InputValue
-                      kind: OBJECT
-                    kind: NON_NULL
-                  kind: LIST
-                kind: NON_NULL
-              name: args
-            kind: OBJECT
-            name: __Directive
-            description: A Directive provides a way to describe alternate runtime execution
-              and type validation behavior in a GraphQL document. In some cases, you need
-              to provide options to alter GraphQL’s execution behavior in ways field arguments
-              will not suffice, such as conditionally including or skipping a field. Directives
-              provide this by describing additional information to the executor.
           - kind: ENUM
             enumValues:
             - isDeprecated: false
@@ -620,6 +753,66 @@ local function run_queries(gql_wrapper)
             - isDeprecated: false
               args: *0
               type:
+                name: String
+                kind: SCALAR
+              name: description
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  ofType:
+                    ofType:
+                      name: __DirectiveLocation
+                      kind: ENUM
+                    kind: NON_NULL
+                  kind: LIST
+                kind: NON_NULL
+              name: locations
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: name
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  ofType:
+                    ofType:
+                      name: __InputValue
+                      kind: OBJECT
+                    kind: NON_NULL
+                  kind: LIST
+                kind: NON_NULL
+              name: args
+            kind: OBJECT
+            name: __Directive
+            description: A Directive provides a way to describe alternate runtime execution
+              and type validation behavior in a GraphQL document. In some cases, you need
+              to provide options to alter GraphQL’s execution behavior in ways field arguments
+              will not suffice, such as conditionally including or skipping a field. Directives
+              provide this by describing additional information to the executor.
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: Int
+                  kind: SCALAR
+                kind: NON_NULL
+              name: int
+            kind: OBJECT
+            name: Int_box
+            description: Box (wrapper) around union variant
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
                 ofType:
                   name: Boolean
                   kind: SCALAR
@@ -669,18 +862,85 @@ local function run_queries(gql_wrapper)
             name: __Field
             description: Object and Interface types are described by a list of Fields, each
               of which has a name, potentially a list of arguments, and a return type.
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: state
+            - type:
+                name: String
+                kind: SCALAR
+              name: zip
+            - type:
+                name: String
+                kind: SCALAR
+              name: city
+            - type:
+                name: String
+                kind: SCALAR
+              name: street
+            name: arguments___order_metainfo_collection___store___store___second_address___address
+            description: generated from avro-schema for address
+          - possibleTypes:
+            - name: Int_box
+              kind: OBJECT
+            - name: String_box
+              kind: OBJECT
+            name: results___order_metainfo_collection___store___store___external_id___external_id
+            kind: UNION
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: state
+            - type:
+                name: String
+                kind: SCALAR
+              name: zip
+            - type:
+                name: String
+                kind: SCALAR
+              name: city
+            - type:
+                name: String
+                kind: SCALAR
+              name: street
+            name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___address___address
+            description: generated from avro-schema for address
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: state
+            - type:
+                name: String
+                kind: SCALAR
+              name: zip
+            - type:
+                name: String
+                kind: SCALAR
+              name: city
+            - type:
+                name: String
+                kind: SCALAR
+              name: street
+            name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___second_address___address
+            description: generated from avro-schema for address
           - interfaces: *0
             fields:
             - isDeprecated: false
               args: *0
               type:
                 ofType:
-                  name: Int
+                  name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: int
+              name: string
             kind: OBJECT
-            name: Int_box
+            name: String_box
             description: Box (wrapper) around union variant
           - interfaces: *0
             fields:
@@ -719,189 +979,16 @@ local function run_queries(gql_wrapper)
             description: Arguments provided to Fields or Directives and the input fields of
               an InputObject are represented as Input Values which describe their type and
               optionally a default value.
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: state
-            - type:
-                name: String
-                kind: SCALAR
-              name: zip
-            - type:
-                name: String
-                kind: SCALAR
-              name: city
-            - type:
-                name: String
-                kind: SCALAR
-              name: street
-            name: arguments___order_metainfo_collection___store___store___second_address___address
-            description: generated from avro-schema for address
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                ofType:
-                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___address___address
-                  kind: INPUT_OBJECT
-                kind: NON_NULL
-              name: address
-            - type:
-                ofType:
-                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___second_address___address
-                  kind: INPUT_OBJECT
-                kind: NON_NULL
-              name: second_address
-            - type:
-                ofType:
-                  ofType:
-                    ofType:
-                      name: String
-                      kind: SCALAR
-                    kind: NON_NULL
-                  kind: LIST
-                kind: NON_NULL
-              name: tags
-            - type:
-                ofType:
-                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___external_id___external_id
-                  kind: SCALAR
-                kind: NON_NULL
-              name: external_id
-            - type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: name
-            - type:
-                ofType:
-                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___parametrized_tags___InputMap
-                  kind: SCALAR
-                kind: NON_NULL
-              name: parametrized_tags
-            name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store
-            description: generated from avro-schema for store
-          - kind: SCALAR
-            name: order_metainfo_collection___store___store___parametrized_tags___Map
-            description: Map is a dictionary with string keys and values of arbitrary but
-              same among all values type
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: state
-            - type:
-                name: String
-                kind: SCALAR
-              name: zip
-            - type:
-                name: String
-                kind: SCALAR
-              name: city
-            - type:
-                name: String
-                kind: SCALAR
-              name: street
-            name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___second_address___address
-            description: generated from avro-schema for address
           - interfaces: *0
             fields:
             - isDeprecated: false
               args: *0
               type:
                 ofType:
-                  name: String
+                  name: Boolean
                   kind: SCALAR
                 kind: NON_NULL
-              name: string
-            kind: OBJECT
-            name: String_box
-            description: Box (wrapper) around union variant
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_metainfo_id
-            - type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_metainfo_id_copy
-            - type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: metainfo
-            - type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_id
-            - type:
-                ofType:
-                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store
-                  kind: INPUT_OBJECT
-                kind: NON_NULL
-              name: store
-            name: order_metainfo_collection_insert
-            description: generated from avro-schema for order_metainfo_collection_insert
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                ofType:
-                  name: Int
-                  kind: SCALAR
-                kind: NON_NULL
-              name: int
-            name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___external_id___external_id___Int_box
-            description: Box (wrapper) around union variant
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store___address___address
-                  kind: OBJECT
-                kind: NON_NULL
-              name: address
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store___second_address___address
-                  kind: OBJECT
-                kind: NON_NULL
-              name: second_address
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  ofType:
-                    ofType:
-                      name: String
-                      kind: SCALAR
-                    kind: NON_NULL
-                  kind: LIST
-                kind: NON_NULL
-              name: tags
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store___external_id___external_id
-                  kind: UNION
-                kind: NON_NULL
-              name: external_id
+              name: isDeprecated
             - isDeprecated: false
               args: *0
               type:
@@ -913,14 +1000,48 @@ local function run_queries(gql_wrapper)
             - isDeprecated: false
               args: *0
               type:
+                name: String
+                kind: SCALAR
+              name: deprecationReason
+            - isDeprecated: false
+              args: *0
+              type:
+                name: String
+                kind: SCALAR
+              name: description
+            kind: OBJECT
+            name: __EnumValue
+            description: One possible value for a given Enum. Enum values are unique values,
+              not a placeholder for a string or numeric value. However an Enum value is returned
+              in a JSON response as a string.
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
                 ofType:
-                  name: order_metainfo_collection___store___store___parametrized_tags___Map
+                  name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: parametrized_tags
-            kind: OBJECT
-            name: order_metainfo_collection___store___store
-            description: generated from avro-schema for store
+              name: state
+            - type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: zip
+            - type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: city
+            - type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: street
+            name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___address___address
+            description: generated from avro-schema for address
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -942,8 +1063,6 @@ local function run_queries(gql_wrapper)
             name: user_connection
             description: generated from the connection "user_connection" of collection "order_collection"
               using collection "user_collection"
-          - name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___parametrized_tags___InputMap
-            kind: SCALAR
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -954,6 +1073,28 @@ local function run_queries(gql_wrapper)
               name: string
             name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___external_id___external_id___String_box
             description: Box (wrapper) around union variant
+          - name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___parametrized_tags___InputMap
+            kind: SCALAR
+          - kind: SCALAR
+            name: results___order_metainfo_collection___store___store___parametrized_tags___Map
+            description: Map is a dictionary with string keys and values of arbitrary but
+              same among all values type
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: user_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: description
+            name: order_collection_pcre
+            description: generated from avro-schema for order_collection_pcre
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -990,7 +1131,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: user_collection
+                      name: results___user_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -1034,7 +1175,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_metainfo_collection
+                      name: results___order_metainfo_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -1082,51 +1223,15 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_collection
+                      name: results___order_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
                 kind: NON_NULL
               name: order_collection
             kind: OBJECT
-            name: Query
+            name: results___Query
             description: generated from avro-schema for Query
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: user_id
-            - type:
-                name: String
-                kind: SCALAR
-              name: order_id
-            - type:
-                name: String
-                kind: SCALAR
-              name: description
-            name: order_collection_pcre
-            description: generated from avro-schema for order_collection_pcre
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: state
-            - type:
-                name: String
-                kind: SCALAR
-              name: zip
-            - type:
-                name: String
-                kind: SCALAR
-              name: city
-            - type:
-                name: String
-                kind: SCALAR
-              name: street
-            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___second_address___address
-            description: generated from avro-schema for address
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -1211,8 +1316,16 @@ local function run_queries(gql_wrapper)
               name: middle_name
             name: user_collection_insert
             description: generated from avro-schema for user_collection_insert
-          - name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___external_id___external_id
-            kind: SCALAR
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                ofType:
+                  name: Int
+                  kind: SCALAR
+                kind: NON_NULL
+              name: int
+            name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___external_id___external_id___Int_box
+            description: Box (wrapper) around union variant
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1223,6 +1336,8 @@ local function run_queries(gql_wrapper)
               name: int
             name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___external_id___external_id___Int_box
             description: Box (wrapper) around union variant
+          - name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___external_id___external_id
+            kind: SCALAR
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1251,44 +1366,16 @@ local function run_queries(gql_wrapper)
               name: street
             name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___second_address___address
             description: generated from avro-schema for address
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: state
-            - type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: zip
-            - type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: city
-            - type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: street
-            name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___address___address
-            description: generated from avro-schema for address
           - interfaces: *0
             fields:
             - isDeprecated: false
               args: *0
               type:
                 ofType:
-                  name: Boolean
+                  name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: isDeprecated
+              name: state
             - isDeprecated: false
               args: *0
               type:
@@ -1296,24 +1383,26 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: name
+              name: zip
             - isDeprecated: false
               args: *0
               type:
-                name: String
-                kind: SCALAR
-              name: deprecationReason
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: city
             - isDeprecated: false
               args: *0
               type:
-                name: String
-                kind: SCALAR
-              name: description
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: street
             kind: OBJECT
-            name: __EnumValue
-            description: One possible value for a given Enum. Enum values are unique values,
-              not a placeholder for a string or numeric value. However an Enum value is returned
-              in a JSON response as a string.
+            name: results___order_metainfo_collection___store___store___second_address___address
+            description: generated from avro-schema for address
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -1414,6 +1503,181 @@ local function run_queries(gql_wrapper)
           - kind: INPUT_OBJECT
             inputFields:
             - type:
+                ofType:
+                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___address___address
+                  kind: INPUT_OBJECT
+                kind: NON_NULL
+              name: address
+            - type:
+                ofType:
+                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___second_address___address
+                  kind: INPUT_OBJECT
+                kind: NON_NULL
+              name: second_address
+            - type:
+                ofType:
+                  ofType:
+                    ofType:
+                      name: String
+                      kind: SCALAR
+                    kind: NON_NULL
+                  kind: LIST
+                kind: NON_NULL
+              name: tags
+            - type:
+                ofType:
+                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___external_id___external_id
+                  kind: SCALAR
+                kind: NON_NULL
+              name: external_id
+            - type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: name
+            - type:
+                ofType:
+                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store___parametrized_tags___InputMap
+                  kind: SCALAR
+                kind: NON_NULL
+              name: parametrized_tags
+            name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store
+            description: generated from avro-schema for store
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: state
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: zip
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: city
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: street
+            kind: OBJECT
+            name: results___order_metainfo_collection___store___store___address___address
+            description: generated from avro-schema for address
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_metainfo_id
+            - type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_metainfo_id_copy
+            - type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: metainfo
+            - type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_id
+            - type:
+                ofType:
+                  name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store
+                  kind: INPUT_OBJECT
+                kind: NON_NULL
+              name: store
+            name: order_metainfo_collection_insert
+            description: generated from avro-schema for order_metainfo_collection_insert
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: state
+            - type:
+                name: String
+                kind: SCALAR
+              name: zip
+            - type:
+                name: String
+                kind: SCALAR
+              name: city
+            - type:
+                name: String
+                kind: SCALAR
+              name: street
+            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___second_address___address
+            description: generated from avro-schema for address
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: state
+            - type:
+                name: String
+                kind: SCALAR
+              name: zip
+            - type:
+                name: String
+                kind: SCALAR
+              name: city
+            - type:
+                name: String
+                kind: SCALAR
+              name: street
+            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___address___address
+            description: generated from avro-schema for address
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: user_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: last_name
+            - type:
+                name: String
+                kind: SCALAR
+              name: first_name
+            - type:
+                name: String
+                kind: SCALAR
+              name: middle_name
+            name: user_collection_pcre
+            description: generated from avro-schema for user_collection_pcre
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
                 name: String
                 kind: SCALAR
               name: order_metainfo_id
@@ -1440,235 +1704,6 @@ local function run_queries(gql_wrapper)
             - type:
                 name: String
                 kind: SCALAR
-              name: order_metainfo_id
-            - type:
-                name: String
-                kind: SCALAR
-              name: order_metainfo_id_copy
-            - type:
-                name: String
-                kind: SCALAR
-              name: metainfo
-            - type:
-                name: String
-                kind: SCALAR
-              name: order_id
-            - type:
-                name: arguments___order_metainfo_collection___store___store
-                kind: INPUT_OBJECT
-              name: store
-            name: order_metainfo_connection
-            description: generated from the connection "order_metainfo_connection" of collection
-              "order_collection" using collection "order_metainfo_collection"
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_metainfo_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_metainfo_id_copy
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: metainfo
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store
-                  kind: OBJECT
-                kind: NON_NULL
-              name: store
-            kind: OBJECT
-            name: order_metainfo_collection
-            description: generated from avro-schema for order_metainfo
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: state
-            - type:
-                name: String
-                kind: SCALAR
-              name: zip
-            - type:
-                name: String
-                kind: SCALAR
-              name: city
-            - type:
-                name: String
-                kind: SCALAR
-              name: street
-            name: arguments___order_metainfo_collection___store___store___address___address
-            description: generated from avro-schema for address
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: description
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: Double
-                  kind: SCALAR
-                kind: NON_NULL
-              name: price
-            - isDeprecated: false
-              args:
-              - type:
-                  name: Boolean
-                  kind: SCALAR
-                name: delete
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: metainfo
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: order_metainfo_id
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: order_metainfo_id_copy
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: order_id
-              - type:
-                  name: order_metainfo_collection_update
-                  kind: INPUT_OBJECT
-                name: update
-              - type:
-                  name: arguments___order_metainfo_collection___store___store
-                  kind: INPUT_OBJECT
-                name: store
-              type:
-                name: order_metainfo_collection
-                kind: OBJECT
-              name: order_metainfo_connection
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: Boolean
-                  kind: SCALAR
-                kind: NON_NULL
-              name: in_stock
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: user_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: Float
-                  kind: SCALAR
-                kind: NON_NULL
-              name: discount
-            - isDeprecated: false
-              args:
-              - type:
-                  name: Boolean
-                  kind: SCALAR
-                name: delete
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: first_name
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: user_id
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: last_name
-              - type:
-                  name: user_collection_update
-                  kind: INPUT_OBJECT
-                name: update
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: middle_name
-              type:
-                name: user_collection
-                kind: OBJECT
-              name: user_connection
-            kind: OBJECT
-            name: order_collection
-            description: generated from avro-schema for order
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: user_id
-            - type:
-                name: String
-                kind: SCALAR
-              name: last_name
-            - type:
-                name: String
-                kind: SCALAR
-              name: first_name
-            - type:
-                name: String
-                kind: SCALAR
-              name: middle_name
-            name: user_collection_pcre
-            description: generated from avro-schema for user_collection_pcre
-          - name: Float
-            kind: SCALAR
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
               name: last_name
             - type:
                 name: String
@@ -1683,37 +1718,8 @@ local function run_queries(gql_wrapper)
           - name: Double
             kind: SCALAR
           - kind: SCALAR
-            name: String
-            description: The `String` scalar type represents textual data, represented as
-              UTF-8 character sequences. The String type is most often used by GraphQL to
-              represent free-form human-readable text.
-          - possibleTypes:
-            - name: Int_box
-              kind: OBJECT
-            - name: String_box
-              kind: OBJECT
-            name: order_metainfo_collection___store___store___external_id___external_id
-            kind: UNION
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: order_metainfo_id_copy
-            - type:
-                name: String
-                kind: SCALAR
-              name: metainfo
-            - type:
-                name: String
-                kind: SCALAR
-              name: order_id
-            - type:
-                name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store
-                kind: INPUT_OBJECT
-              name: store
-            name: order_metainfo_collection_update
-            description: generated from avro-schema for order_metainfo_collection_update
+            name: Boolean
+            description: The `Boolean` scalar type represents `true` or `false`.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1746,33 +1752,59 @@ local function run_queries(gql_wrapper)
               name: parametrized_tags
             name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store
             description: generated from avro-schema for store
+          - name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___parametrized_tags___InputMap
+            kind: SCALAR
+          - kind: SCALAR
+            name: Int
+            description: The `Int` scalar type represents non-fractional signed whole numeric
+              values. Int can represent values between -(2^31) and 2^31 - 1.
+          - name: Float
+            kind: SCALAR
           - kind: INPUT_OBJECT
             inputFields:
             - type:
                 name: String
                 kind: SCALAR
-              name: state
+              name: order_metainfo_id_copy
             - type:
                 name: String
                 kind: SCALAR
-              name: zip
+              name: metainfo
             - type:
                 name: String
                 kind: SCALAR
-              name: city
+              name: order_id
+            - type:
+                name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store
+                kind: INPUT_OBJECT
+              name: store
+            name: order_metainfo_collection_update
+            description: generated from avro-schema for order_metainfo_collection_update
+          - kind: INPUT_OBJECT
+            inputFields:
             - type:
                 name: String
                 kind: SCALAR
-              name: street
-            name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___address___address
-            description: generated from avro-schema for address
-          - kind: SCALAR
-            name: Boolean
-            description: The `Boolean` scalar type represents `true` or `false`.
-          - kind: SCALAR
-            name: Int
-            description: The `Int` scalar type represents non-fractional signed whole numeric
-              values. Int can represent values between -(2^31) and 2^31 - 1.
+              name: order_metainfo_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id_copy
+            - type:
+                name: String
+                kind: SCALAR
+              name: metainfo
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_id
+            - type:
+                name: arguments___order_metainfo_collection___store___store
+                kind: INPUT_OBJECT
+              name: store
+            name: order_metainfo_connection
+            description: generated from the connection "order_metainfo_connection" of collection
+              "order_collection" using collection "order_metainfo_collection"
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1783,43 +1815,11 @@ local function run_queries(gql_wrapper)
               name: string
             name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___external_id___external_id___String_box
             description: Box (wrapper) around union variant
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: state
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: zip
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: city
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: street
-            kind: OBJECT
-            name: order_metainfo_collection___store___store___address___address
-            description: generated from avro-schema for address
+          - kind: SCALAR
+            name: String
+            description: The `String` scalar type represents textual data, represented as
+              UTF-8 character sequences. The String type is most often used by GraphQL to
+              represent free-form human-readable text.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1845,7 +1845,7 @@ local function run_queries(gql_wrapper)
             name: order_collection_update
             description: generated from avro-schema for order_collection_update
           queryType:
-            name: Query
+            name: results___Query
           directives:
           - args:
             - type:
@@ -1882,11 +1882,62 @@ local function run_queries(gql_wrapper)
 
     -- luacheck: push max line length 156
     local exp_result_avro_schema_2 = yaml.decode(([[
-        ---
         __schema:
           mutationType:
-            name: Mutation
+            name: results___Mutation
           types:
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: state
+            - type:
+                name: String
+                kind: SCALAR
+              name: zip
+            - type:
+                name: String
+                kind: SCALAR
+              name: city
+            - type:
+                name: String
+                kind: SCALAR
+              name: street
+            name: arguments___order_metainfo_collection___store___store___address___address
+            description: generated from avro-schema for address
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: arguments___order_metainfo_collection___store___store___address___address
+                kind: INPUT_OBJECT
+              name: address
+            - type:
+                name: String
+                kind: SCALAR
+              name: name
+            - type:
+                name: arguments___order_metainfo_collection___store___store___second_address___address
+                kind: INPUT_OBJECT
+              name: second_address
+            name: arguments___order_metainfo_collection___store___store
+            description: generated from avro-schema for store
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___address___address
+                kind: INPUT_OBJECT
+              name: address
+            - type:
+                name: String
+                kind: SCALAR
+              name: name
+            - type:
+                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___second_address___address
+                kind: INPUT_OBJECT
+              name: second_address
+            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store
+            description: generated from avro-schema for store
           - interfaces: &0 []
             fields:
             - isDeprecated: false
@@ -1931,7 +1982,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_collection
+                      name: results___order_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -1968,24 +2019,8 @@ local function run_queries(gql_wrapper)
                 kind: SCALAR
               name: middle_name
             kind: OBJECT
-            name: user_collection
+            name: results___user_collection
             description: generated from avro-schema for user
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: arguments___order_metainfo_collection___store___store___address___address
-                kind: INPUT_OBJECT
-              name: address
-            - type:
-                name: String
-                kind: SCALAR
-              name: name
-            - type:
-                name: arguments___order_metainfo_collection___store___store___second_address___address
-                kind: INPUT_OBJECT
-              name: second_address
-            name: arguments___order_metainfo_collection___store___store
-            description: generated from avro-schema for store
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -1995,7 +2030,49 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: state
+              name: description
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: Double
+                  kind: SCALAR
+                kind: NON_NULL
+              name: price
+            - isDeprecated: false
+              args:
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: order_metainfo_id
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: order_metainfo_id_copy
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: metainfo
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: order_id
+              - type:
+                  name: arguments___order_metainfo_collection___store___store
+                  kind: INPUT_OBJECT
+                name: store
+              type:
+                name: results___order_metainfo_collection
+                kind: OBJECT
+              name: order_metainfo_connection
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: Boolean
+                  kind: SCALAR
+                kind: NON_NULL
+              name: in_stock
             - isDeprecated: false
               args: *0
               type:
@@ -2003,7 +2080,7 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: zip
+              name: user_id
             - isDeprecated: false
               args: *0
               type:
@@ -2011,18 +2088,142 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: city
+              name: order_id
             - isDeprecated: false
               args: *0
               type:
                 ofType:
-                  name: String
+                  name: Float
                   kind: SCALAR
                 kind: NON_NULL
-              name: street
+              name: discount
+            - isDeprecated: false
+              args:
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: user_id
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: last_name
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: first_name
+              - type:
+                  name: String
+                  kind: SCALAR
+                name: middle_name
+              type:
+                name: results___user_collection
+                kind: OBJECT
+              name: user_connection
             kind: OBJECT
-            name: order_metainfo_collection___store___store___second_address___address
-            description: generated from avro-schema for address
+            name: results___order_collection
+            description: generated from avro-schema for order
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_metainfo_id
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_metainfo_id_copy
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: metainfo
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: order_id
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store
+                  kind: OBJECT
+                kind: NON_NULL
+              name: store
+            kind: OBJECT
+            name: results___order_metainfo_collection
+            description: generated from avro-schema for order_metainfo
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store___address___address
+                  kind: OBJECT
+                kind: NON_NULL
+              name: address
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store___second_address___address
+                  kind: OBJECT
+                kind: NON_NULL
+              name: second_address
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  ofType:
+                    ofType:
+                      name: String
+                      kind: SCALAR
+                    kind: NON_NULL
+                  kind: LIST
+                kind: NON_NULL
+              name: tags
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store___external_id___external_id
+                  kind: UNION
+                kind: NON_NULL
+              name: external_id
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: name
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: results___order_metainfo_collection___store___store___parametrized_tags___Map
+                  kind: SCALAR
+                kind: NON_NULL
+              name: parametrized_tags
+            kind: OBJECT
+            name: results___order_metainfo_collection___store___store
+            description: generated from avro-schema for store
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2059,7 +2260,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: user_collection
+                      name: results___user_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -2103,7 +2304,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_metainfo_collection
+                      name: results___order_metainfo_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -2151,58 +2352,15 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_collection
+                      name: results___order_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
                 kind: NON_NULL
               name: order_collection
             kind: OBJECT
-            name: Mutation
+            name: results___Mutation
             description: generated from avro-schema for Mutation
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___address___address
-                kind: INPUT_OBJECT
-              name: address
-            - type:
-                name: String
-                kind: SCALAR
-              name: name
-            - type:
-                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___second_address___address
-                kind: INPUT_OBJECT
-              name: second_address
-            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store
-            description: generated from avro-schema for store
-          - possibleTypes:
-            - name: Int_box
-              kind: OBJECT
-            - name: String_box
-              kind: OBJECT
-            name: order_metainfo_collection___store___store___external_id___external_id
-            kind: UNION
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: state
-            - type:
-                name: String
-                kind: SCALAR
-              name: zip
-            - type:
-                name: String
-                kind: SCALAR
-              name: city
-            - type:
-                name: String
-                kind: SCALAR
-              name: street
-            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___address___address
-            description: generated from avro-schema for address
           - kind: ENUM
             enumValues:
             - isDeprecated: false
@@ -2314,10 +2472,38 @@ local function run_queries(gql_wrapper)
               name: street
             name: arguments___order_metainfo_collection___store___store___second_address___address
             description: generated from avro-schema for address
-          - kind: SCALAR
-            name: order_metainfo_collection___store___store___parametrized_tags___Map
-            description: Map is a dictionary with string keys and values of arbitrary but
-              same among all values type
+          - possibleTypes:
+            - name: Int_box
+              kind: OBJECT
+            - name: String_box
+              kind: OBJECT
+            name: results___order_metainfo_collection___store___store___external_id___external_id
+            kind: UNION
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id_copy
+            - type:
+                name: String
+                kind: SCALAR
+              name: metainfo
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_id
+            - type:
+                name: arguments___order_metainfo_collection___store___store
+                kind: INPUT_OBJECT
+              name: store
+            name: order_metainfo_connection
+            description: generated from the connection "order_metainfo_connection" of collection
+              "order_collection" using collection "order_metainfo_collection"
           - name: Float
             kind: SCALAR
           - interfaces: *0
@@ -2333,63 +2519,6 @@ local function run_queries(gql_wrapper)
             kind: OBJECT
             name: String_box
             description: Box (wrapper) around union variant
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store___address___address
-                  kind: OBJECT
-                kind: NON_NULL
-              name: address
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store___second_address___address
-                  kind: OBJECT
-                kind: NON_NULL
-              name: second_address
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  ofType:
-                    ofType:
-                      name: String
-                      kind: SCALAR
-                    kind: NON_NULL
-                  kind: LIST
-                kind: NON_NULL
-              name: tags
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store___external_id___external_id
-                  kind: UNION
-                kind: NON_NULL
-              name: external_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: name
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store___parametrized_tags___Map
-                  kind: SCALAR
-                kind: NON_NULL
-              name: parametrized_tags
-            kind: OBJECT
-            name: order_metainfo_collection___store___store
-            description: generated from avro-schema for store
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -2411,6 +2540,26 @@ local function run_queries(gql_wrapper)
             name: user_connection
             description: generated from the connection "user_connection" of collection "order_collection"
               using collection "user_collection"
+          - kind: SCALAR
+            name: results___order_metainfo_collection___store___store___parametrized_tags___Map
+            description: Map is a dictionary with string keys and values of arbitrary but
+              same among all values type
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: user_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: description
+            name: order_collection_pcre
+            description: generated from avro-schema for order_collection_pcre
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2447,7 +2596,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: user_collection
+                      name: results___user_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -2491,7 +2640,7 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_metainfo_collection
+                      name: results___order_metainfo_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
@@ -2539,51 +2688,15 @@ local function run_queries(gql_wrapper)
                 ofType:
                   ofType:
                     ofType:
-                      name: order_collection
+                      name: results___order_collection
                       kind: OBJECT
                     kind: NON_NULL
                   kind: LIST
                 kind: NON_NULL
               name: order_collection
             kind: OBJECT
-            name: Query
+            name: results___Query
             description: generated from avro-schema for Query
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: user_id
-            - type:
-                name: String
-                kind: SCALAR
-              name: order_id
-            - type:
-                name: String
-                kind: SCALAR
-              name: description
-            name: order_collection_pcre
-            description: generated from avro-schema for order_collection_pcre
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: state
-            - type:
-                name: String
-                kind: SCALAR
-              name: zip
-            - type:
-                name: String
-                kind: SCALAR
-              name: city
-            - type:
-                name: String
-                kind: SCALAR
-              name: street
-            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___second_address___address
-            description: generated from avro-schema for address
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2774,30 +2887,65 @@ local function run_queries(gql_wrapper)
               types provide their values. Object and Interface types provide the fields they
               describe. Abstract types, Union and Interface, provide the Object types possible
               at runtime. List and NonNull types compose other types.
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: state
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: zip
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: city
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: street
+            kind: OBJECT
+            name: results___order_metainfo_collection___store___store___address___address
+            description: generated from avro-schema for address
           - kind: INPUT_OBJECT
             inputFields:
             - type:
                 name: String
                 kind: SCALAR
-              name: order_metainfo_id
+              name: user_id
             - type:
                 name: String
                 kind: SCALAR
-              name: order_metainfo_id_copy
+              name: last_name
             - type:
                 name: String
                 kind: SCALAR
-              name: metainfo
+              name: first_name
             - type:
                 name: String
                 kind: SCALAR
-              name: order_id
-            - type:
-                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store
-                kind: INPUT_OBJECT
-              name: store
-            name: order_metainfo_collection_pcre
-            description: generated from avro-schema for order_metainfo_collection_pcre
+              name: middle_name
+            name: user_collection_pcre
+            description: generated from avro-schema for user_collection_pcre
+          - name: Double
+            kind: SCALAR
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2889,65 +3037,11 @@ local function run_queries(gql_wrapper)
             name: __Field
             description: Object and Interface types are described by a list of Fields, each
               of which has a name, potentially a list of arguments, and a return type.
-          - name: Double
-            kind: SCALAR
-          - kind: SCALAR
-            name: Boolean
-            description: The `Boolean` scalar type represents `true` or `false`.
-          - kind: SCALAR
-            name: Int
-            description: The `Int` scalar type represents non-fractional signed whole numeric
-              values. Int can represent values between -(2^31) and 2^31 - 1.
           - kind: SCALAR
             name: String
             description: The `String` scalar type represents textual data, represented as
               UTF-8 character sequences. The String type is most often used by GraphQL to
               represent free-form human-readable text.
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_metainfo_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_metainfo_id_copy
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: metainfo
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store
-                  kind: OBJECT
-                kind: NON_NULL
-              name: store
-            kind: OBJECT
-            name: order_metainfo_collection
-            description: generated from avro-schema for order_metainfo
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -2967,175 +3061,43 @@ local function run_queries(gql_wrapper)
                 kind: SCALAR
               name: order_id
             - type:
-                name: arguments___order_metainfo_collection___store___store
+                name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store
                 kind: INPUT_OBJECT
               name: store
-            name: order_metainfo_connection
-            description: generated from the connection "order_metainfo_connection" of collection
-              "order_collection" using collection "order_metainfo_collection"
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: description
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: Double
-                  kind: SCALAR
-                kind: NON_NULL
-              name: price
-            - isDeprecated: false
-              args:
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: order_metainfo_id
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: order_metainfo_id_copy
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: metainfo
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: order_id
-              - type:
-                  name: arguments___order_metainfo_collection___store___store
-                  kind: INPUT_OBJECT
-                name: store
-              type:
-                name: order_metainfo_collection
-                kind: OBJECT
-              name: order_metainfo_connection
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: Boolean
-                  kind: SCALAR
-                kind: NON_NULL
-              name: in_stock
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: user_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: Float
-                  kind: SCALAR
-                kind: NON_NULL
-              name: discount
-            - isDeprecated: false
-              args:
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: user_id
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: last_name
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: first_name
-              - type:
-                  name: String
-                  kind: SCALAR
-                name: middle_name
-              type:
-                name: user_collection
-                kind: OBJECT
-              name: user_connection
-            kind: OBJECT
-            name: order_collection
-            description: generated from avro-schema for order
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
+            name: order_metainfo_collection_pcre
+            description: generated from avro-schema for order_metainfo_collection_pcre
+          - kind: SCALAR
+            name: Int
+            description: The `Int` scalar type represents non-fractional signed whole numeric
+              values. Int can represent values between -(2^31) and 2^31 - 1.
+          - kind: SCALAR
+            name: Boolean
+            description: The `Boolean` scalar type represents `true` or `false`.
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
               name: state
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
+            - type:
+                name: String
+                kind: SCALAR
               name: zip
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
+            - type:
+                name: String
+                kind: SCALAR
               name: city
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
+            - type:
+                name: String
+                kind: SCALAR
               name: street
-            kind: OBJECT
-            name: order_metainfo_collection___store___store___address___address
+            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___address___address
             description: generated from avro-schema for address
           - kind: INPUT_OBJECT
             inputFields:
             - type:
                 name: String
                 kind: SCALAR
-              name: user_id
-            - type:
-                name: String
-                kind: SCALAR
-              name: last_name
-            - type:
-                name: String
-                kind: SCALAR
-              name: first_name
-            - type:
-                name: String
-                kind: SCALAR
-              name: middle_name
-            name: user_collection_pcre
-            description: generated from avro-schema for user_collection_pcre
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
               name: state
             - type:
                 name: String
@@ -3149,7 +3111,44 @@ local function run_queries(gql_wrapper)
                 name: String
                 kind: SCALAR
               name: street
-            name: arguments___order_metainfo_collection___store___store___address___address
+            name: arguments___order_metainfo_collection___pcre___order_metainfo_collection_pcre___store___store___second_address___address
+            description: generated from avro-schema for address
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: state
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: zip
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: city
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: street
+            kind: OBJECT
+            name: results___order_metainfo_collection___store___store___second_address___address
             description: generated from avro-schema for address
           - kind: ENUM
             enumValues:
@@ -3175,7 +3174,7 @@ local function run_queries(gql_wrapper)
             description: A Directive can be adjacent to many parts of the GraphQL language,
               a __DirectiveLocation describes one such possible adjacencies.
           queryType:
-            name: Query
+            name: results___Query
           directives:
           - args:
             - type:

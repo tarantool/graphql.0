@@ -81,7 +81,7 @@ local expected_avro_schema = [[
           - name: hero_connection
             type:
               type: record*
-              name: hero_connection
+              name: results___hero_connection
               fields:
               - name: human_collection
                 type:
@@ -102,7 +102,7 @@ local expected_avro_schema = [[
           - name: hero_banking_connection
             type:
               type: record*
-              name: hero_banking_connection
+              name: results___hero_banking_connection
               fields:
               - name: credit_account_collection
                 type:

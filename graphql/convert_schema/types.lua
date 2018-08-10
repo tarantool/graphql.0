@@ -373,7 +373,7 @@ function types.convert(state, avro_schema, opts)
     if context == nil then
         context = {
             field_name = nil,
-            path = {},
+            path = {'results'},
         }
     end
 
