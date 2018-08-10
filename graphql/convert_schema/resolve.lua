@@ -33,7 +33,7 @@ end
 ---
 --- Note that connection key parts can be prefix of index key parts. Zero parts
 --- count considered as ok by this check.
-local function are_all_parts_null(parent, connection_parts)
+local function are_all_parts_null(parent, connection_parts, opts)
     local are_all_parts_null = true
     local are_all_parts_non_null = true
     for _, part in ipairs(connection_parts) do
@@ -47,7 +47,9 @@ local function are_all_parts_null(parent, connection_parts)
     end
 
     local ok = are_all_parts_null or are_all_parts_non_null
-    if not ok then -- avoid extra json.encode()
+    local opts = opts or {}
+    local no_assert = opts.no_assert or false
+    if not ok and not no_assert then -- avoid extra json.encode()
         assert(ok,
             'FULL MATCH constraint was failed: connection ' ..
             'key parts must be all non-nulls or all nulls; ' ..
@@ -190,6 +192,22 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
     end
 
     return function(parent, _, info)
+        -- If a parent object does not have all source fields (for any of
+        -- variants) non-null then we do not resolve variant and just return
+        -- box.NULL.
+        local is_source_fields_found = false
+        for _, variant in ipairs(c.variants) do
+            is_source_fields_found =
+                not are_all_parts_null(parent, variant.parts, {no_assert = true})
+            if is_source_fields_found then
+                break
+            end
+        end
+
+        if not is_source_fields_found then
+            return box.NULL, nil
+        end
+
         local v, variant_num, box_field_name = resolve_variant(parent)
         local destination_type = union_types[variant_num]
 

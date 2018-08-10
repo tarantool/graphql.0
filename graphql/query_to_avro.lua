@@ -10,12 +10,16 @@ local introspection = require(path .. '.introspection')
 local query_util = require(path .. '.query_util')
 local avro_helpers = require('graphql.avro_helpers')
 local convert_schema_helpers = require('graphql.convert_schema.helpers')
+local utils = require('graphql.utils')
+local check = utils.check
 
 -- module functions
 local query_to_avro = {}
 
 -- forward declaration
 local object_to_avro
+local map_to_avro
+local union_to_avro
 
 local gql_scalar_to_avro_index = {
     String = "string",
@@ -29,7 +33,9 @@ local gql_scalar_to_avro_index = {
 
 local function gql_scalar_to_avro(fieldType)
     assert(fieldType.__type == "Scalar", "GraphQL scalar field expected")
-    assert(fieldType.name ~= "Map", "Map type is not supported")
+    if fieldType.subtype == "Map" then
+        return map_to_avro(fieldType)
+    end
     local result = gql_scalar_to_avro_index[fieldType.name]
     assert(result ~= nil, "Unexpected scalar type: " .. fieldType.name)
     return result
@@ -71,8 +77,10 @@ local function gql_type_to_avro(fieldType, subSelections, context)
         result = gql_scalar_to_avro(fieldType)
     elseif fieldTypeName == 'Object' then
         result = object_to_avro(fieldType, subSelections, context)
-    elseif fieldTypeName == 'Interface' or fieldTypeName == 'Union' then
-        error('Interfaces and Unions are not supported yet')
+    elseif fieldTypeName == 'Union' then
+        result = union_to_avro(fieldType, subSelections, context)
+    elseif fieldTypeName == 'Interface' then
+        error('Interfaces are not supported yet')
     else
         error(string.format('Unknown type "%s"', tostring(fieldTypeName)))
     end
@@ -82,6 +90,101 @@ local function gql_type_to_avro(fieldType, subSelections, context)
             raise_on_nullable = true,
         })
     end
+    return result
+end
+
+--- The function converts a GraphQL Map type to avro-schema map type.
+map_to_avro = function(mapType)
+    assert(mapType.values ~= nil, "GraphQL Map type must have 'values' field")
+    return {
+        type = "map",
+        values = gql_type_to_avro(mapType.values),
+    }
+end
+
+--- Converts a GraphQL Union type to avro-schema type.
+---
+--- Currently we use GraphQL Unions to implement both multi-head connections
+--- and avro-schema unions. The function distinguishes between them relying on
+--- 'fieldType.resolveType'. GraphQL Union implementing multi-head
+--- connection does not have such field, as it has another mechanism of union
+--- type resolving.
+---
+--- We have to distinguish between these two types of GraphQL Unions because
+--- we want to create different avro-schemas for them.
+---
+--- GraphQL Unions implementing avro-schema unions are to be converted back
+--- to avro-schema unions.
+---
+--- GraphQL Unions implementing multi-head connections are to be converted to
+--- avro-schema records. Each field represents one union variant. Variant type
+--- name is taken as a field name. Such records must have all fields nullable.
+---
+--- We convert Unions implementing multi-head connections to records instead of
+--- unions because in case of 1:N connections we would not have valid
+--- avro-schema (if use unions). Avro-schema unions may not contain more than
+--- one schema with the same non-named type (in case of 1:N multi-head
+--- connections we would have more than one 'array' in union).
+union_to_avro = function(fieldType, subSelections, context)
+    assert(fieldType.types ~= nil, "GraphQL Union must have 'types' field")
+    check(fieldType.types, "fieldType.types", "table")
+    local is_multihead = (fieldType.resolveType == nil)
+    local result
+
+    if is_multihead then
+        check(fieldType.name, "fieldType.name", "string")
+        result = {
+            type = 'record',
+            name = fieldType.name,
+            fields = {}
+        }
+    else
+        result = {}
+    end
+
+    for _, box_type in ipairs(fieldType.types) do
+        -- In GraphQL schema all types in Unions are 'boxed'. Here we
+        -- 'Unbox' types and selectionSets. More info on 'boxing' can be
+        -- found at @{convert_schema.types.convert_multihead_connection}
+        -- and at @{convert_schema.union}.
+        check(box_type, "box_type", "table")
+        assert(box_type.__type == "Object", "Box type must be a GraphQL Object")
+        assert(utils.table_size(box_type.fields) == 1, 'Box Object must ' ..
+            'have exactly one field')
+        local type = select(2, next(box_type.fields))
+
+        local box_sub_selections
+        for _, s in pairs(subSelections) do
+            if s.typeCondition.name.value == box_type.name then
+                box_sub_selections = s
+                break
+            end
+        end
+        assert(box_sub_selections ~= nil)
+
+        -- We have to extract subSelections from 'box' type.
+        local type_sub_selections
+        if box_sub_selections.selectionSet.selections[1].selectionSet ~= nil then
+            -- Object GraphQL type case.
+            type_sub_selections = box_sub_selections.selectionSet
+                .selections[1].selectionSet.selections
+        else
+            -- Scalar GraphQL type case.
+            type_sub_selections = box_sub_selections.selectionSet.selections[1]
+        end
+        assert(type_sub_selections ~= nil)
+
+        if is_multihead then
+            local avro_type = gql_type_to_avro(type.kind,
+                type_sub_selections, context)
+            avro_type = avro_helpers.make_avro_type_nullable(avro_type)
+            table.insert(result.fields, {name = type.name, type = avro_type})
+        else
+            table.insert(result, gql_type_to_avro(type.kind,
+                type_sub_selections, context))
+        end
+    end
+
     return result
 end
 
@@ -97,6 +200,28 @@ local function field_to_avro(object_type, fields, context)
 
     local fieldTypeAvro = gql_type_to_avro(fieldType.kind, subSelections,
         context)
+    -- Currently we support only 'include' and 'skip' directives. Both of them
+    -- affect resulting avro-schema the same way: field with directive becomes
+    -- nullable, if it's already not. Nullable field does not change.
+    --
+    -- If it is a 1:N connection then it's 'array' field becomes 'array*'.
+    -- If it is avro-schema union, then 'null' will be added to the union
+    -- types. If there are more then one directive on a field then all works
+    -- the same way, like it is only one directive. (But we still check all
+    -- directives to be 'include' or 'skip').
+    if firstField.directives ~= nil then
+        for _, d in ipairs(firstField.directives) do
+            check(d.name, "directive.name", "table")
+            check(d.arguments, "directive.arguments", "table")
+            check(d.kind, "directive.kind", "string")
+            assert(d.kind == "directive")
+            check(d.name.value, "directive.name.value", "string")
+            assert(d.name.value == "include" or d.name.value == "skip",
+                "Only 'include' and 'skip' directives are supported for now")
+        end
+        fieldTypeAvro = avro_helpers.make_avro_type_nullable(fieldTypeAvro)
+    end
+
     return {
         name = convert_schema_helpers.base_name(fieldName),
         type = fieldTypeAvro,

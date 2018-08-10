@@ -712,13 +712,13 @@ local function run_queries(gql_wrapper)
                 name: String
                 kind: SCALAR
               name: defaultValue
-              description: A GraphQL-formatted string representing the default value for
-                this input value.
+              description: A GraphQL-formatted string representing the default value for this
+                input value.
             kind: OBJECT
             name: __InputValue
-            description: Arguments provided to Fields or Directives and the input fields
-              of an InputObject are represented as Input Values which describe their type
-              and optionally a default value.
+            description: Arguments provided to Fields or Directives and the input fields of
+              an InputObject are represented as Input Values which describe their type and
+              optionally a default value.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -783,51 +783,10 @@ local function run_queries(gql_wrapper)
               name: parametrized_tags
             name: arguments___order_metainfo_collection___insert___order_metainfo_collection_insert___store___store
             description: generated from avro-schema for store
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_metainfo_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_metainfo_id_copy
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: metainfo
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: order_id
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: order_metainfo_collection___store___store
-                  kind: OBJECT
-                kind: NON_NULL
-              name: store
-            kind: OBJECT
-            name: order_metainfo_collection
-            description: generated from avro-schema for order_metainfo
+          - kind: SCALAR
+            name: order_metainfo_collection___store___store___parametrized_tags___Map
+            description: Map is a dictionary with string keys and values of arbitrary but
+              same among all values type
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -955,7 +914,7 @@ local function run_queries(gql_wrapper)
               args: *0
               type:
                 ofType:
-                  name: Map
+                  name: order_metainfo_collection___store___store___parametrized_tags___Map
                   kind: SCALAR
                 kind: NON_NULL
               name: parametrized_tags
@@ -1223,9 +1182,9 @@ local function run_queries(gql_wrapper)
               description: A list of all directives supported by this server.
             kind: OBJECT
             name: __Schema
-            description: A GraphQL Schema defines the capabilities of a GraphQL server.
-              It exposes all available types and directives on the server, as well as the
-              entry points for query and mutation operations.
+            description: A GraphQL Schema defines the capabilities of a GraphQL server. It
+              exposes all available types and directives on the server, as well as the entry
+              points for query and mutation operations.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1353,8 +1312,8 @@ local function run_queries(gql_wrapper)
             kind: OBJECT
             name: __EnumValue
             description: One possible value for a given Enum. Enum values are unique values,
-              not a placeholder for a string or numeric value. However an Enum value is
-              returned in a JSON response as a string.
+              not a placeholder for a string or numeric value. However an Enum value is returned
+              in a JSON response as a string.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -1449,9 +1408,9 @@ local function run_queries(gql_wrapper)
               many kinds of types in GraphQL as represented by the `__TypeKind` enum. Depending
               on the kind of a type, certain fields describe information about that type.
               Scalar types provide no information beyond a name and description, while Enum
-              types provide their values. Object and Interface types provide the fields
-              they describe. Abstract types, Union and Interface, provide the Object types
-              possible at runtime. List and NonNull types compose other types.
+              types provide their values. Object and Interface types provide the fields they
+              describe. Abstract types, Union and Interface, provide the Object types possible
+              at runtime. List and NonNull types compose other types.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1510,7 +1469,7 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: state
+              name: order_metainfo_id
             - isDeprecated: false
               args: *0
               type:
@@ -1518,7 +1477,7 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: zip
+              name: order_metainfo_id_copy
             - isDeprecated: false
               args: *0
               type:
@@ -1526,7 +1485,7 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: city
+              name: metainfo
             - isDeprecated: false
               args: *0
               type:
@@ -1534,10 +1493,18 @@ local function run_queries(gql_wrapper)
                   name: String
                   kind: SCALAR
                 kind: NON_NULL
-              name: street
+              name: order_id
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: order_metainfo_collection___store___store
+                  kind: OBJECT
+                kind: NON_NULL
+              name: store
             kind: OBJECT
-            name: order_metainfo_collection___store___store___address___address
-            description: generated from avro-schema for address
+            name: order_metainfo_collection
+            description: generated from avro-schema for order_metainfo
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1720,10 +1687,13 @@ local function run_queries(gql_wrapper)
             description: The `String` scalar type represents textual data, represented as
               UTF-8 character sequences. The String type is most often used by GraphQL to
               represent free-form human-readable text.
-          - kind: SCALAR
-            name: Map
-            description: Map is a dictionary with string keys and values of arbitrary but
-              same among all values type
+          - possibleTypes:
+            - name: Int_box
+              kind: OBJECT
+            - name: String_box
+              kind: OBJECT
+            name: order_metainfo_collection___store___store___external_id___external_id
+            kind: UNION
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -1813,13 +1783,43 @@ local function run_queries(gql_wrapper)
               name: string
             name: arguments___order_metainfo_collection___update___order_metainfo_collection_update___store___store___external_id___external_id___String_box
             description: Box (wrapper) around union variant
-          - possibleTypes:
-            - name: Int_box
-              kind: OBJECT
-            - name: String_box
-              kind: OBJECT
-            name: order_metainfo_collection___store___store___external_id___external_id
-            kind: UNION
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: state
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: zip
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: city
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: street
+            kind: OBJECT
+            name: order_metainfo_collection___store___store___address___address
+            description: generated from avro-schema for address
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -2314,31 +2314,10 @@ local function run_queries(gql_wrapper)
               name: street
             name: arguments___order_metainfo_collection___store___store___second_address___address
             description: generated from avro-schema for address
-          - kind: INPUT_OBJECT
-            inputFields:
-            - type:
-                name: String
-                kind: SCALAR
-              name: order_metainfo_id
-            - type:
-                name: String
-                kind: SCALAR
-              name: order_metainfo_id_copy
-            - type:
-                name: String
-                kind: SCALAR
-              name: metainfo
-            - type:
-                name: String
-                kind: SCALAR
-              name: order_id
-            - type:
-                name: arguments___order_metainfo_collection___store___store
-                kind: INPUT_OBJECT
-              name: store
-            name: order_metainfo_connection
-            description: generated from the connection "order_metainfo_connection" of collection
-              "order_collection" using collection "order_metainfo_collection"
+          - kind: SCALAR
+            name: order_metainfo_collection___store___store___parametrized_tags___Map
+            description: Map is a dictionary with string keys and values of arbitrary but
+              same among all values type
           - name: Float
             kind: SCALAR
           - interfaces: *0
@@ -2404,7 +2383,7 @@ local function run_queries(gql_wrapper)
               args: *0
               type:
                 ofType:
-                  name: Map
+                  name: order_metainfo_collection___store___store___parametrized_tags___Map
                   kind: SCALAR
                 kind: NON_NULL
               name: parametrized_tags
@@ -2660,9 +2639,9 @@ local function run_queries(gql_wrapper)
               description: A list of all directives supported by this server.
             kind: OBJECT
             name: __Schema
-            description: A GraphQL Schema defines the capabilities of a GraphQL server.
-              It exposes all available types and directives on the server, as well as the
-              entry points for query and mutation operations.
+            description: A GraphQL Schema defines the capabilities of a GraphQL server. It
+              exposes all available types and directives on the server, as well as the entry
+              points for query and mutation operations.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2696,8 +2675,8 @@ local function run_queries(gql_wrapper)
             kind: OBJECT
             name: __EnumValue
             description: One possible value for a given Enum. Enum values are unique values,
-              not a placeholder for a string or numeric value. However an Enum value is
-              returned in a JSON response as a string.
+              not a placeholder for a string or numeric value. However an Enum value is returned
+              in a JSON response as a string.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2792,9 +2771,9 @@ local function run_queries(gql_wrapper)
               many kinds of types in GraphQL as represented by the `__TypeKind` enum. Depending
               on the kind of a type, certain fields describe information about that type.
               Scalar types provide no information beyond a name and description, while Enum
-              types provide their values. Object and Interface types provide the fields
-              they describe. Abstract types, Union and Interface, provide the Object types
-              possible at runtime. List and NonNull types compose other types.
+              types provide their values. Object and Interface types provide the fields they
+              describe. Abstract types, Union and Interface, provide the Object types possible
+              at runtime. List and NonNull types compose other types.
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -2849,13 +2828,13 @@ local function run_queries(gql_wrapper)
                 name: String
                 kind: SCALAR
               name: defaultValue
-              description: A GraphQL-formatted string representing the default value for
-                this input value.
+              description: A GraphQL-formatted string representing the default value for this
+                input value.
             kind: OBJECT
             name: __InputValue
-            description: Arguments provided to Fields or Directives and the input fields
-              of an InputObject are represented as Input Values which describe their type
-              and optionally a default value.
+            description: Arguments provided to Fields or Directives and the input fields of
+              an InputObject are represented as Input Values which describe their type and
+              optionally a default value.
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -2969,43 +2948,31 @@ local function run_queries(gql_wrapper)
             kind: OBJECT
             name: order_metainfo_collection
             description: generated from avro-schema for order_metainfo
-          - interfaces: *0
-            fields:
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: state
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: zip
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: city
-            - isDeprecated: false
-              args: *0
-              type:
-                ofType:
-                  name: String
-                  kind: SCALAR
-                kind: NON_NULL
-              name: street
-            kind: OBJECT
-            name: order_metainfo_collection___store___store___address___address
-            description: generated from avro-schema for address
+          - kind: INPUT_OBJECT
+            inputFields:
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_metainfo_id_copy
+            - type:
+                name: String
+                kind: SCALAR
+              name: metainfo
+            - type:
+                name: String
+                kind: SCALAR
+              name: order_id
+            - type:
+                name: arguments___order_metainfo_collection___store___store
+                kind: INPUT_OBJECT
+              name: store
+            name: order_metainfo_connection
+            description: generated from the connection "order_metainfo_connection" of collection
+              "order_collection" using collection "order_metainfo_collection"
           - interfaces: *0
             fields:
             - isDeprecated: false
@@ -3107,6 +3074,43 @@ local function run_queries(gql_wrapper)
             kind: OBJECT
             name: order_collection
             description: generated from avro-schema for order
+          - interfaces: *0
+            fields:
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: state
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: zip
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: city
+            - isDeprecated: false
+              args: *0
+              type:
+                ofType:
+                  name: String
+                  kind: SCALAR
+                kind: NON_NULL
+              name: street
+            kind: OBJECT
+            name: order_metainfo_collection___store___store___address___address
+            description: generated from avro-schema for address
           - kind: INPUT_OBJECT
             inputFields:
             - type:
@@ -3127,10 +3131,6 @@ local function run_queries(gql_wrapper)
               name: middle_name
             name: user_collection_pcre
             description: generated from avro-schema for user_collection_pcre
-          - kind: SCALAR
-            name: Map
-            description: Map is a dictionary with string keys and values of arbitrary but
-              same among all values type
           - kind: INPUT_OBJECT
             inputFields:
             - type:

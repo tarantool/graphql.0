@@ -448,10 +448,12 @@ function types.convert(state, avro_schema, opts)
             'got %s (avro_schema %s)'):format(type(avro_schema.values),
             json.encode(avro_schema)))
 
-        -- validate avro schema format inside 'values'
-        types.convert(state, avro_schema.values, {context = context})
-
-        local res = core_types.map
+        table.insert(context.path, 'Map')
+        local converted_values = types.convert(state, avro_schema.values,
+            {context = context})
+        table.remove(context.path, #context.path)
+        local map_name =  helpers.full_name('Map', context)
+        local res = core_types.map({values = converted_values, name = map_name})
         return avro_t == 'map' and core_types.nonNull(res) or res
     elseif avro_t == 'union' then
         return union.convert(avro_schema, {

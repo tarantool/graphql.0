@@ -1,3 +1,8 @@
+--- The difference between this testdata and multihead_conn_testdata.lua
+--- is that in this testdata we have nullable source fields and nullable
+--- determinant fields, while in multihead_conn_testdata.lua all these fields
+--- are non-nullable.
+
 local tap = require('tap')
 local json = require('json')
 local yaml = require('yaml')
@@ -12,15 +17,17 @@ function multihead_conn_testdata.get_test_metadata()
             "type": "record",
             "fields": [
                 { "name": "hero_id", "type": "string" },
-                { "name": "hero_type", "type" : "string" },
-                { "name": "banking_type", "type" : "string" }
+                { "name": "hero_subtype_id", "type": "string*" },
+                { "name": "hero_type", "type": "string*" },
+                { "name": "banking_id", "type" : "string*" },
+                { "name": "banking_type", "type" : "string*" }
             ]
         },
         "human": {
             "name": "human",
             "type": "record",
             "fields": [
-                { "name": "hero_id", "type": "string" },
+                { "name": "human_id", "type": "string" },
                 { "name": "name", "type": "string" },
                 { "name": "episode", "type": "string"}
             ]
@@ -29,7 +36,7 @@ function multihead_conn_testdata.get_test_metadata()
             "name": "starship",
             "type": "record",
             "fields": [
-                { "name": "hero_id", "type": "string" },
+                { "name": "starship_id", "type": "string" },
                 { "name": "model", "type": "string" },
                 { "name": "episode", "type": "string"}
             ]
@@ -39,7 +46,7 @@ function multihead_conn_testdata.get_test_metadata()
             "type": "record",
             "fields": [
                 { "name": "account_id", "type": "string" },
-                { "name": "hero_id", "type": "string" }
+                { "name": "hero_banking_id", "type": "string" }
             ]
         },
         "dublon_account": {
@@ -47,7 +54,7 @@ function multihead_conn_testdata.get_test_metadata()
             "type": "record",
             "fields": [
                 { "name": "account_id", "type": "string" },
-                { "name": "hero_id", "type": "string" }
+                { "name": "hero_banking_id", "type": "string" }
             ]
         }
     }]])
@@ -65,8 +72,8 @@ function multihead_conn_testdata.get_test_metadata()
                             "destination_collection": "human_collection",
                             "parts": [
                                 {
-                                    "source_field": "hero_id",
-                                    "destination_field": "hero_id"
+                                    "source_field": "hero_subtype_id",
+                                    "destination_field": "human_id"
                                 }
                             ],
                             "index_name": "human_id_index"
@@ -76,8 +83,8 @@ function multihead_conn_testdata.get_test_metadata()
                             "destination_collection": "starship_collection",
                             "parts": [
                                 {
-                                    "source_field": "hero_id",
-                                    "destination_field": "hero_id"
+                                    "source_field": "hero_subtype_id",
+                                    "destination_field": "starship_id"
                                 }
                             ],
                             "index_name": "starship_id_index"
@@ -93,22 +100,22 @@ function multihead_conn_testdata.get_test_metadata()
                             "destination_collection": "credit_account_collection",
                             "parts": [
                                 {
-                                    "source_field": "hero_id",
-                                    "destination_field": "hero_id"
+                                    "source_field": "banking_id",
+                                    "destination_field": "hero_banking_id"
                                 }
                             ],
-                            "index_name": "credit_hero_id_index"
+                            "index_name": "credit_hero_banking_id_index"
                         },
                         {
                             "determinant": {"banking_type": "dublon"},
                             "destination_collection": "dublon_account_collection",
                             "parts": [
                                 {
-                                    "source_field": "hero_id",
-                                    "destination_field": "hero_id"
+                                    "source_field": "banking_id",
+                                    "destination_field": "hero_banking_id"
                                 }
                             ],
-                            "index_name": "dublon_hero_id_index"
+                            "index_name": "dublon_hero_banking_id_index"
                         }
                     ]
                 }
@@ -166,7 +173,7 @@ function multihead_conn_testdata.get_test_metadata()
         human_collection = {
             human_id_index = {
                 service_fields = {},
-                fields = { 'hero_id' },
+                fields = { 'human_id' },
                 index_type = 'tree',
                 unique = true,
                 primary = true,
@@ -176,7 +183,7 @@ function multihead_conn_testdata.get_test_metadata()
         starship_collection = {
             starship_id_index = {
                 service_fields = {},
-                fields = { 'hero_id' },
+                fields = { 'starship_id' },
                 index_type = 'tree',
                 unique = true,
                 primary = true,
@@ -191,9 +198,9 @@ function multihead_conn_testdata.get_test_metadata()
                 unique = true,
                 primary = true,
             },
-            credit_hero_id_index = {
+            credit_hero_banking_id_index = {
                 service_fields = {},
-                fields = { 'hero_id' },
+                fields = { 'hero_banking_id'  },
                 index_type = 'tree',
                 unique = false,
                 primary = false,
@@ -208,9 +215,9 @@ function multihead_conn_testdata.get_test_metadata()
                 unique = true,
                 primary = true,
             },
-            dublon_hero_id_index = {
+            dublon_hero_banking_id_index = {
                 service_fields = {},
-                fields = { 'hero_id' },
+                fields = { 'hero_banking_id' },
                 index_type = 'tree',
                 unique = false,
                 primary = false,
@@ -227,82 +234,116 @@ function multihead_conn_testdata.get_test_metadata()
 end
 
 function multihead_conn_testdata.init_spaces()
-    local ID_FIELD_NUM = 2
-    local HERO_ID_FIELD_NUM = 3
+    local HERO_ID_FIELD_NUM = 2
+    local HERO_BANKING_ID_FIELD_NUM = 3
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('hero_collection')
         box.space.hero_collection:create_index('hero_id_index',
-            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
+            { type = 'tree', unique = true,
+              parts = { HERO_ID_FIELD_NUM, 'string' }}
         )
 
         box.schema.create_space('human_collection')
         box.space.human_collection:create_index('human_id_index',
-            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
+            { type = 'tree', unique = true,
+              parts = { HERO_ID_FIELD_NUM, 'string' }}
         )
 
         box.schema.create_space('starship_collection')
         box.space.starship_collection:create_index('starship_id_index',
-            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
+            { type = 'tree', unique = true,
+              parts = { HERO_ID_FIELD_NUM, 'string' }}
         )
 
         box.schema.create_space('credit_account_collection')
         box.space.credit_account_collection:create_index('credit_id_index',
-            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
-        )
-        box.space.credit_account_collection:create_index('credit_hero_id_index',
-            { type = 'tree', unique = false,
+            { type = 'tree', unique = true,
               parts = { HERO_ID_FIELD_NUM, 'string' }}
+        )
+        box.space.credit_account_collection:create_index(
+            'credit_hero_banking_id_index',
+            { type = 'tree', unique = false,
+              parts = { HERO_BANKING_ID_FIELD_NUM, 'string' }}
         )
 
         box.schema.create_space('dublon_account_collection')
         box.space.dublon_account_collection:create_index('dublon_id_index',
-            { type = 'tree', unique = true, parts = { ID_FIELD_NUM, 'string' }}
-        )
-        box.space.dublon_account_collection:create_index('dublon_hero_id_index',
-            { type = 'tree', unique = false,
+            { type = 'tree', unique = true,
               parts = { HERO_ID_FIELD_NUM, 'string' }}
+        )
+        box.space.dublon_account_collection:create_index(
+            'dublon_hero_banking_id_index',
+            { type = 'tree', unique = false,
+              parts = { HERO_BANKING_ID_FIELD_NUM, 'string' }}
         )
     end)
 end
 
-function multihead_conn_testdata.fill_test_data(shard)
+function multihead_conn_testdata.fill_test_data(shard, meta)
     local shard = shard or box.space
 
-    shard.hero_collection:replace(
-        { 1827767717, 'hero_id_1', 'human', 'credit'})
-    shard.hero_collection:replace(
-        { 1827767717, 'hero_id_2', 'starship', 'dublon'})
+    test_utils.replace_object(shard, meta, 'hero_collection', {
+        hero_id = "hero_id_1",
+        hero_subtype_id = "human_id_1",
+        hero_type = "human",
+        banking_type = "credit",
+        banking_id = "hero_banking_id_1"
+    }, {
+        1827767717
+    })
 
-    shard.human_collection:replace(
-        { 1827767717, 'hero_id_1', 'Luke', "EMPR"})
+    test_utils.replace_object(shard, meta, 'hero_collection', {
+        hero_id = "hero_id_2",
+        hero_subtype_id = "starship_id_1",
+        hero_type = "starship",
+        banking_type = "dublon",
+        banking_id = "hero_banking_id_2"
+    }, {
+        1827767717
+    })
 
-    shard.starship_collection:replace(
-        { 1827767717, 'hero_id_2', 'Falcon-42', "NEW"})
+    test_utils.replace_object(shard, meta, 'hero_collection', {
+        hero_id = "hero_id_3",
+        hero_subtype_id = box.NULL,
+        hero_type = box.NULL,
+        banking_type = box.NULL,
+        banking_id = box.NULL
+    }, {
+        1827767717
+    })
 
-    shard.credit_account_collection:replace(
-        { 1827767717, 'credit_account_id_1', 'hero_id_1'}
-    )
+    test_utils.replace_object(shard, meta, 'human_collection', {
+        human_id = "human_id_1",
+        name = "Luke",
+        episode = "EMPR"
+    }, {
+        1827767717
+    })
 
-    shard.credit_account_collection:replace(
-        { 1827767717, 'credit_account_id_2', 'hero_id_1'}
-    )
+    test_utils.replace_object(shard, meta, 'starship_collection', {
+        starship_id = "starship_id_1",
+        model = "Falcon-42",
+        episode = "NEW"
+    }, {
+        1827767717
+    })
 
-    shard.credit_account_collection:replace(
-        { 1827767717, 'credit_account_id_3', 'hero_id_1'}
-    )
+    for _, i in ipairs({"1", "2", "3"}) do
+        test_utils.replace_object(shard, meta, 'credit_account_collection', {
+            account_id = "credit_account_id_" .. i,
+            hero_banking_id = "hero_banking_id_1"
+        }, {
+            1827767717
+        })
 
-    shard.dublon_account_collection:replace(
-        { 1827767717, 'dublon_account_id_1', 'hero_id_2'}
-    )
-
-    shard.dublon_account_collection:replace(
-        { 1827767717, 'dublon_account_id_2', 'hero_id_2'}
-    )
-
-    shard.dublon_account_collection:replace(
-        { 1827767717, 'dublon_account_id_3', 'hero_id_2'}
-    )
+        test_utils.replace_object(shard, meta, 'dublon_account_collection', {
+            account_id = "dublon_account_id_" .. i,
+            hero_banking_id = "hero_banking_id_2"
+        },  {
+            1827767717
+        })
+    end
 end
 
 function multihead_conn_testdata.drop_spaces()
@@ -315,14 +356,9 @@ function multihead_conn_testdata.drop_spaces()
 end
 
 function multihead_conn_testdata.run_queries(gql_wrapper)
-    local test = tap.test('multihead_conn')
-    test:plan(2)
+    local test = tap.test('multihead_conn_null')
+    test:plan(3)
 
-    -- note on hero_banking_connection:
-    -- As credit_account_collection has [credit_account] GraphQL List type
-    -- it should be wrapped into box type
-    -- credit_account_collections is a box type (GraphQL Object) with
-    -- one field credit_account_collection (which has GraphQL List type)
     local query = [[
         query obtainHeroes($hero_id: String) {
             hero_collection(hero_id: $hero_id) {
@@ -345,13 +381,13 @@ function multihead_conn_testdata.run_queries(gql_wrapper)
                     ... on box_array_credit_account_collection {
                         credit_account_collection {
                             account_id
-                            hero_id
+                            hero_banking_id
                         }
                     }
                     ... on box_array_dublon_account_collection {
                         dublon_account_collection {
                             account_id
-                            hero_id
+                            hero_banking_id
                         }
                     }
                 }
@@ -373,16 +409,16 @@ function multihead_conn_testdata.run_queries(gql_wrapper)
           hero_type: human
           hero_connection:
             human_collection:
-                name: Luke
+              name: Luke
           banking_type: credit
           hero_banking_connection:
             credit_account_collection:
-                - account_id: credit_account_id_1
-                  hero_id: hero_id_1
-                - account_id: credit_account_id_2
-                  hero_id: hero_id_1
-                - account_id: credit_account_id_3
-                  hero_id: hero_id_1
+              - account_id: credit_account_id_1
+                hero_banking_id: hero_banking_id_1
+              - account_id: credit_account_id_2
+                hero_banking_id: hero_banking_id_1
+              - account_id: credit_account_id_3
+                hero_banking_id: hero_banking_id_1
     ]]):strip())
     test:is_deeply(result_1_1.data, exp_result_1_1, '1_1')
 
@@ -396,18 +432,34 @@ function multihead_conn_testdata.run_queries(gql_wrapper)
           hero_type: starship
           hero_connection:
             starship_collection:
-                model: Falcon-42
+              model: Falcon-42
           banking_type: dublon
           hero_banking_connection:
             dublon_account_collection:
-                - account_id: dublon_account_id_1
-                  hero_id: hero_id_2
-                - account_id: dublon_account_id_2
-                  hero_id: hero_id_2
-                - account_id: dublon_account_id_3
-                  hero_id: hero_id_2
+              - account_id: dublon_account_id_1
+                hero_banking_id: hero_banking_id_2
+              - account_id: dublon_account_id_2
+                hero_banking_id: hero_banking_id_2
+              - account_id: dublon_account_id_3
+                hero_banking_id: hero_banking_id_2
     ]]):strip())
     test:is_deeply(result_1_2.data, exp_result_1_2, '1_2')
+
+    --- 'hero' with 'hero_id' = 'hero_id_3' has null 'hero_subtype_id',
+    --- 'hero_type', 'banking_id' and 'banking_type'. Below we test that
+    --- everything works as expected at such case.
+    --- Also we check that this problem
+    --- (https://github.com/tarantool/graphql/issues/200) does not appear
+    --- anymore.
+    local variables_1_3 = {hero_id = 'hero_id_3'}
+    local result_1_3 = test_utils.show_trace(function()
+        return gql_query_1:execute(variables_1_3)
+    end)
+    local exp_result_1_3 = yaml.decode(([[
+        hero_collection:
+        - hero_id: hero_id_3
+    ]]):strip())
+    test:is_deeply(result_1_3.data, exp_result_1_3, '1_3')
 
     assert(test:check(), 'check plan')
 end

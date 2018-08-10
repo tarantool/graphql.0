@@ -191,17 +191,26 @@ function types.union(config)
   return instance
 end
 
-types.map = types.scalar({
-  name = 'Map',
-  description = 'Map is a dictionary with string keys and values of ' ..
-    'arbitrary but same among all values type',
-  serialize = function(value) return value end,
-  parseValue = function(value) return value end,
-  parseLiteral = function(node)
-    error('Literal parsing is implemented in util.coerceValue; ' ..
-      'we should not go here')
-  end,
-})
+function types.map(config)
+  local instance = {
+    __type = 'Scalar',
+    subtype = 'Map',
+    name = config.name,
+    description = 'Map is a dictionary with string keys and values of ' ..
+      'arbitrary but same among all values type',
+    serialize = function(value) return value end,
+    parseValue = function(value) return value end,
+    parseLiteral = function(node)
+      error('Literal parsing is implemented in util.coerceValue; ' ..
+        'we should not go here')
+    end,
+    values = config.values,
+  }
+
+  instance.nonNull = types.nonNull(instance)
+
+  return instance
+end
 
 function types.inputObject(config)
   assert(type(config.name) == 'string', 'type name must be provided as a string')
