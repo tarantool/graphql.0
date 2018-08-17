@@ -1,7 +1,8 @@
 #!/usr/bin/env tarantool
+
 local fio = require('fio')
 local json = require('json')
-local test = require('tap').test('connections 1:1 name clash')
+local tap = require('tap')
 
 -- require in-repo version of graphql/ sources despite current working directory
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
@@ -9,8 +10,12 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     package.path
 
 local graphql = require('graphql')
+local utils = require('graphql.utils')
+local test_utils = require('test.test_utils')
 
-box.cfg{ wal_mode="none" }
+local test = tap.test('connections 1:1 name clash')
+
+box.cfg{wal_mode="none"}
 test:plan(3)
 
 local schemas = json.decode([[{
@@ -181,13 +186,13 @@ local indexes = {
     }
 }
 
-local gql_wrapper_1 = graphql.new({
+local gql_wrapper_1 = graphql.new(utils.merge_tables({
     schemas = schemas,
     collections = collections_1,
     service_fields = service_fields,
     indexes = indexes,
-    accessor = 'space'
-})
+    accessor = 'space',
+}, test_utils.test_conf_graphql_opts()))
 
 test:isnt(gql_wrapper_1, nil)
 
@@ -252,13 +257,13 @@ local collections_2 = json.decode([[{
     }
 }]])
 
-local gql_wrapper_2 = graphql.new({
+local gql_wrapper_2 = graphql.new(utils.merge_tables({
     schemas = schemas,
     collections = collections_2,
     service_fields = service_fields,
     indexes = indexes,
-    accessor = 'space'
-})
+    accessor = 'space',
+}, test_utils.test_conf_graphql_opts()))
 
 test:isnt(gql_wrapper_2, nil)
 
@@ -336,13 +341,13 @@ local collections_3 = json.decode([[{
     }
 }]])
 
-local gql_wrapper_3 = graphql.new({
+local gql_wrapper_3 = graphql.new(utils.merge_tables({
     schemas = schemas,
     collections = collections_3,
     service_fields = service_fields,
     indexes = indexes,
-    accessor = 'space'
-})
+    accessor = 'space',
+}, test_utils.test_conf_graphql_opts()))
 test:isnt(gql_wrapper_3, nil)
 
 test:check()

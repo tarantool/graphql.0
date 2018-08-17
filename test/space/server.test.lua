@@ -10,6 +10,7 @@ local yaml = require('yaml')
 local json = require('json')
 local http = require('http.client').new()
 local graphql = require('graphql')
+local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
 
@@ -31,18 +32,13 @@ local indexes = metadata.indexes
 -- build accessor and graphql schemas
 -- ----------------------------------
 
-local accessor = graphql.accessor_space.new({
+local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = schemas,
     collections = collections,
     service_fields = service_fields,
     indexes = indexes,
-})
-
-local gql_wrapper = graphql.new({
-    schemas = schemas,
-    collections = collections,
-    accessor = accessor,
-})
+    accessor = 'space',
+}, test_utils.test_conf_graphql_opts()))
 
 local test = tap.test('server')
 test:plan(6)
@@ -80,7 +76,8 @@ test_utils.show_trace(function()
     box.space.order_collection:format({{name='order_id', type='string'},
         {name='user_id', type='string'}, {name='description', type='string'}})
 
-    local res = graphql.start_server()
+    local res = graphql.start_server(nil, nil,
+        test_utils.test_conf_graphql_opts())
     test:is(res, exp_res_start, 'start_server')
 
      _, response = pcall(function()

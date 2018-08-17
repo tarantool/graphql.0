@@ -16,9 +16,9 @@ test_run = test_run and test_run.new()
 
 local e = graphql.error_codes
 
-local apply_settings_to = test_run and test_run:get_cfg('apply_settings_to') or
+local apply_timeout_to = test_run and test_run:get_cfg('apply_timeout_to') or
     'graphql'
-local settings = {
+local test_graphql_opts = {
     timeout_ms = 0.001,
 }
 
@@ -41,7 +41,7 @@ local function run_queries(gql_wrapper)
         }
     ]]
 
-    local query_opts = apply_settings_to == 'query' and settings or nil
+    local query_opts = apply_timeout_to == 'query' and test_graphql_opts or nil
     local gql_query = gql_wrapper:compile(query, query_opts)
     local variables = {}
     local result = gql_query:execute(variables)
@@ -57,7 +57,7 @@ end
 
 box.cfg({})
 
-local graphql_opts = apply_settings_to == 'graphql' and settings or nil
+local graphql_opts = apply_timeout_to == 'graphql' and test_graphql_opts or nil
 test_utils.run_testdata(testdata, {
     run_queries = run_queries,
     graphql_opts = graphql_opts,

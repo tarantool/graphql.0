@@ -10,6 +10,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 local tap = require('tap')
 local yaml = require('yaml')
 local graphql = require('graphql')
+local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 local common_testdata = require('test.testdata.common_testdata')
 local emails_testdata = require('test.testdata.nullable_1_1_conn_testdata')
@@ -49,7 +50,7 @@ local emails_metadata = emails_testdata.get_test_metadata()
 -- build accessor and graphql schemas
 -- ----------------------------------
 
-local common_gql_wrapper = graphql.new({
+local common_gql_wrapper = graphql.new(utils.merge_tables({
     schemas = common_metadata.schemas,
     collections = common_metadata.collections,
     service_fields = common_metadata.service_fields,
@@ -57,9 +58,9 @@ local common_gql_wrapper = graphql.new({
     accessor = 'space',
     -- gh-137: timeout exceeded
     timeout_ms = 10000, -- 10 seconds
-})
+}, test_utils.test_conf_graphql_opts()))
 
-local emails_gql_wrapper = graphql.new({
+local emails_gql_wrapper = graphql.new(utils.merge_tables({
     schemas = emails_metadata.schemas,
     collections = emails_metadata.collections,
     service_fields = emails_metadata.service_fields,
@@ -67,7 +68,7 @@ local emails_gql_wrapper = graphql.new({
     accessor = 'space',
     -- gh-137: timeout exceeded
     timeout_ms = 10000, -- 10 seconds
-})
+}, test_utils.test_conf_graphql_opts()))
 
 -- run queries
 -- -----------

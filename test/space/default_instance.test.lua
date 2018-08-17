@@ -44,7 +44,8 @@ test:plan(5)
 -- test require('graphql').compile(query)
 test_utils.show_trace(function()
     local variables_1 = {user_id = 'user_id_1'}
-    local compiled_query = gql_lib.compile(query)
+    local compiled_query = gql_lib.compile(query,
+        test_utils.test_conf_graphql_opts())
     local result = compiled_query:execute(variables_1)
     local exp_result = yaml.decode(([[
         ---
@@ -58,7 +59,8 @@ end)
 -- test require('graphql').execute(query)
 test_utils.show_trace(function()
     local variables_2 = {user_id = 'user_id_2'}
-    local result = gql_lib.execute(query, variables_2)
+    local result = gql_lib.execute(query, variables_2, nil,
+        test_utils.test_conf_graphql_opts())
     local exp_result = yaml.decode(([[
         ---
         user_collection:
@@ -70,7 +72,8 @@ end)
 
 -- test server
 test_utils.show_trace(function()
-    local res = gql_lib.start_server()
+    local res = gql_lib.start_server(nil, nil,
+        test_utils.test_conf_graphql_opts())
     local exp_res_start = 'The GraphQL server started at http://127.0.0.1:8080'
     test:is(res, exp_res_start, 'start_server')
 

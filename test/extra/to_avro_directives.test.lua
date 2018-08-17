@@ -1,17 +1,23 @@
 #!/usr/bin/env tarantool
+
 local fio = require('fio')
 local yaml = require('yaml')
 local avro = require('avro_schema')
-local test = require('tap').test('to avro schema')
+local tap = require('tap')
 
 -- require in-repo version of graphql/ sources despite current working directory
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
-    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
+    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
+    package.path
 
+local graphql = require('graphql')
+local utils = require('graphql.utils')
+local test_utils = require('test.test_utils')
 local common_testdata = require('test.testdata.common_testdata')
 local union_testdata = require('test.testdata.union_testdata')
 local multihead_testdata = require('test.testdata.multihead_conn_testdata')
-local graphql = require('graphql')
+
+local test = tap.test('to avro schema')
 
 test:plan(15)
 
@@ -23,13 +29,13 @@ common_testdata.init_spaces()
 local common_meta = common_testdata.get_test_metadata()
 common_testdata.fill_test_data(box.space, common_meta)
 
-local gql_wrapper = graphql.new({
+local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = common_meta.schemas,
     collections = common_meta.collections,
     service_fields = common_meta.service_fields,
     indexes = common_meta.indexes,
     accessor = 'space'
-})
+}, test_utils.test_conf_graphql_opts()))
 
 local common_query = [[
     query order_by_id($order_id: String, $include_description: Boolean,
@@ -187,13 +193,13 @@ union_testdata.init_spaces()
 local union_meta = union_testdata.get_test_metadata()
 union_testdata.fill_test_data(box.space, union_meta)
 
-local gql_wrapper = graphql.new({
+local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = union_meta.schemas,
     collections = union_meta.collections,
     service_fields = union_meta.service_fields,
     indexes = union_meta.indexes,
     accessor = 'space'
-})
+}, test_utils.test_conf_graphql_opts()))
 
 local union_query = [[
     query user_collection ($include_stuff: Boolean) {
@@ -352,13 +358,13 @@ multihead_testdata.init_spaces()
 local multihead_meta = multihead_testdata.get_test_metadata()
 multihead_testdata.fill_test_data(box.space, multihead_meta)
 
-local gql_wrapper = graphql.new({
+local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = multihead_meta.schemas,
     collections = multihead_meta.collections,
     service_fields = multihead_meta.service_fields,
     indexes = multihead_meta.indexes,
     accessor = 'space'
-})
+}, test_utils.test_conf_graphql_opts()))
 
 local multihead_query = [[
     query obtainHeroes($hero_id: String, $include_connections: Boolean) {

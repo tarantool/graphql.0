@@ -1,14 +1,21 @@
 #!/usr/bin/env tarantool
+
 local fio = require('fio')
 local yaml = require('yaml')
 local avro = require('avro_schema')
-local test = require('tap').test('to avro schema')
-local testdata = require('test.testdata.multihead_conn_with_nulls_testdata')
-local graphql = require('graphql')
+local tap = require('tap')
 
 -- require in-repo version of graphql/ sources despite current working directory
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
-    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' .. package.path
+    :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
+    package.path
+
+local graphql = require('graphql')
+local utils = require('graphql.utils')
+local test_utils = require('test.test_utils')
+local testdata = require('test.testdata.multihead_conn_with_nulls_testdata')
+
+local test = tap.test('to avro schema')
 
 test:plan(7)
 
@@ -18,13 +25,13 @@ testdata.init_spaces()
 local meta = testdata.get_test_metadata()
 testdata.fill_test_data(box.space, meta)
 
-local gql_wrapper = graphql.new({
+local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = meta.schemas,
     collections = meta.collections,
     service_fields = meta.service_fields,
     indexes = meta.indexes,
     accessor = 'space'
-})
+}, test_utils.test_conf_graphql_opts()))
 
 local query = [[
     query obtainHeroes($hero_id: String) {
