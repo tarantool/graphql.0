@@ -43,7 +43,7 @@ local function static_handler(req)
     }
 end
 
-function server.init(graphql, host, port)
+function server.init(graphql, host, port, compile_opts)
     local host = host or '127.0.0.1'
     local port = port or 8080
     local httpd = require('http.server').new(host, port)
@@ -103,7 +103,7 @@ function server.init(graphql, host, port)
 
         local traceback
         local ok, compiled_query = xpcall(function()
-            return graphql:compile(query)
+            return graphql:compile(query, compile_opts)
         end, function(err)
             traceback = debug.traceback()
             return err

@@ -72,16 +72,16 @@ end
 ---
 --- @treturn table result of the operation
 local function compile_and_execute(state, query, variables, operation_name,
-        opts)
+        compile_opts)
     assert(type(state) == 'table', 'use :compile_and_execute(...) ' ..
         'instead of .compile_and_execute(...)')
     assert(state.schema ~= nil, 'have not compiled schema')
     check(query, 'query', 'string')
     check(variables, 'variables', 'table', 'nil')
     check(operation_name, 'operation_name', 'string', 'nil')
-    check(opts, 'opts', 'table', 'nil')
+    check(compile_opts, 'compile_opts', 'table', 'nil')
 
-    local compiled_query = state:compile(query, opts)
+    local compiled_query = state:compile(query, compile_opts)
     return compiled_query:execute(variables, operation_name)
 end
 
@@ -135,14 +135,14 @@ local function gql_compile(state, query, opts)
     return gql_query
 end
 
-local function start_server(gql, host, port)
+local function start_server(gql, host, port, compile_opts)
     assert(type(gql) == 'table',
         'use :start_server(...) instead of .start_server(...)')
 
     check(host, 'host', 'nil', 'string')
     check(port, 'port', 'nil', 'number')
 
-    gql.server = server.init(gql, host, port)
+    gql.server = server.init(gql, host, port, compile_opts)
     gql.server:start()
 
     return ('The GraphQL server started at http://%s:%s'):format(
@@ -196,26 +196,27 @@ local function create_default_accessor(cfg)
     end
 end
 
-function impl.compile(query)
+function impl.compile(query, opts)
     if default_instance == nil then
         default_instance = impl.new()
     end
-    return default_instance:compile(query)
+    return default_instance:compile(query, opts)
 end
 
-function impl.execute(query, variables, operation_name)
+function impl.execute(query, variables, operation_name, compile_opts)
     if default_instance == nil then
         default_instance = impl.new()
     end
-    return default_instance:execute(query, variables, operation_name)
+    return default_instance:execute(query, variables, operation_name,
+        compile_opts)
 end
 
-function impl.start_server()
+function impl.start_server(host, port, compile_opts)
     if default_instance == nil then
         default_instance = impl.new()
     end
 
-    return default_instance:start_server()
+    return default_instance:start_server(host, port, compile_opts)
 end
 
 function impl.stop_server()
