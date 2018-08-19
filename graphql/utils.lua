@@ -181,11 +181,11 @@ function utils.check(obj, obj_name, type_1, type_2, type_3)
     end
 
     if type_3 ~= nil then
-        error(('%s must be a %s or a % or a %, got %s'):format(obj_name, type_1,
-            type_2, type_3, type(obj)))
+        error(('%s must be a %s or a % or a %s, got %s'):format(obj_name,
+            type_1, type_2, type_3, type(obj)))
     elseif type_2 ~= nil then
-        error(('%s must be a %s or a %, got %s'):format(obj_name, type_1,
-        type_2, type(obj)))
+        error(('%s must be a %s or a %s, got %s'):format(obj_name, type_1,
+            type_2, type(obj)))
     else
         error(('%s must be a %s, got %s'):format(obj_name, type_1, type(obj)))
     end
