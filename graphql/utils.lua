@@ -191,13 +191,6 @@ function utils.check(obj, obj_name, type_1, type_2, type_3)
     end
 end
 
---- Check if given table has only one specific key.
-function utils.has_only(t, key)
-    local fst_key = next(t)
-    local snd_key = next(t, fst_key)
-    return fst_key == key and snd_key == nil
-end
-
 function utils.table_size(t)
     local count = 0
     for _, _ in pairs(t) do

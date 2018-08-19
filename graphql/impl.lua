@@ -267,6 +267,7 @@ end
 ---     service_fields = <table>,
 ---     accessor = <table> or <string>,
 ---     accessor_funcs = <table>,
+---     connections = <table>, -- for auto configuration from space formats
 ---     collection_use_tomap = <boolean>,
 ---     resulting_object_cnt_max = <number>,
 ---     fetched_object_cnt_max = <number>,
@@ -279,11 +280,17 @@ function impl.new(cfg)
     cfg = table.deepcopy(cfg) -- prevent change of user's data
 
     -- auto config case
-    if not next(cfg) or utils.has_only(cfg, 'connections') then
+    local perform_auto_configuration =
+        cfg['schemas'] == nil and
+        cfg['indexes'] == nil and
+        cfg['service_fields'] == nil and
+        cfg['accessor'] == nil and
+        cfg['accessor_funcs'] == nil
+    if perform_auto_configuration then
         local generated_cfg = simple_config.graphql_cfg_from_tarantool()
         generated_cfg.accessor = 'space'
         generated_cfg.connections = cfg.connections or {}
-        cfg = generated_cfg
+        cfg = utils.merge_tables(cfg, generated_cfg)
         cfg = config_complement.complement_cfg(cfg)
     end
 
