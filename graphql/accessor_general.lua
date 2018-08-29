@@ -1247,8 +1247,6 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     assert(next(args) == nil, err_msg)
     assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
     check(from, 'from', 'table')
-    -- allow only top level collection
-    check(from.collection_name, 'from.collection_name', 'nil')
 
     -- convert object -> tuple (set default values from a schema)
     local schema_name = db_schema_helpers.get_schema_name(self, collection_name)

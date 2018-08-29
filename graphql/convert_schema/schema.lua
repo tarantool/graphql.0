@@ -72,10 +72,8 @@ local function add_extra_arguments(state, root_types)
                     for arg_name, arg in pairs(extra_args) do
                         local meta = extra_args_meta[arg_name]
                         check(meta, 'meta', 'table')
-                        local add_arg = not meta.add_to_top_fields_only and
-                            (what == 'Mutation' or
-                            not meta.add_to_mutations_only)
-                        if add_arg then
+                        if (what == 'Mutation' or
+                                not meta.add_to_mutations_only) then
                             field.arguments[arg_name] = arg
                         end
                     end

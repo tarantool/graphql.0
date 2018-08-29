@@ -375,7 +375,6 @@ end
 ---    {
 ---        <field name> = {
 ---            add_to_mutations_only = <boolean>,
----            add_to_top_fields_only = <boolean>,
 ---        },
 ---        ...
 ---    }
@@ -407,7 +406,6 @@ function gen_arguments.extra_args(db_schema, collection_name, opts)
         table.insert(args, {name = 'insert', type = schema_insert})
         args_meta.insert = {
             add_to_mutations_only = true,
-            add_to_top_fields_only = true,
         }
     end
 
@@ -415,7 +413,6 @@ function gen_arguments.extra_args(db_schema, collection_name, opts)
         table.insert(args, {name = 'update', type = schema_update})
         args_meta.update = {
             add_to_mutations_only = true,
-            add_to_top_fields_only = false,
         }
     end
 
@@ -423,7 +420,6 @@ function gen_arguments.extra_args(db_schema, collection_name, opts)
         table.insert(args, {name = 'delete', type = schema_delete})
         args_meta.delete = {
             add_to_mutations_only = true,
-            add_to_top_fields_only = false,
         }
     end
 

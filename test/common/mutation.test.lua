@@ -428,23 +428,36 @@ local function run_queries(gql_wrapper, virtbox, meta)
         mutation_insert_1i, exp_result_insert_1, {meta = meta,
         dont_pass_variables = true})
 
-    -- test "insert" argument is forbidden in a non-top level field
+    -- test non-top level "insert"
     local mutation_insert_2 = [[
-        query insert_user($order_id: String, $user: user_collection_insert) {
-            order_collection(order_id: $order_id) {
-                order_id
-                user_connection(insert: $user) {
-                    user_id
-                    first_name
-                    last_name
+        mutation insert_user_and_order($user: user_collection_insert,
+                $order: order_collection_insert) {
+            user_collection(insert: $user) {
+                user_id
+                first_name
+                last_name
+                order_connection(insert: $order) {
+                    order_id
+                    description
+                    in_stock
                 }
             }
         }
     ]]
-    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, mutation_insert_2)
-    local exp_err = 'Non-existent argument "insert"'
-    test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
-        '"insert" argument is forbidden in a non-top level field')
+    local exp_result_insert_2 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_new_1
+          first_name: Peter
+          last_name: Petrov
+          order_connection:
+          - order_id: order_id_new_1
+            description: Peter's order
+            in_stock: true
+    ]]):strip())
+
+    check_insert(test:test('insert_2-non-top-level'), gql_wrapper, virtbox, mutation_insert_2,
+        exp_result_insert_2, {meta = meta})
 
     -- test "insert" argument is forbidden in a query
     local query_insert = [[
