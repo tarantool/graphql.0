@@ -182,9 +182,7 @@ end
 function bench.bench_prepare_helper(testdata, shard, meta)
     testdata.fill_test_data(shard or box.space, meta)
     return test_utils.graphql_from_testdata(testdata, shard, {
-        graphql_opts = {
-            timeout_ms = graphql.TIMEOUT_INFINITY,
-        }
+        timeout_ms = graphql.TIMEOUT_INFINITY,
     })
 end
 
