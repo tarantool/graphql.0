@@ -7,6 +7,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../?.lua' .. ';' .. package.path
 
 local log = require('log')
+local yaml = require('yaml')
 local avro_schema = require('avro_schema')
 local digest = require('digest')
 local shard = require('shard')
@@ -159,7 +160,11 @@ function test_utils.show_trace(func, ...)
     return select(2, xpcall(
         function() return func(unpack(args)) end,
         function(err)
-            log.info('ERROR: ' .. tostring(err))
+            if type(err) == 'string' then
+                log.info('ERROR: ' .. err)
+            else
+                log.info('ERROR:\n' .. yaml.encode(err))
+            end
             log.info(debug.traceback())
         end
     ))
