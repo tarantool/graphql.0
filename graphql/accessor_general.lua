@@ -14,6 +14,7 @@ local rex, is_pcre2 = utils.optional_require_rex()
 local avro_helpers = require('graphql.avro_helpers')
 local db_schema_helpers = require('graphql.db_schema_helpers')
 local error_codes = require('graphql.error_codes')
+local statistics = require('graphql.statistics')
 
 local check = utils.check
 local e = error_codes
@@ -816,6 +817,21 @@ local function match_using_re(obj, pcre)
     return true
 end
 
+--- Check whether we meet deadline time.
+---
+--- The functions raises an exception in the case.
+---
+--- @tparam table qcontext
+---
+--- @return nothing
+local function check_deadline_clock(qcontext)
+    if clock.monotonic64() > qcontext.deadline_clock then
+        error(e.timeout_exceeded((
+            'query execution timeout exceeded timeout_ms limit (%s ms)'):format(
+            tostring(qcontext.query_settings.timeout_ms))))
+    end
+end
+
 --- Perform unflatten, skipping, filtering, limiting of objects. This is the
 --- core of the `select_internal` function.
 ---
@@ -840,8 +856,6 @@ end
 ---   objects),
 --- * `pivot_filter` (table, set of fields to match the objected pointed by
 ---   `offset` arqument of the GraphQL query),
---- * `resulting_object_cnt_max` (number),
---- * `fetched_object_cnt_max` (number),
 --- * `resolveField` (function) for subrequests, see @{impl.new}.
 ---
 --- @return nil
@@ -854,21 +868,23 @@ local function process_tuple(self, state, tuple, opts)
     local do_filter = opts.do_filter
     local pivot_filter = opts.pivot_filter
     local qcontext = state.qcontext
-    local qstats = qcontext.statistics
-    local resulting_object_cnt_max = opts.resulting_object_cnt_max
-    local fetched_object_cnt_max = opts.fetched_object_cnt_max
-    qstats.fetched_object_cnt = qstats.fetched_object_cnt + 1
-    if qstats.fetched_object_cnt > fetched_object_cnt_max then
-        error(e.fetched_objects_limit_exceeded(
-            ('fetched objects count (%d) exceeds fetched_object_cnt_max ' ..
-            'limit (%d)'):format(qstats.fetched_object_cnt,
-            fetched_object_cnt_max)))
-    end
-    if clock.monotonic64() > qcontext.deadline_clock then
-        error(e.timeout_exceeded((
-            'query execution timeout exceeded timeout_ms limit (%s ms)'):format(
-            tostring(state.qcontext.query_settings.timeout_ms))))
-    end
+
+    local full_scan_cnt = opts.is_full_scan and opts.fetches_cnt or 0
+    local index_lookup_cnt = opts.is_full_scan and 0 or opts.fetches_cnt
+    qcontext.statistics:objects_fetched({
+        fetches_cnt = opts.fetches_cnt,
+        fetched_objects_cnt = opts.fetched_tuples_cnt,
+        full_scan_cnt = full_scan_cnt,
+        index_lookup_cnt = index_lookup_cnt,
+    })
+
+    qcontext.statistics:cache_lookup({
+        cache_hits_cnt = opts.cache_hits_cnt,
+        cache_hit_objects_cnt = opts.cache_hit_tuples_cnt,
+    })
+
+    check_deadline_clock(qcontext)
+
     local collection_name = opts.collection_name
     local pcre = opts.pcre
     local resolveField = opts.resolveField
@@ -885,12 +901,6 @@ local function process_tuple(self, state, tuple, opts)
         return true -- skip pivot item too
     end
 
-    -- Don't count subrequest resulting objects (needed for filtering) into
-    -- count of object we show to an user as a result.
-    -- XXX: It is better to have an option to control whether selected objects
-    -- will be counted as resulting ones.
-    local saved_resulting_object_cnt = qstats.resulting_object_cnt
-
     -- make subrequests if needed
     for k, v in pairs(filter) do
         if obj[k] == nil then
@@ -903,8 +913,6 @@ local function process_tuple(self, state, tuple, opts)
             -- the filter each time in the case.
         end
     end
-
-    qstats.resulting_object_cnt = saved_resulting_object_cnt
 
     -- filter out non-matching objects
     local match = utils.is_subtable(obj, filter) and
@@ -919,13 +927,13 @@ local function process_tuple(self, state, tuple, opts)
     -- add the matching object, update count and check limit
     state.objs[#state.objs + 1] = obj
     state.count = state.count + 1
-    qstats.resulting_object_cnt = qstats.resulting_object_cnt + 1
-    if qstats.resulting_object_cnt > resulting_object_cnt_max then
-        error(e.resulting_objects_limit_exceeded(
-            ('resulting objects count (%d) exceeds resulting_object_cnt_max ' ..
-            'limit (%d)'):format(qstats.resulting_object_cnt,
-            resulting_object_cnt_max)))
+
+    if not opts.is_hidden then
+        qcontext.statistics:objects_retired({
+            retired_objects_cnt = 1,
+        })
     end
+
     if limit ~= nil and state.count >= limit then
         return false
     end
@@ -975,8 +983,8 @@ local function perform_primary_key_operation(self, collection_name, schema_name,
     return new_objects
 end
 
---- The function is core of this module and implements logic of fetching and
---- filtering requested objects.
+--- The function prepares context for tuples selection, postprocessing and
+--- filtering.
 ---
 --- @tparam table self the data accessor created by the `new` function
 --- (directly or indirectly using the `accessor_space.new` or the
@@ -996,8 +1004,10 @@ end
 --- @tparam table extra table which contains extra information related to
 --- current select and the whole query
 ---
---- @treturn table list of matching objects
-local function select_internal(self, collection_name, from, filter, args, extra)
+--- @treturn table `res` with `request_opts`, `select_state`, `select_opts` and
+--- `args` fields
+local function prepare_select_internal(self, collection_name, from, filter,
+        args, extra)
     check(self, 'self', 'table')
     check(collection_name, 'collection_name', 'string')
     check(from, 'from', 'table')
@@ -1028,7 +1038,7 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             index_name, collection_name))
     end
 
-    -- lookup functions for unflattening
+    -- lookup function for unflattening
     local schema_name = collection.schema_name
     assert(type(schema_name) == 'string',
         'schema_name must be a string, got ' .. type(schema_name))
@@ -1047,20 +1057,18 @@ local function select_internal(self, collection_name, from, filter, args, extra)
     }
 
     -- read only process_tuple options
-    local query_settings = qcontext.query_settings
     local select_opts = {
         limit = args.limit,
         filter = filter,
         do_filter = not full_match,
         pivot_filter = nil, -- filled later if needed
-        resulting_object_cnt_max = query_settings.resulting_object_cnt_max,
-        fetched_object_cnt_max = query_settings.fetched_object_cnt_max,
         collection_name = collection_name,
         unflatten_tuple = self.funcs.unflatten_tuple,
         use_tomap = self.collection_use_tomap[collection_name] or false,
         default_unflatten_tuple = default_unflatten_tuple,
         pcre = args.pcre,
         resolveField = extra.resolveField,
+        is_hidden = extra.is_hidden,
     }
 
     -- assert that connection constraint applied only to objects got from the
@@ -1075,27 +1083,17 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             pivot.filter ~= nil), err)
     end
 
+    local iterator_opts = nil
+    local is_full_scan
+
     if index == nil then
-        -- fullscan
-        local primary_index = self.funcs.get_primary_index(self,
-            collection_name)
-
-        -- count full scan select request
-        qcontext.statistics.select_requests_cnt =
-            qcontext.statistics.select_requests_cnt + 1
-        qcontext.statistics.full_scan_select_requests_cnt =
-            qcontext.statistics.full_scan_select_requests_cnt + 1
-
-        for _, tuple in primary_index:pairs() do
-            assert(pivot == nil,
-                'offset for top-level objects must use a primary index')
-            local continue = process_tuple(self, select_state, tuple,
-                select_opts)
-            if not continue then break end
-        end
+        assert(pivot == nil,
+            'offset for top-level objects must use a primary index')
+        index = self.funcs.get_primary_index(self, collection_name)
+        index_value = nil
+        is_full_scan = true
     else
-        -- select by index
-        local iterator_opts = {}
+        iterator_opts = iterator_opts or {}
         if pivot ~= nil then
             -- handle case when there is pivot item (offset was passed)
             if pivot.value_list ~= nil then
@@ -1126,33 +1124,96 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             iterator_opts.limit = args.limit
         end
 
-        local tuple_count = 0
+        is_full_scan = false
+    end
 
-        -- count index select request
-        qcontext.statistics.select_requests_cnt =
-            qcontext.statistics.select_requests_cnt + 1
-        qcontext.statistics.index_select_requests_cnt =
-            qcontext.statistics.index_select_requests_cnt + 1
+    -- request options can be changed below
+    local request_opts = {
+        index = index,
+        index_name = index_name,
+        index_value = index_value,
+        iterator_opts = iterator_opts,
+        is_full_scan = is_full_scan,
+    }
 
-        for _, tuple in index:pairs(index_value, iterator_opts) do
-            tuple_count = tuple_count + 1
-            -- check full match constraint
-            if extra.exp_tuple_count ~= nil and
-                    tuple_count > extra.exp_tuple_count then
-                error(('FULL MATCH constraint was failed: we got more then ' ..
-                    '%d tuples'):format(extra.exp_tuple_count))
-            end
-            local continue = process_tuple(self, select_state, tuple,
-                select_opts)
-            if not continue then break end
-        end
+    return {
+        request_opts = request_opts,
+        select_state = select_state,
+        select_opts = select_opts,
+        collection_name = collection_name,
+        from = from,
+        filter = filter,
+        args = args,
+        extra = extra,
+    }
+end
+
+--- XXX
+local function invoke_select_internal(self, prepared_select)
+    local request_opts = prepared_select.request_opts
+    local select_state = prepared_select.select_state
+    local select_opts = prepared_select.select_opts
+    local collection_name = prepared_select.collection_name
+    local args = prepared_select.args
+    local extra = prepared_select.extra
+
+    local index = request_opts.index
+    local index_name = request_opts.index_name
+    local index_value = request_opts.index_value
+    local iterator_opts = request_opts.iterator_opts
+    local is_full_scan = request_opts.is_full_scan
+
+    local tuple_count = 0
+    local out = {}
+
+    -- lookup for needed data in the cache if it is supported
+    local iterable
+    if self:cache_is_supported() then
+        iterable = self.funcs.cache_lookup(self, collection_name, index_name,
+            index_value, iterator_opts)
+    end
+    if iterable == nil then
+        iterable = index
+    end
+
+    for _, tuple in iterable:pairs(index_value, iterator_opts, out) do
+        local fetches_cnt = out.fetches_cnt or 0
+        local fetched_tuples_cnt = out.fetched_tuples_cnt or 0
+        local cache_hits_cnt = out.cache_hits_cnt or 0
+        local cache_hit_tuples_cnt = out.cache_hit_tuples_cnt or 0
+        check(fetches_cnt, 'fetches_cnt', 'number')
+        check(fetched_tuples_cnt, 'fetched_tuples_cnt', 'number')
+        check(cache_hits_cnt, 'cache_hits_cnt', 'number')
+        check(cache_hit_tuples_cnt, 'cache_hit_tuples_cnt', 'number')
+        out.fetches_cnt = 0
+        out.fetched_tuples_cnt = 0
+        out.cache_hits_cnt = 0
+        out.cache_hit_tuples_cnt = 0
+
+        tuple_count = tuple_count + 1
 
         -- check full match constraint
         if extra.exp_tuple_count ~= nil and
-                tuple_count ~= extra.exp_tuple_count then
-            error(('FULL MATCH constraint was failed: we expect %d tuples, ' ..
-                'got %d'):format(extra.exp_tuple_count, tuple_count))
+                tuple_count > extra.exp_tuple_count then
+            error(('FULL MATCH constraint was failed: we got more then ' ..
+                '%d tuples'):format(extra.exp_tuple_count))
         end
+
+        select_opts.is_full_scan = is_full_scan
+        select_opts.fetches_cnt = fetches_cnt
+        select_opts.fetched_tuples_cnt = fetched_tuples_cnt
+        select_opts.cache_hits_cnt = cache_hits_cnt
+        select_opts.cache_hit_tuples_cnt = cache_hit_tuples_cnt
+        local continue = process_tuple(self, select_state, tuple,
+            select_opts)
+        if not continue then break end
+    end
+
+    -- check full match constraint
+    if extra.exp_tuple_count ~= nil and
+            tuple_count ~= extra.exp_tuple_count then
+        error(('FULL MATCH constraint was failed: we expect %d tuples, ' ..
+            'got %d'):format(extra.exp_tuple_count, tuple_count))
     end
 
     local count = select_state.count
@@ -1307,6 +1368,10 @@ local function validate_funcs(funcs)
     assert(type(funcs.delete_tuple) == 'function',
         'funcs.delete_tuple must be a function, got ' ..
         type(funcs.delete_tuple))
+    check(funcs.cache_fetch, 'funcs.cache_fetch', 'function', 'nil')
+    -- check(funcs.cache_delete, 'funcs.cache_delete', 'function', 'nil')
+    check(funcs.cache_truncate, 'funcs.cache_truncate', 'function', 'nil')
+    check(funcs.cache_lookup, 'funcs.cache_lookup', 'function', 'nil')
 end
 
 local function validate_query_settings(query_settings, opts)
@@ -1344,6 +1409,8 @@ end
 --- all neccessary initialization of this parameter should be performed by this
 --  function
 local function init_qcontext(accessor, qcontext)
+    if qcontext.initialized then return end
+
     for k, v in pairs(accessor.query_settings_default) do
         if qcontext.query_settings[k] == nil then
             qcontext.query_settings[k] = v
@@ -1354,13 +1421,13 @@ local function init_qcontext(accessor, qcontext)
     qcontext.deadline_clock = clock.monotonic64() +
         qcontext.query_settings.timeout_ms * 1000 * 1000
 
-    qcontext.statistics = {
-        resulting_object_cnt = 0,
-        fetched_object_cnt = 0,
-        select_requests_cnt = 0,
-        full_scan_select_requests_cnt = 0,
-        index_select_requests_cnt = 0,
-    }
+    local query_settings = qcontext.query_settings
+    qcontext.statistics = statistics.new({
+        resulting_object_cnt_max = query_settings.resulting_object_cnt_max,
+        fetched_object_cnt_max = query_settings.fetched_object_cnt_max,
+    })
+
+    qcontext.initialized = true
 end
 
 --- Create default unflatten/flatten/xflatten functions, that can be called
@@ -1438,7 +1505,9 @@ end
 ---   both)_,
 --- * `timeout_ms` _(default is 1000)_,
 --- * `enable_mutations`: boolean flag _(default is `false` for avro-schema-2*
----    and `true` for avro-schema-3*)_.
+---    and `true` for avro-schema-3*)_,
+--- * `name` is 'space' or 'shard',
+--- * `data_cache` (optional) is accessor_shard_cache instance.
 ---
 --- For examples of `opts.schemas` and `opts.collections` consider the
 --- @{impl.new} function description.
@@ -1472,16 +1541,19 @@ end
 --- * `get_primary_index`,
 --- * `unflatten_tuple`,
 --- * `flatten_object`,
---- * `insert_tuple`.
+--- * `insert_tuple`,
+--- * `cache_fetch` (optional),
+--- -- * `cache_delete` (optional),
+--- * `cache_truncate` (optional),
+--- * `cache_lookup` (optional).
 ---
 --- They allows this abstract data accessor behaves in the certain way (say,
 --- like space data accessor or shard data accessor); consider the
 --- `accessor_space` and the `accessor_shard` modules documentation for these
 --- functions description.
 ---
---- @treturn table data accessor instance, a table with the two methods
---- (`select` and `arguments`) as described in the @{impl.new} function
---- description.
+--- @treturn table data accessor instance, a table with the methods as
+--- described in the @{impl.new} function description.
 ---
 --- Brief explanation of some select function parameters:
 ---
@@ -1539,6 +1611,11 @@ function accessor_general.new(opts, funcs)
     end
     check(enable_mutations, 'enable_mutations', 'boolean')
 
+    local name = opts.name
+    local data_cache = opts.data_cache
+    check(name, 'name', 'string')
+    check(data_cache, 'data_cache', 'table', 'nil')
+
     local models, service_fields_defaults = compile_schemas(schemas,
         service_fields)
     validate_collections(collections, schemas, indexes)
@@ -1568,25 +1645,19 @@ function accessor_general.new(opts, funcs)
             enable_mutations = enable_mutations,
         },
         query_settings_default = query_settings_default,
+        name = name,
+        data_cache = data_cache,
     }, {
         __index = {
             select = function(self, parent, collection_name, from,
                     filter, args, extra)
-                check(parent, 'parent', 'table')
-                validate_from_parameter(from)
-
-                --`qcontext` initialization
-                if extra.qcontext.initialized ~= true then
-                    init_qcontext(self, extra.qcontext)
-                    extra.qcontext.initialized = true
-                end
-
                 local inserted = insert_internal(self, collection_name, from,
                     filter, args, extra)
                 if inserted ~= nil then return inserted end
 
-                local selected = select_internal(self, collection_name, from, filter,
-                    args, extra)
+                local prepared_select = self:prepare_select(parent,
+					collection_name, from, filter, args, extra)
+                local selected = self:invoke_select(prepared_select)
 
                 local updated = update_internal(self, collection_name, extra,
                     selected)
@@ -1597,6 +1668,66 @@ function accessor_general.new(opts, funcs)
                 if deleted ~= nil then return deleted end
 
                 return selected
+            end,
+            prepare_select = function(self, parent, collection_name, from,
+                        filter, args, extra)
+                check(parent, 'parent', 'table')
+                validate_from_parameter(from)
+
+                init_qcontext(self, extra.qcontext)
+
+                return prepare_select_internal(self, collection_name, from,
+                    filter, args, extra)
+            end,
+            invoke_select = invoke_select_internal,
+            cache_is_supported = function(self)
+                return self.data_cache ~= nil
+            end,
+            cache_fetch = function(self, batches, qcontext)
+                if not self:cache_is_supported() then
+                    return nil
+                end
+
+                local res = self.funcs.cache_fetch(self, batches)
+                if res == nil then
+                    return nil
+                end
+
+                local fetch_id = res.fetch_id
+                local stat = res.stat
+                check(fetch_id, 'fetch_id', 'number')
+                check(stat, 'stat', 'table')
+                check(stat.fetches_cnt, 'stat.fetches_cnt', 'number')
+                check(stat.fetched_tuples_cnt, 'stat.fetched_tuples_cnt',
+                    'number')
+                check(stat.full_scan_cnt, 'stat.full_scan_cnt', 'number')
+                check(stat.index_lookup_cnt, 'stat.index_lookup_cnt', 'number')
+
+                -- update statistics
+                init_qcontext(self, qcontext)
+                qcontext.statistics:objects_fetched({
+                    fetches_cnt = stat.fetches_cnt,
+                    fetched_objects_cnt = stat.fetched_tuples_cnt,
+                    full_scan_cnt = stat.full_scan_cnt,
+                    index_lookup_cnt = stat.index_lookup_cnt
+                })
+
+                check_deadline_clock(qcontext)
+
+                return fetch_id
+            end,
+            -- Unused for now.
+            -- cache_delete = function(self, fetch_id)
+            --     if not self:cache_is_supported() then
+            --         return
+            --     end
+            --     self.funcs.cache_delete(self, fetch_id)
+            -- end,
+            cache_truncate = function(self)
+                if not self:cache_is_supported() then
+                    return
+                end
+                self.funcs.cache_truncate(self)
             end,
         }
     })

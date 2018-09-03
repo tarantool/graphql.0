@@ -32,7 +32,27 @@ end
 --- @return index or nil
 local function get_index(self, collection_name, index_name)
     check(self, 'self', 'table')
-    return box.space[collection_name].index[index_name]
+    local index = box.space[collection_name].index[index_name]
+    if index == nil then
+        return nil
+    end
+    return setmetatable({}, {
+        __index = {
+            pairs = function(_, value, opts, out)
+                out.fetches_cnt = 1
+                out.fetched_tuples_cnt = 0
+                local gen, param, state = index:pairs(value, opts)
+                local function new_gen(param, state)
+                    local new_state, tuple = gen(param, state)
+                    if tuple ~= nil then
+                        out.fetched_tuples_cnt = out.fetched_tuples_cnt + 1
+                    end
+                    return new_state, tuple
+                end
+                return new_gen, param, state
+            end
+        }
+    })
 end
 
 --- Get primary index to perform `:pairs()` (fullscan).
@@ -44,7 +64,7 @@ end
 --- @return index or nil
 local function get_primary_index(self, collection_name)
     check(self, 'self', 'table')
-    return box.space[collection_name].index[0]
+    return self.funcs.get_index(self, collection_name, 0)
 end
 
 --- Convert a tuple to an object.
@@ -192,8 +212,14 @@ function accessor_space.new(opts, funcs)
         insert_tuple = funcs.insert_tuple or insert_tuple,
         update_tuple = funcs.update_tuple or update_tuple,
         delete_tuple = funcs.delete_tuple or delete_tuple,
+        cache_fetch = funcs.cache_fetch or nil,
+        -- cache_delete = funcs.cache_delete or nil,
+        cache_truncate = funcs.cache_truncate or nil,
+        cache_lookup = funcs.cache_lookup or nil,
     }
 
+    local opts = table.copy(opts)
+    opts.name = 'space'
     return accessor_general.new(opts, res_funcs)
 end
 

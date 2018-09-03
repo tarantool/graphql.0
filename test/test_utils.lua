@@ -7,6 +7,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../?.lua' .. ';' .. package.path
 
 local log = require('log')
+local yaml = require('yaml')
 local avro_schema = require('avro_schema')
 local digest = require('digest')
 local shard = require('shard')
@@ -113,8 +114,12 @@ function test_utils.graphql_from_testdata(testdata, shard, graphql_opts)
         accessor = shard and 'shard' or 'space',
     }
 
+    -- allow to run under tarantool w/o additional opts w/o test-run
+    local test_conf_graphql_opts = test_run and test_run:get_cfg('graphql_opts')
+        or {}
+
     local gql_wrapper = graphql.new(utils.merge_tables(
-        default_graphql_opts, graphql_opts))
+        default_graphql_opts, test_conf_graphql_opts, graphql_opts))
 
     return gql_wrapper
 end
@@ -159,7 +164,11 @@ function test_utils.show_trace(func, ...)
     return select(2, xpcall(
         function() return func(unpack(args)) end,
         function(err)
-            log.info('ERROR: ' .. tostring(err))
+            if type(err) == 'string' then
+                log.info('ERROR: ' .. err)
+            else
+                log.info('ERROR:\n' .. yaml.encode(err))
+            end
             log.info(debug.traceback())
         end
     ))
@@ -185,6 +194,11 @@ function test_utils.get_shard_key_hash(key)
     local shards_n = #shard.shards
     local num = type(key) == 'number' and key or digest.crc32(key)
     return 1 + digest.guava(num, shards_n)
+end
+
+function test_utils.test_conf_graphql_opts()
+    -- allow to run under tarantool w/o additional opts w/o test-run
+    return test_run and test_run:get_cfg('graphql_opts') or {}
 end
 
 return test_utils

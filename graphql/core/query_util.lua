@@ -105,31 +105,22 @@ function query_util.mergeSelectionSets(fields)
   return selections
 end
 
-function query_util.buildContext(schema, tree, rootValue, variables, operationName)
-    local context = {
-        schema = schema,
-        rootValue = rootValue,
-        variables = variables,
-        operation = nil,
-        fragmentMap = {},
-        variableTypes = {},
-    }
+function query_util.getOperation(tree, operationName)
+    local operation
 
     for _, definition in ipairs(tree.definitions) do
         if definition.kind == 'operation' then
-            if not operationName and context.operation then
+            if not operationName and operation then
                 error('Operation name must be specified if more than one operation exists.')
             end
 
             if not operationName or definition.name.value == operationName then
-                context.operation = definition
+                operation = definition
             end
-        elseif definition.kind == 'fragmentDefinition' then
-            context.fragmentMap[definition.name.value] = definition
         end
     end
 
-    if not context.operation then
+    if not operation then
         if operationName then
             error('Unknown operation "' .. operationName .. '"')
         else
@@ -137,13 +128,45 @@ function query_util.buildContext(schema, tree, rootValue, variables, operationNa
         end
     end
 
-    -- Save variableTypes for the operation.
-    for _, definition in ipairs(context.operation.variableDefinitions or {}) do
-        context.variableTypes[definition.variable.name.value] =
-            query_util.typeFromAST(definition.type, context.schema)
+    return operation
+end
+
+function query_util.getFragmentDefinitions(tree)
+    local fragmentMap = {}
+
+    for _, definition in ipairs(tree.definitions) do
+        if definition.kind == 'fragmentDefinition' then
+            fragmentMap[definition.name.value] = definition
+        end
     end
 
-    return context
+    return fragmentMap
+end
+
+-- Extract variableTypes from the operation.
+function query_util.getVariableTypes(schema, operation)
+    local variableTypes = {}
+
+    for _, definition in ipairs(operation.variableDefinitions or {}) do
+        variableTypes[definition.variable.name.value] =
+            query_util.typeFromAST(definition.type, schema)
+    end
+
+    return variableTypes
+end
+
+function query_util.buildContext(schema, tree, rootValue, variables, operationName)
+    local operation = query_util.getOperation(tree, operationName)
+    local fragmentMap = query_util.getFragmentDefinitions(tree)
+    local variableTypes = query_util.getVariableTypes(schema, operation)
+    return {
+        schema = schema,
+        rootValue = rootValue,
+        variables = variables,
+        operation = operation,
+        fragmentMap = fragmentMap,
+        variableTypes = variableTypes,
+    }
 end
 
 return query_util

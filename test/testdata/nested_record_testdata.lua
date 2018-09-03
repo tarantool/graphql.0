@@ -89,29 +89,29 @@ end
 
 function testdata.run_queries(gql_wrapper)
     local test = tap.test('nested_record')
-    test:plan(2)
+    test:plan(3)
 
     local query_1 = [[
-        query getUserByUid($uid: Long) {
+        query getUserByUid($uid: Long, $include_y: Boolean) {
             user(uid: $uid) {
                 uid
                 p1
                 p2
                 nested {
                     x
-                    y
+                    y @include(if: $include_y)
                 }
             }
         }
     ]]
 
-    local variables_1 = {uid = 5}
-    local result_1 = test_utils.show_trace(function()
-        local gql_query_1 = gql_wrapper:compile(query_1)
-        return gql_query_1:execute(variables_1)
+    local gql_query_1 = test_utils.show_trace(function()
+        return gql_wrapper:compile(query_1)
     end)
 
-    local exp_result_1 = yaml.decode(([[
+    local variables_1_1 = {uid = 5, include_y = true}
+    local result_1_1 = gql_query_1:execute(variables_1_1)
+    local exp_result_1_1 = yaml.decode(([[
         ---
         user:
         - uid: 5
@@ -121,8 +121,20 @@ function testdata.run_queries(gql_wrapper)
             x: 1005
             y: 2005
     ]]):strip())
+    test:is_deeply(result_1_1.data, exp_result_1_1, 'show all nested fields')
 
-    test:is_deeply(result_1.data, exp_result_1, '1')
+    local variables_1_2 = {uid = 5, include_y = false}
+    local result_1_2 = gql_query_1:execute(variables_1_2)
+    local exp_result_1_2 = yaml.decode(([[
+        ---
+        user:
+        - uid: 5
+          p1: p1 5
+          p2: p2 5
+          nested:
+            x: 1005
+    ]]):strip())
+    test:is_deeply(result_1_2.data, exp_result_1_2, 'show some nested fields')
 
     local query_2 = [[
         query getUserByX($x: Long) {
@@ -155,7 +167,7 @@ function testdata.run_queries(gql_wrapper)
             y: 2005
     ]]):strip())
 
-    test:is_deeply(result_2.data, exp_result_2, '2')
+    test:is_deeply(result_2.data, exp_result_2, 'filter by nested field')
 
     assert(test:check(), 'check plan')
 end

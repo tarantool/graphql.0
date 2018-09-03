@@ -49,6 +49,7 @@ local function workload(shard, bench_prepare, bench_iter, opts)
 
     -- first iteration; print result and update checksum
     local result = bench_iter(state)
+    local statistics = result.meta.statistics
     local result_str = yaml.encode(result.data)
     checksum:update(result_str .. '1')
 
@@ -88,6 +89,7 @@ local function workload(shard, bench_prepare, bench_iter, opts)
         duration_successive = duration,
         latency_successive_avg = latency_avg,
         rps_successive_avg = rps_avg,
+        statistics = statistics,
     }
 end
 
@@ -98,13 +100,33 @@ local function write_result(test_name, conf_name, bench_result, to_file)
         result_name = ('%s.%s'):format(result_name, result_suffix)
     end
 
+    local metrics = {
+        'duration_successive',
+        'latency_successive_avg',
+        'rps_successive_avg',
+        'statistics.resulting_object_cnt',
+        'statistics.fetches_cnt',
+        'statistics.fetched_object_cnt',
+        'statistics.full_scan_cnt',
+        'statistics.index_lookup_cnt',
+        'statistics.cache_hits_cnt',
+        'statistics.cache_hit_objects_cnt',
+    }
+
     local result = ''
-    result = result .. ('%s.duration_successive: %f\n'):format(
-        result_name, bench_result.duration_successive)
-    result = result .. ('%s.latency_successive_avg: %f\n'):format(
-        result_name, bench_result.latency_successive_avg)
-    result = result .. ('%s.rps_successive_avg: %f\n'):format(
-        result_name, bench_result.rps_successive_avg)
+    for _, metric in ipairs(metrics) do
+        local value
+        local value_type
+        if metric:startswith('statistics.') then
+            value = bench_result.statistics[metric:gsub('^.-%.', '')]
+            value_type = '%d'
+        else
+            value = bench_result[metric]
+            value_type = '%f'
+        end
+        result = result .. ('%s.%s: ' .. value_type .. '\n'):format(
+            result_name, metric, value)
+    end
 
     if not to_file then
         print(result)
@@ -160,9 +182,7 @@ end
 function bench.bench_prepare_helper(testdata, shard, meta)
     testdata.fill_test_data(shard or box.space, meta)
     return test_utils.graphql_from_testdata(testdata, shard, {
-        graphql_opts = {
-            timeout_ms = graphql.TIMEOUT_INFINITY,
-        }
+        timeout_ms = graphql.TIMEOUT_INFINITY,
     })
 end
 

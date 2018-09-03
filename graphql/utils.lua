@@ -29,6 +29,10 @@ function utils.is_subtable(t, sub)
     return true
 end
 
+function utils.are_tables_same(t1, t2)
+    return utils.is_subtable(t1, t2) and utils.is_subtable(t2, t1)
+end
+
 --- Check whether table is an array.
 ---
 --- Based on [that][1] implementation.
@@ -181,21 +185,14 @@ function utils.check(obj, obj_name, type_1, type_2, type_3)
     end
 
     if type_3 ~= nil then
-        error(('%s must be a %s or a % or a %, got %s'):format(obj_name, type_1,
-            type_2, type_3, type(obj)))
+        error(('%s must be a %s or a % or a %s, got %s'):format(obj_name,
+            type_1, type_2, type_3, type(obj)))
     elseif type_2 ~= nil then
-        error(('%s must be a %s or a %, got %s'):format(obj_name, type_1,
-        type_2, type(obj)))
+        error(('%s must be a %s or a %s, got %s'):format(obj_name, type_1,
+            type_2, type(obj)))
     else
         error(('%s must be a %s, got %s'):format(obj_name, type_1, type(obj)))
     end
-end
-
---- Check if given table has only one specific key.
-function utils.has_only(t, key)
-    local fst_key = next(t)
-    local snd_key = next(t, fst_key)
-    return fst_key == key and snd_key == nil
 end
 
 function utils.table_size(t)
@@ -274,6 +271,39 @@ function utils.serialize_error(err, traceback)
     }
     res.extensions.orig_error = orig_error
     return res
+end
+
+--- Append all elements of the list `tail` to the end of list `list`.
+---
+--- @tparam table list list to add elements to
+--- @tparam table tail list to add elements from
+function utils.expand_list(list, tail)
+    for _, item in ipairs(tail) do
+        table.insert(list, item)
+    end
+end
+
+--- Add a debug print to the log enabled by an environment variable.
+---
+--- @param data_or_func (string or function) data to print or a function that
+--- will be return the data to print; the function called only if the
+--- environment variable toogle is enabled
+---
+--- @param ... parameters of the function `data_or_func`
+---
+--- @return nothing
+function utils.debug(data_or_func, ...)
+    if (os.getenv('TARANTOOL_GRAPHQL_DEBUG') or ''):len() > 0 then
+        local data
+        if type(data_or_func) == 'function' then
+            data = data_or_func(...)
+        else
+            data = data_or_func
+            assert(select('#', ...) == 0)
+        end
+        assert(type(data) == 'string')
+        log.info('DEBUG: %s', data)
+    end
 end
 
 return utils

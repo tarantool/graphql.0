@@ -11,10 +11,10 @@ local tap = require('tap')
 local yaml = require('yaml')
 local avro = require('avro_schema')
 local graphql = require('graphql')
+local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
 
-local utils = require('graphql.utils')
 local check = utils.check
 
 -- init box, upload test data and acquire metadata
@@ -66,20 +66,16 @@ local function unflatten_tuple(self, collection_name, tuple, default)
     error('unexpected collection_name: ' .. tostring(collection_name))
 end
 
-local accessor = graphql.accessor_space.new({
+local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = schemas,
     collections = collections,
-    service_fields = service_fields,
     indexes = indexes,
-}, {
-    unflatten_tuple = unflatten_tuple,
-})
-
-local gql_wrapper = graphql.new({
-    schemas = schemas,
-    collections = collections,
-    accessor = accessor,
-})
+    service_fields = service_fields,
+    accessor = 'space',
+    accessor_funcs = {
+        unflatten_tuple = unflatten_tuple,
+    },
+}, test_utils.test_conf_graphql_opts()))
 
 -- run queries
 -- -----------

@@ -158,14 +158,18 @@ local function convert_simple_connection(state, connection, collection_name)
     local opts = {
         disable_dangling_check = state.disable_dangling_check,
     }
-    local resolve_function = resolve.gen_resolve_function(collection_name, c,
-        destination_type, arguments, state.accessor, opts)
+    local resolve_function = resolve.gen_resolve_function(
+        collection_name, c, destination_type, arguments, state.accessor, opts)
+    opts.gen_prepare = true
+    local prepare_resolve_function = resolve.gen_resolve_function(
+        collection_name, c, destination_type, arguments, state.accessor, opts)
 
     local field = {
         name = c.name,
         kind = destination_type,
         arguments = c_args,
         resolve = resolve_function,
+        prepare_resolve = prepare_resolve_function,
     }
 
     return field
@@ -285,6 +289,10 @@ local function convert_multihead_connection(state, connection, collection_name,
     local resolve_function = resolve.gen_resolve_function_multihead(
         collection_name, c, union_types, var_num_to_box_field_name,
         state.accessor, opts)
+    opts.gen_prepare = true
+    local prepare_resolve_function = resolve.gen_resolve_function_multihead(
+        collection_name, c, union_types, var_num_to_box_field_name,
+        state.accessor, opts)
 
     local field = {
         name = c.name,
@@ -295,6 +303,7 @@ local function convert_multihead_connection(state, connection, collection_name,
         arguments = nil, -- see Border cases/Unions at the top of
                          -- tarantool_graphql module description
         resolve = resolve_function,
+        prepare_resolve = prepare_resolve_function,
     }
     return field
 end

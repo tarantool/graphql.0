@@ -1,17 +1,21 @@
 #!/usr/bin/env tarantool
+
 local fio = require('fio')
 local yaml = require('yaml')
 local avro = require('avro_schema')
-local test = require('tap').test('to avro schema')
+local tap = require('tap')
 
 -- require in-repo version of graphql/ sources despite current working directory
 package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
     :gsub('/./', '/'):gsub('/+$', '')) .. '/../../?.lua' .. ';' ..
     package.path
 
+local utils = require('graphql.utils')
+local graphql = require('graphql')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.array_and_map_testdata')
 
-local graphql = require('graphql')
+local test = tap.test('to avro schema')
 
 box.cfg{wal_mode="none"}
 test:plan(4)
@@ -20,18 +24,13 @@ testdata.init_spaces()
 testdata.fill_test_data()
 local meta = testdata.get_test_metadata()
 
-local accessor = graphql.accessor_space.new({
+local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = meta.schemas,
     collections = meta.collections,
-    service_fields = meta.service_fields,
     indexes = meta.indexes,
-})
-
-local gql_wrapper = graphql.new({
-    schemas = meta.schemas,
-    collections = meta.collections,
-    accessor = accessor,
-})
+    service_fields = meta.service_fields,
+    accessor = 'space',
+}, test_utils.test_conf_graphql_opts()))
 
 -- We do not select `customer_balances` and `favorite_holidays` because thay are
 -- is of `Map` type, which is not supported.

@@ -10,6 +10,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 local tap = require('tap')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
+local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.compound_index_testdata')
 
 -- init box, upload test data and acquire metadata
@@ -36,18 +37,13 @@ metadata.collections.order_collection.connections[1].parts[2] = nil
 -- ----------------------------------
 
 local function create_gql_wrapper(metadata)
-    local accessor = graphql.accessor_space.new({
+    return graphql.new(utils.merge_tables({
         schemas = metadata.schemas,
         collections = metadata.collections,
         service_fields = metadata.service_fields,
         indexes = metadata.indexes,
-    })
-
-    return graphql.new({
-        schemas = metadata.schemas,
-        collections = metadata.collections,
-        accessor = accessor,
-    })
+        accessor = 'space',
+    }, test_utils.test_conf_graphql_opts()))
 end
 
 local test = tap.test('init_fail')

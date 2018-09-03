@@ -3,6 +3,7 @@
 local tap = require('tap')
 local yaml = require('yaml')
 local graphql = require('graphql')
+local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 
 local function init_spaces()
@@ -109,6 +110,8 @@ local function run_queries(gql_wrapper)
         service_fields:
           user_collection: []
     ]]):strip())
+    exp_result_1_2 = utils.merge_tables(exp_result_1_2,
+        test_utils.test_conf_graphql_opts())
     test:is_deeply(result_1_2, exp_result_1_2, '1_2')
 
     assert(test:check(), 'check plan')
@@ -118,7 +121,7 @@ test_utils.show_trace(function()
     box.cfg { background = false }
     init_spaces()
     fill_test_data()
-    local gql_wrapper = graphql.new()
+    local gql_wrapper = graphql.new(test_utils.test_conf_graphql_opts())
     run_queries(gql_wrapper)
     drop_spaces()
 end)
