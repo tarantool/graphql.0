@@ -161,7 +161,7 @@ local function for_each_connection(state, connection_types, func)
     end
 end
 
---- Add arguments corresponding to 1:1 connections (nested filters).
+--- Add arguments corresponding to connections (nested filters).
 ---
 --- @tparam table state graphql_tarantool instance
 local function add_connection_arguments(state)
@@ -170,8 +170,8 @@ local function add_connection_arguments(state)
     -- map source collection and connection name to an input object
     local lookup_input_objects = {}
 
-    -- create InputObjects for each 1:1 connection of each collection
-    for_each_connection(state, {'1:1'}, function(collection_name, c)
+    -- create InputObjects for each connection of each collection
+    for_each_connection(state, {'1:1', '1:N'}, function(collection_name, c)
         -- XXX: support multihead connections
         if c.variants ~= nil then return end
 
@@ -196,7 +196,7 @@ local function add_connection_arguments(state)
 
     -- update fields of collection arguments and input objects with other input
     -- objects
-    for_each_connection(state, {'1:1'}, function(collection_name, c)
+    for_each_connection(state, {'1:1', '1:N'}, function(collection_name, c)
         -- XXX: support multihead connections
         if c.variants ~= nil then return end
 

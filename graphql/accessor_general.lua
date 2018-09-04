@@ -902,20 +902,22 @@ local function process_tuple(self, state, tuple, opts)
     end
 
     -- make subrequests if needed
+    local truncated_filter = table.copy(filter)
     for k, v in pairs(filter) do
         if obj[k] == nil then
             local field_name = k
             local sub_filter = v
-            local field = resolveField(field_name, obj, sub_filter)
+            local field, is_list = resolveField(field_name, obj, sub_filter)
             if field == nil then return true end
-            obj[k] = field
-            -- XXX: Remove the value from a filter? But then we need to copy
-            -- the filter each time in the case.
+            if is_list then
+                if next(field) == nil then return true end
+            end
+            truncated_filter[k] = nil
         end
     end
 
     -- filter out non-matching objects
-    local match = utils.is_subtable(obj, filter) and
+    local match = utils.is_subtable(obj, truncated_filter) and
         match_using_re(obj, pcre)
     if do_filter then
         if not match then return true end
@@ -1570,7 +1572,7 @@ end
 ---   - `qcontext` (table) can be used by an accessor to store any
 ---     query-related data;
 ---   - `resolveField(field_name, object, filter, opts)` (function) for
----     performing a subrequest on a fields connected using a 1:1 connection.
+---     performing a subrequest on a fields connected using a connection.
 ---   - extra_args
 ---   - exp_tuple_count
 function accessor_general.new(opts, funcs)
