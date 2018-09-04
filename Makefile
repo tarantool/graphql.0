@@ -72,4 +72,5 @@ demo:
 
 .PHONY: rpm
 rpm:
-	OS=el DIST=7 ./3rd_party/packpack/packpack
+	OS=el DIST=7 PACKAGECLOUD_USER=tarantool PACKAGECLOUD_REPO=1_9 \
+	   ./3rd_party/packpack/packpack
