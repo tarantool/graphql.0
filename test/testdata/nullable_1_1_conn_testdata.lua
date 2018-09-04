@@ -102,6 +102,8 @@ function nullable_1_1_conn_testdata.get_test_metadata()
 end
 
 function nullable_1_1_conn_testdata.init_spaces(avro_version)
+    assert(avro_version == 2 or avro_version == 3)
+
     -- email fields
     local LOCALPART_FN = 1
     local DOMAIN_FN = 2
