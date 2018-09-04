@@ -75,11 +75,12 @@ local emails_gql_wrapper = graphql.new(utils.merge_tables({
 -- -----------
 
 local test = tap.test('nested_args')
-test:plan(2)
+test:plan(4)
 
 local function run_common_queries(gql_wrapper)
+    -- filter over 1:1 connection
     local query_1 = [[
-        query user_by_order($user_id: String) {
+        query get_order($user_id: String) {
             order_collection(user_connection: {user_id: $user_id}) {
                 order_id
                 description
@@ -96,10 +97,6 @@ local function run_common_queries(gql_wrapper)
         return gql_wrapper:compile(query_1)
     end)
 
-    local variables_1 = {user_id = 'user_id_1'}
-    local result_1 = test_utils.show_trace(function()
-        return gql_query_1:execute(variables_1)
-    end)
     local exp_result_1 = yaml.decode(([[
         ---
         order_collection:
@@ -116,7 +113,50 @@ local function run_common_queries(gql_wrapper)
             last_name: Ivanov
             first_name: Ivan
     ]]):strip())
+
+    local variables_1 = {user_id = 'user_id_1'}
+    local result_1 = test_utils.show_trace(function()
+        return gql_query_1:execute(variables_1)
+    end)
     test:is_deeply(result_1.data, exp_result_1, '1')
+
+    -- filter over 1:N connection
+    local query_2 = [[
+        query get_users($order_id: String) {
+            user_collection(order_connection: {order_id: $order_id}) {
+                user_id
+                last_name
+                first_name
+                order_connection {
+                    order_id
+                    description
+                }
+            }
+        }
+    ]]
+
+    local gql_query_2 = test_utils.show_trace(function()
+        return gql_wrapper:compile(query_2)
+    end)
+
+    local exp_result_2 = yaml.decode(([[
+        ---
+        user_collection:
+        - user_id: user_id_1
+          last_name: Ivanov
+          first_name: Ivan
+          order_connection:
+          - order_id: order_id_1
+            description: first order of Ivan
+          - order_id: order_id_2
+            description: second order of Ivan
+    ]]):strip())
+
+    local variables_2 = {order_id = 'order_id_1'}
+    local result_2 = test_utils.show_trace(function()
+        return gql_query_2:execute(variables_2)
+    end)
+    test:is_deeply(result_2.data, exp_result_2, '2')
 end
 
 local function run_emails_queries(gql_wrapper)
@@ -141,10 +181,6 @@ local function run_emails_queries(gql_wrapper)
         return gql_wrapper:compile(query_upside)
     end)
 
-    local variables_upside = {upside_body = 'a'}
-    local result_upside = test_utils.show_trace(function()
-        return gql_query_upside:execute(variables_upside)
-    end)
     local exp_result_upside = yaml.decode(([[
         ---
         email:
@@ -164,7 +200,56 @@ local function run_emails_queries(gql_wrapper)
             in_reply_to:
               body: a
     ]]):strip())
+
+    local variables_upside = {upside_body = 'a'}
+    local result_upside = test_utils.show_trace(function()
+        return gql_query_upside:execute(variables_upside)
+    end)
     test:is_deeply(result_upside.data, exp_result_upside, 'upside')
+
+    -- downside traversal (1:N connections)
+    -- ------------------------------------
+
+    local query_downside = [[
+        query emails_tree_downside($downside_body: String) {
+            email(successors: {successors: {body: $downside_body}}) {
+                body
+                successors {
+                    body
+                    successors {
+                        body
+                    }
+                }
+            }
+        }
+    ]]
+
+    local gql_query_downside = test_utils.show_trace(function()
+        return gql_wrapper:compile(query_downside)
+    end)
+
+    local exp_result_downside = yaml.decode(([[
+        ---
+        email:
+        - successors:
+          - successors: []
+            body: c
+          - successors:
+            - body: g
+            - body: f
+            body: d
+          - successors:
+            - body: e
+            body: b
+          body: a
+    ]]):strip())
+
+    local variables_downside = {downside_body = 'f'}
+    local result_downside = test_utils.show_trace(function()
+        return gql_query_downside:execute(variables_downside)
+    end)
+
+    test:is_deeply(result_downside.data, exp_result_downside, 'downside')
 end
 
 run_common_queries(common_gql_wrapper)

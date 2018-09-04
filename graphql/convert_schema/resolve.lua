@@ -123,8 +123,13 @@ function resolve.gen_resolve_function(collection_name, connection,
                 c.destination_collection))
             local opts = table.copy(opts or {})
             opts.is_hidden = true
-            return bare_destination_type.fields[field_name].resolve(
-                object, filter, info, opts)
+            local result, field_type =
+                bare_destination_type.fields[field_name].resolve(object,
+                filter, info, opts)
+            local field_type = field_type or
+                bare_destination_type.fields[field_name].kind
+            local is_list = core_types.nullable(field_type).__type == 'List'
+            return result, is_list
         end
     end
 
