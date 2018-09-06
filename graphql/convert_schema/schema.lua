@@ -221,6 +221,39 @@ local function add_connection_arguments(state)
     end)
 end
 
+--- Check there are no connections named as uppermost fields of a schema and
+--- there are no connections with the same name.
+local function check_connection_names(schema, collection)
+    assert(collection.name ~= nil)
+
+    local connection_names = {}
+    local field_names = {}
+
+    for _, field in ipairs(schema.fields) do
+        local name = field.name
+        assert(name ~= nil)
+        assert(field_names[name] == nil)
+        field_names[name] = true
+    end
+
+    for _, connection in ipairs(collection.connections) do
+        local name = connection.name
+        assert(name ~= nil)
+        if connection_names[name] ~= nil then
+            local err = ('[collection "%s"] two connections are named "%s"')
+                :format(collection.name, name)
+            error(err)
+        end
+        if field_names[name] ~= nil then
+            local err = ('[collection "%s"] the connection "%s" is named ' ..
+                'as a schema field'):format(collection.name, name)
+            error(err)
+        end
+        connection_names[name] = true
+        field_names[name] = true
+    end
+end
+
 function schema.convert(state, cfg)
     -- collection type is always record, so always non-null; we can lazily
     -- evaluate non-null type from nullable type, but not vice versa, so we
@@ -274,6 +307,8 @@ function schema.convert(state, cfg)
         assert(schema.type == 'record',
             'top-level schema must have record avro type, got ' ..
             tostring(schema.type))
+
+        check_connection_names(schema, collection)
 
         -- fill schema with expanded references
         local e_schema = avro_helpers.expand_references(schema)
