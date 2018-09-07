@@ -444,6 +444,7 @@ function types.directive(config)
     arguments = config.arguments,
     onQuery = config.onQuery,
     onMutation = config.onMutation,
+    onSubscription = config.onSubscription,
     onField = config.onField,
     onFragmentDefinition = config.onFragmentDefinition,
     onFragmentSpread = config.onFragmentSpread,

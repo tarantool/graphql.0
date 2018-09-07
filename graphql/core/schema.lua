@@ -11,6 +11,7 @@ schema.__emptyObject = {}
 function schema.create(config)
   assert(type(config.query) == 'table', 'must provide query object')
   assert(not config.mutation or type(config.mutation) == 'table', 'mutation must be a table if provided')
+  assert(not config.subscription or type(config.subscription) == 'table', 'subscription must be a table if provided')
 
   local self = setmetatable({}, schema)
 

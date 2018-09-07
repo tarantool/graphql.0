@@ -29,7 +29,7 @@ __Schema = types.object({
 
   description = util.trim [[
     A GraphQL Schema defines the capabilities of a GraphQL server. It exposes all available types
-    and directives on the server, as well as the entry points for query and mutation operations.
+    and directives on the server, as well as the entry points for query, mutation and subscription operations.
   ]],
 
   fields = function()
@@ -112,6 +112,7 @@ __Directive = types.object({
 
           if directive.onQuery then table.insert(res, 'QUERY') end
           if directive.onMutation then table.insert(res, 'MUTATION') end
+          if directive.onSubscription then table.insert(res, 'SUBSCRIPTION') end
           if directive.onField then table.insert(res, 'FIELD') end
           if directive.onFragmentDefinition then table.insert(res, 'FRAGMENT_DEFINITION') end
           if directive.onFragmentSpread then table.insert(res, 'FRAGMENT_SPREAD') end
@@ -146,6 +147,11 @@ __DirectiveLocation = types.enum({
     MUTATION = {
       value = 'MUTATION',
       description = 'Location adjacent to a mutation operation.'
+    },
+
+    SUBSCRIPTION = {
+        value = 'SUBSCRIPTION',
+        description = 'Location adjacent to a subscription operation.'
     },
 
     FIELD = {

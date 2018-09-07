@@ -259,7 +259,7 @@ local graphQL = P {
   document = ws * list('definition') / cDocument * -1,
   definition = _'operation' + _'fragmentDefinition',
 
-  operationType = C(P'query' + P'mutation'),
+  operationType = C(P'query' + P'mutation' + P'subscription'),
   operation = (_'operationType' * ws * maybe(name) * maybe('variableDefinitions') * maybe('directives') * _'selectionSet' + _'selectionSet') / cOperation,
   fragmentDefinition = 'fragment' * ws * fragmentName * ws * _'typeCondition' * ws * _'selectionSet' / cFragmentDefinition,
 
