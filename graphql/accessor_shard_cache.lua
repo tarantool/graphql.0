@@ -1,6 +1,6 @@
 local json = require('json')
-local shard = require('shard')
 local utils = require('graphql.utils')
+local shard = utils.optional_require('shard')
 local request_batch = require('graphql.request_batch')
 local accessor_shard_index_info = require('graphql.accessor_shard_index_info')
 
