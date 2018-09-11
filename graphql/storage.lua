@@ -39,13 +39,8 @@ end
 
 function storage.init()
     for k, v in pairs(storage_functions) do
-        _G[k] = v
+        rawset(_G, k, v)
     end
-end
-
--- declare globals for require('strict').on()
-for k, _ in pairs(storage_functions) do
-    _G[k] = nil
 end
 
 return storage
