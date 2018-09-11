@@ -510,6 +510,9 @@ local function isVariableTypesValid(argument, argumentType, context,
     -- found a variable, check types compatibility
     local variableName = argument.value.name.value
     local variableDefinition = variableMap[variableName]
+    if not variableDefinition then
+        error(('Undefined variable "%s"'):format(variableName))
+    end
     local hasDefault = variableDefinition.defaultValue ~= nil
 
     local variableType = query_util.typeFromAST(variableDefinition.type,
