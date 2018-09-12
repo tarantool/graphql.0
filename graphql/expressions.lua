@@ -1,4 +1,16 @@
 local lpeg = require('lulpeg')
+local utils = require('graphql.utils')
+
+--- NOTE: Functions that worth moving out into other modules:
+---       1) Regexp implementation (also lies inside of
+---          accessor_general.lua)
+---       2) Vararg iterator.
+
+--- TODO:
+---     1) Validation.
+---     2) Big numbers.
+---     3) Absence of variable in context.variables is equal
+---        to the situation when context.variables.var == nil.
 
 local expressions = {}
 local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
@@ -28,8 +40,8 @@ local field_path = identifier * ('.' * identifier) ^ 0
 -- Possible logical function patterns:
 --   1) is_null.
 local is_null = P('is_null')
---   2) not_null.
-local not_null = P('not_null')
+--   2) is_not_null.
+local is_not_null = P('is_not_null')
 --   3) regexp.
 local regexp = P('regexp')
 
@@ -63,31 +75,6 @@ local lt = P('<')
 --   10) <=
 local le = P('<=')
 
---- Utility functions:
----     1) Vararg iterator.
-
-
-local function vararg(...)
-    local i = 0
-    local t = {}
-    local limit
-    local function iter(...)
-        i = i + 1
-        if i > limit then return end
-        return i, t[i]
-    end
-
-    i = 0
-    limit = select("#", ...)
-    for n = 1, limit do
-        t[n] = select(n, ...)
-    end
-    for n = limit + 1, #t do
-        t[n] = nil
-    end
-    return iter
-end
-
 -- AST nodes generating functions.
 local function identical(arg)
     return arg
@@ -110,7 +97,8 @@ local function bin_op_node(...)
     end
     local operators = {}
     local operands = {}
-    for i, v in vararg(...) do
+    for i = 1, select('#', ...) do
+        local v = select(i, ...)
         if i % 2 == 0 then
             table.insert(operators, v)
         else
@@ -193,7 +181,7 @@ local _logic_and = logic_and / op_name
 local _comparison_op = (eq + not_eq + ge + gt + le + lt) / op_name
 local _arithmetic_op = (addition + subtraction) / op_name
 local _unary_op = (negation + unary_minus + unary_plus) / op_name
-local _functions = (is_null + not_null + regexp) / identical
+local _functions = (is_null + is_not_null + regexp) / identical
 
 -- Grammar rules for C-style expressions positioned ascending in
 -- terms of priority.
@@ -220,14 +208,218 @@ local expression_grammar = P {
     value_terminal = (_literal + _variable + _field_path) / identical_node
 }
 
+-- Add one number to another.
+--
+-- It may be changed after introduction of "big ints".
+--
+-- @param operand_1
+-- @param operand_2
+local function sum(operand_1, operand_2)
+    return operand_1 + operand_2
+end
+
+-- Subtract one number from another.
+--
+-- It may be changed after introduction of "big ints".
+--
+-- @param operand_1
+-- @param operand_2
+local function subtract(operand_1, operand_2)
+    return operand_1 - operand_2
+end
+
 --- Parse given string which supposed to be a c-style expression.
 ---
---- @tparam str string representation of expression.
+--- @tparam string str string representation of expression
 ---
---- @treturn syntax tree.
-function expressions.parse(str)
+--- @treturn table syntax tree
+local function parse(str)
     assert(type(str) == 'string', 'parser expects a string')
     return expression_grammar:match(str) or error('syntax error')
+end
+
+--local function validate(context)
+--
+--end
+
+--- Recursively execute the syntax subtree. Of course it can be
+--- syntax tree itself.
+---
+--- @tparam table node    node to be executed
+---
+--- @tparam table context table containing information useful for
+---                       execution (see @{expressions.new})
+---
+--- @return subtree value
+local function execute_node(node, context)
+    if node.kind == 'const' then
+        if node.value_class == 'string' then
+            return node.value
+        end
+
+        if node.value_class == 'bool' then
+            if node.value == 'false' then
+                return false
+            end
+            return true
+        end
+
+        if node.value_class == 'number' then
+            return tonumber(node.value)
+        end
+    end
+
+    if node.kind == 'variable' then
+        local name = node.name
+        return context.variables[name]
+    end
+
+    if node.kind == 'object_field' then
+        local path = node.path
+        local field = context.object
+        local table_path = (path:split('.'))
+        for i = 1, #table_path do
+            field = field[table_path[i]]
+        end
+        return field
+    end
+
+    if node.kind == 'func' then
+        -- regexp() implementation.
+        if node.name == 'regexp' then
+            return utils.regexp(execute_node(node.args[1], context),
+                                execute_node(node.args[2], context))
+        end
+
+        -- is_null() implementation.
+        if node.name == 'is_null' then
+            return execute_node(node.args[1], context) == nil
+        end
+
+        -- is_not_null() implementation.
+        if node.name == 'is_not_null' then
+            return execute_node(node.args[1], context) ~= nil
+        end
+    end
+
+    if node.kind == 'unary_operation' then
+        -- Negation.
+        if node.op == '!' then
+            return not execute_node(node.node, context)
+        end
+
+        -- Unary '+'.
+        if node.op == '+' then
+            return execute_node(node.node, context)
+        end
+
+        -- Unary '-'.
+        if node.op == '-' then
+            return -execute_node(node.node, context)
+        end
+    end
+
+    if node.kind == 'binary_operations' then
+        local prev = execute_node(node.operands[1], context)
+        for i, op in ipairs(node.operators) do
+            local second_operand = execute_node(node.operands[i + 1],
+                                                context)
+            -- Sum.
+            if op == '+' then
+                prev = sum(prev, second_operand)
+            end
+
+            -- Subtraction.
+            if op == '-' then
+                prev = subtract(prev, second_operand)
+            end
+
+            -- Logical and.
+            if op == '&&' then
+                prev = prev and second_operand
+            end
+
+            -- Logical or.
+            if op == '||' then
+                prev = prev or second_operand
+            end
+
+            -- Equal.
+            if op == '==' then
+                prev = prev == second_operand
+            end
+
+            -- Not equal.
+            if op == '!=' then
+                prev = prev ~= second_operand
+            end
+
+            -- Greater than.
+            if op == '>' then
+                prev = prev > second_operand
+            end
+
+            -- Greater or equal.
+            if op == '>=' then
+                prev = prev >= second_operand
+            end
+
+            -- Lower than.
+            if op == '<' then
+                prev = prev < second_operand
+            end
+
+            -- Lower or equal.
+            if op == '&&' then
+                prev = prev and second_operand
+            end
+        end
+        return prev
+    end
+
+    if node.kind == 'root_expression' then
+        return execute_node(node.expr, context)
+    end
+end
+
+local function expr_execute(self, object, variables)
+    local context = {
+        object = object,
+        variables = variables,
+    }
+    return execute_node(self.ast, context)
+end
+
+--- Compile and execute given string that represents a c-style
+--- expression.
+---
+--- @tparam string str       string representation of expression
+--- @tparam table  object    object considered inside of an
+---                          expression
+--- @tparam table  variables list of variables
+---
+--- @return expression value
+function expressions.execute(str, object, variables)
+    local expr = expressions.new(str)
+    return expr:execute(object, variables)
+end
+
+--- Create a new c-style expression object.
+---
+--- @tparam string str string representation of expression
+---
+--- @treturn table expression object
+function expressions.new(str)
+    local ast = parse(str)
+
+    return setmetatable({
+        raw = str,
+        ast = ast,
+    }, {
+        __index = {
+            execute = expr_execute,
+        }
+    })
 end
 
 return expressions

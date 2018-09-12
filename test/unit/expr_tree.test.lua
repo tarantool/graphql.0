@@ -47,8 +47,8 @@ for i_1, id_1 in ipairs(identifiers) do
                 second_identifier = ('"%s"'):format(second_identifier)
             end
             local bin_operation = ('%s %s %s'):format(first_identifier, op,
-                                                      second_identifier)
-            local ast = expressions.parse(bin_operation)
+                second_identifier)
+            local ast = expressions.new(bin_operation).ast
             local node_1
             local node_2
 
@@ -96,8 +96,8 @@ for i_1, id_1 in ipairs(identifiers) do
             test:is_deeply(ast, expected, test_name)
 
             bin_operation = ('!(%s %s %s)'):format(first_identifier, op,
-                                                   second_identifier)
-            ast = expressions.parse(bin_operation)
+                second_identifier)
+            ast = expressions.new(bin_operation).ast
             expected = {
                 kind = 'root_expression',
                 expr = {
@@ -118,7 +118,7 @@ for i_1, id_1 in ipairs(identifiers) do
         first_identifier = ('"%s"'):format(first_identifier)
     end
     local func = ('is_null( %s )'):format(first_identifier)
-    local ast = expressions.parse(func)
+    local ast = expressions.new(func).ast
     local arg_node_1
     local arg_node_2
     if id_1[1] == 'const' then
@@ -148,13 +148,13 @@ for i_1, id_1 in ipairs(identifiers) do
     local test_name = ('ast_func_is_null_%d'):format(i_1)
     test:is_deeply(ast, expected, test_name)
 
-    func = ('not_null( %s )'):format(first_identifier)
-    ast = expressions.parse(func)
+    func = ('is_not_null( %s )'):format(first_identifier)
+    ast = expressions.new(func).ast
     expected = {
         kind = 'root_expression',
         expr = {
             kind = 'func',
-            name = 'not_null',
+            name = 'is_not_null',
             args = {arg_node_1}
         }
     }
@@ -167,7 +167,7 @@ for i_1, id_1 in ipairs(identifiers) do
             second_identifier = ('"%s"'):format(second_identifier)
         end
         func = ('regexp( %s , %s )'):format(first_identifier, second_identifier)
-        ast = expressions.parse(func)
+        ast = expressions.new(func).ast
         if id_2[1] == 'const' then
             arg_node_2 = {
                 kind = 'const',
@@ -197,8 +197,8 @@ for i_1, id_1 in ipairs(identifiers) do
     end
 end
 
-local ast = expressions.parse('true && ($variable + 7 <= field.path_1 || ' ..
-                              '!("abc" > "abd")) && !false')
+local ast = expressions.new('true && ($variable + 7 <= field.path_1 || ' ..
+        '!("abc" > "abd")) && !false').ast
 local expected = {
     kind = 'root_expression',
     expr = {
@@ -270,7 +270,7 @@ test:is_deeply(ast, expected, 'ast_handwritten_test_1')
 
 -- Testing if the same priority binary operators in the "same
 -- amount of brackets" are actually different nodes.
-ast = expressions.parse('(!false|| true) && (!(true)              || false)')
+ast = expressions.new('(!false|| true) && (!(true)              || false)').ast
 expected = {
     kind = 'root_expression',
     expr = {
@@ -322,9 +322,9 @@ expected = {
 }
 test:is_deeply(ast, expected, 'ast_handwritten_test_2')
 
-ast = expressions.parse('false && "hello there" && 72.1 && $variable && ' ..
-                        '_object1__.field && is_null($non_nil_variable) && ' ..
-                        'regexp("pattern", "string")')
+ast = expressions.new('false && "hello there" && 72.1 && $variable && ' ..
+        '_object1__.field && is_null($non_nil_variable) && ' ..
+        'regexp("pattern", "string")').ast
 expected = {
     kind = 'root_expression',
     expr = {
@@ -385,3 +385,5 @@ expected = {
 }
 
 test:is_deeply(ast, expected, 'ast_handwritten_test_3')
+
+os.exit(test:check() == true and 0 or 1)

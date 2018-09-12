@@ -3,6 +3,7 @@
 local json = require('json')
 local log = require('log')
 local ffi = require('ffi')
+local bit = require('bit')
 
 local utils = {}
 
@@ -304,6 +305,38 @@ function utils.debug(data_or_func, ...)
         assert(type(data) == 'string')
         log.info('DEBUG: %s', data)
     end
+end
+
+--- Compare pattern with a string using pcre.
+---
+--- @param pattern matching pattern
+---
+--- @param string  string to match
+---
+--- @return true or false
+function utils.regexp(pattern, string)
+    local rex, is_pcre2 = utils.optional_require_rex()
+    local flags = rex.flags()
+    local cfg = 0
+    if not is_pcre2 then
+        local cnt
+        pattern, cnt = pattern:gsub('^%(%?i%)', '')
+        if cnt > 0 then
+            cfg = bit.bor(cfg, flags.CASELESS)
+        end
+    end
+    if is_pcre2 then
+        cfg = bit.bor(cfg, flags.UTF)
+        cfg = bit.bor(cfg, flags.UCP)
+    else
+        cfg = bit.bor(cfg, flags.UTF8)
+        cfg = bit.bor(cfg, flags.UCP)
+    end
+    local pattern = rex.new(pattern, cfg)
+    if not pattern:match(string) then
+        return false
+    end
+    return true
 end
 
 return utils

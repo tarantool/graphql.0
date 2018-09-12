@@ -9,8 +9,7 @@ local json = require('json')
 local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 local clock = require('clock')
-local bit = require('bit')
-local rex, is_pcre2 = utils.optional_require_rex()
+local rex = utils.optional_require_rex()
 local avro_helpers = require('graphql.avro_helpers')
 local db_schema_helpers = require('graphql.db_schema_helpers')
 local error_codes = require('graphql.error_codes')
@@ -787,30 +786,8 @@ local function match_using_re(obj, pcre)
         if type(re) == 'table' then
             local match = match_using_re(obj[field_name], re)
             if not match then return false end
-        else
-            local flags = rex.flags()
-            -- emulate behaviour of (?i) on libpcre (libpcre2 supports it)
-            local cfg = 0
-            if not is_pcre2 then
-                local cnt
-                re, cnt = re:gsub('^%(%?i%)', '')
-                if cnt > 0 then
-                    cfg = bit.bor(cfg, flags.CASELESS)
-                end
-            end
-            -- enable UTF-8
-            if is_pcre2 then
-                cfg = bit.bor(cfg, flags.UTF)
-                cfg = bit.bor(cfg, flags.UCP)
-            else
-                cfg = bit.bor(cfg, flags.UTF8)
-                cfg = bit.bor(cfg, flags.UCP)
-            end
-            -- XXX: compile re once
-            local re = rex.new(re, cfg)
-            if not re:match(obj[field_name]) then
-                return false
-            end
+        elseif not utils.regexp(re, obj[field_name]) then
+            return false
         end
     end
 
