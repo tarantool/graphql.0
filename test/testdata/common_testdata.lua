@@ -40,8 +40,8 @@ function common_testdata.get_test_metadata()
             "type": "record",
             "name": "order_metainfo",
             "fields": [
-                { "name": "metainfo", "type": "string" },
                 { "name": "order_metainfo_id", "type": "string" },
+                { "name": "metainfo", "type": "string" },
                 { "name": "order_metainfo_id_copy", "type": "string" },
                 { "name": "order_id", "type": "string" },
                 { "name": "store", "type": {
@@ -189,18 +189,19 @@ function common_testdata.get_test_metadata()
     }
 end
 
-function common_testdata.init_spaces()
+function common_testdata.init_spaces(_, SHARD_FIELDS)
+    SHARD_FIELDS = SHARD_FIELDS or 0
     -- user_collection fields
-    local U_USER_ID_FN = 2
+    local U_USER_ID_FN = 2 + SHARD_FIELDS
 
     -- order_collection fields
-    local O_ORDER_ID_FN = 1
-    local O_USER_ID_FN = 2
+    local O_ORDER_ID_FN = 1 + SHARD_FIELDS
+    local O_USER_ID_FN = 2 + SHARD_FIELDS
 
     -- order_metainfo_collection fields
-    local M_ORDER_METAINFO_ID_FN = 2
-    local M_ORDER_METAINFO_ID_COPY_FN = 3
-    local M_ORDER_ID_FN = 4
+    local M_ORDER_METAINFO_ID_FN = 1 + SHARD_FIELDS
+    local M_ORDER_METAINFO_ID_COPY_FN = 3 + SHARD_FIELDS
+    local M_ORDER_ID_FN = 4 + SHARD_FIELDS
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('user_collection')
@@ -241,8 +242,8 @@ function common_testdata.init_spaces()
     end)
 end
 
-function common_testdata.fill_test_data(virtbox, meta)
-    test_utils.replace_object(virtbox, meta, 'user_collection', {
+function common_testdata.fill_test_data(virtbox)
+    virtbox.user_collection:replace_object({
         user_id = 'user_id_1',
         first_name = 'Ivan',
         middle_name = 'Ivanovich',
@@ -250,7 +251,7 @@ function common_testdata.fill_test_data(virtbox, meta)
     }, {
         1827767717,
     })
-    test_utils.replace_object(virtbox, meta, 'user_collection', {
+    virtbox.user_collection:replace_object({
         user_id = 'user_id_2',
         first_name = 'Vasiliy',
         middle_name = box.NULL,
@@ -259,7 +260,7 @@ function common_testdata.fill_test_data(virtbox, meta)
         1827767717,
     })
 
-    test_utils.replace_object(virtbox, meta, 'order_collection', {
+    virtbox.order_collection:replace_object({
         order_id = 'order_id_1',
         user_id = 'user_id_1',
         description = 'first order of Ivan',
@@ -267,7 +268,7 @@ function common_testdata.fill_test_data(virtbox, meta)
         discount = 0,
         in_stock = true,
     })
-    test_utils.replace_object(virtbox, meta, 'order_collection', {
+    virtbox.order_collection:replace_object({
         order_id = 'order_id_2',
         user_id = 'user_id_1',
         description = 'second order of Ivan',
@@ -275,7 +276,7 @@ function common_testdata.fill_test_data(virtbox, meta)
         discount = 0,
         in_stock = false,
     })
-    test_utils.replace_object(virtbox, meta, 'order_collection', {
+    virtbox.order_collection:replace_object({
         order_id = 'order_id_3',
         user_id = 'user_id_2',
         description = 'first order of Vasiliy',
@@ -286,7 +287,7 @@ function common_testdata.fill_test_data(virtbox, meta)
 
     for i = 3, 100 do
         local s = tostring(i)
-        test_utils.replace_object(virtbox, meta, 'user_collection', {
+        virtbox.user_collection:replace_object({
             user_id = 'user_id_' .. s,
             first_name = 'first name ' .. s,
             middle_name = box.NULL,
@@ -296,7 +297,7 @@ function common_testdata.fill_test_data(virtbox, meta)
         })
         for j = (4 + (i - 3) * 40), (4 + (i - 2) * 40) - 1 do
             local t = tostring(j)
-            test_utils.replace_object(virtbox, meta, 'order_collection', {
+            virtbox.order_collection:replace_object({
                 order_id = 'order_id_' .. t,
                 user_id = 'user_id_' .. s,
                 description = 'order of user ' .. s,
@@ -307,7 +308,7 @@ function common_testdata.fill_test_data(virtbox, meta)
         end
     end
 
-    test_utils.replace_object(virtbox, meta, 'user_collection', {
+    virtbox.user_collection:replace_object({
         user_id = 'user_id_101',
         first_name = 'Иван',
         middle_name = 'Иванович',
@@ -315,7 +316,7 @@ function common_testdata.fill_test_data(virtbox, meta)
     }, {
         1827767717,
     })
-    test_utils.replace_object(virtbox, meta, 'order_collection', {
+    virtbox.order_collection:replace_object({
         order_id = 'order_id_3924',
         user_id = 'user_id_101',
         description = 'Покупка 3924',
@@ -326,7 +327,7 @@ function common_testdata.fill_test_data(virtbox, meta)
 
     for i = 1, 3924 do
         local s = tostring(i)
-        test_utils.replace_object(virtbox, meta, 'order_metainfo_collection', {
+        virtbox.order_metainfo_collection:replace_object({
             metainfo = 'order metainfo ' .. s,
             order_metainfo_id = 'order_metainfo_id_' .. s,
             order_metainfo_id_copy = 'order_metainfo_id_' .. s,

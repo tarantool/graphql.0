@@ -11,65 +11,26 @@ local yaml = require('yaml')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
-local test_run = utils.optional_require('test_run')
-test_run = test_run and test_run.new()
 
 box.cfg({})
 
-local function get_tuple(virtbox, collection_name, key)
-    if virtbox[collection_name].get ~= nil then
-        return virtbox[collection_name]:get(key)
-    end
-
-    local tuples = virtbox:secondary_select(collection_name, 0, nil, key)
-    return tuples[1]
-end
-
-local function delete_tuple(virtbox, collection_name, key)
-    if virtbox[collection_name].get ~= nil then
-        return virtbox[collection_name]:delete(key)
-    end
-
-    for _, zone in ipairs(virtbox.shards) do
-        for _, node in ipairs(zone) do
-            virtbox:space_call(collection_name, node, function(space_obj)
-                space_obj:delete(key)
-            end)
-        end
-    end
-end
-
-local function replace_tuple(virtbox, collection_name, key, tuple)
-    if virtbox[collection_name].get ~= nil then
-        return virtbox[collection_name]:replace(tuple)
-    end
-
-    if get_tuple(virtbox, collection_name, key) == nil then
-        virtbox[collection_name]:insert(tuple)
-    else
-        delete_tuple(virtbox, collection_name, key)
-        virtbox[collection_name]:insert(tuple)
-    end
-end
+local USER_SF = {1827767717}
 
 -- replace back tuples & check
 local function replace_user_and_order_back(test, virtbox, user_id, order_id,
-        orig_user_tuple, orig_order_tuple)
-    replace_tuple(virtbox, 'user_collection', {user_id}, orig_user_tuple)
-    local tuple = get_tuple(virtbox, 'user_collection', {user_id})
-    test:is_deeply(tuple:totable(), orig_user_tuple:totable(),
-        'tuple was replaced back')
-    replace_tuple(virtbox, 'order_collection', {order_id}, orig_order_tuple)
-    local tuple = get_tuple(virtbox, 'order_collection', {order_id})
-    test:is_deeply(tuple:totable(), orig_order_tuple:totable(),
-        'tuple was replaced back')
+        orig_user_object, orig_order_object)
+    virtbox.user_collection:replace_object(orig_user_object, USER_SF)
+    local object = virtbox.user_collection:get_object({user_id})
+    test:is_deeply(object, orig_user_object, 'user object was replaced back')
+    virtbox.order_collection:replace_object(orig_order_object)
+    local object = virtbox.order_collection:get_object({order_id})
+    test:is_deeply(object, orig_order_object, 'order object was replaced back')
 end
 
 local function check_insert(test, gql_wrapper, virtbox, mutation_insert,
         exp_result_insert, opts)
     local opts = opts or {}
     local dont_pass_variables = opts.dont_pass_variables or false
-    local meta = opts.meta
 
     test_utils.show_trace(function()
         test:plan(7)
@@ -95,25 +56,26 @@ local function check_insert(test, gql_wrapper, virtbox, mutation_insert,
         -- check mutation result from graphql
         local result = gql_mutation_insert:execute(dont_pass_variables and {} or
             variables_insert)
-        test:is_deeply(result.data, exp_result_insert, 'insert result')
+        test:is_deeply(result.data, exp_result_insert, 'insert result (check)')
         -- check inserted user
-        local tuple = get_tuple(virtbox, 'user_collection', {user_id})
-        test:ok(tuple ~= nil, 'tuple was inserted')
-        local exp_tuple = test_utils.flatten_object(meta,
-            'user_collection', variables_insert.user, {0})
-        test:is_deeply(tuple:totable(), exp_tuple, 'inserted tuple is correct')
+        local object = virtbox.user_collection:get_object({user_id})
+        test:ok(object ~= nil, 'object was inserted')
+        -- Todo: copy user input (variables) to preven side effects.
+        object.bucket_id = variables_insert.user.bucket_id -- vshard
+        test:is_deeply(object, variables_insert.user, 'inserted user object is correct')
         -- check inserted order
-        local tuple = get_tuple(virtbox, 'order_collection', {order_id})
-        test:ok(tuple ~= nil, 'tuple was inserted')
-        local exp_tuple = test_utils.flatten_object(meta,
-            'order_collection', variables_insert.order)
-        test:is_deeply(tuple:totable(), exp_tuple, 'inserted tuple is correct')
+        local object = virtbox.order_collection:get_object({order_id})
+        test:ok(object ~= nil, 'object was inserted')
+        object.bucket_id = variables_insert.order.bucket_id -- vshard
+        -- Fill in default value by hand.
+        variables_insert.order.in_stock = true
+        test:is_deeply(object, variables_insert.order, 'inserted order object is correct')
         -- clean up inserted tuples & check
-        delete_tuple(virtbox, 'user_collection', {user_id})
-        local tuple = get_tuple(virtbox, 'user_collection', {user_id})
+        virtbox.user_collection:delete({user_id})
+        local tuple = virtbox.user_collection:get({user_id})
         test:ok(tuple == nil, 'tuple was deleted')
-        delete_tuple(virtbox, 'order_collection', {order_id})
-        local tuple = get_tuple(virtbox, 'order_collection', {order_id})
+        virtbox.order_collection:delete({order_id})
+        local tuple = virtbox.order_collection:get({order_id})
         test:ok(tuple == nil, 'tuple was deleted')
         assert(test:check(), 'check plan')
     end)
@@ -130,8 +92,7 @@ local function check_insert_order_metainfo(test, gql_wrapper, virtbox,
         local order_metainfo_id = 'order_metainfo_id_4000'
 
         -- check the tuple was not inserted before
-        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
+        local tuple = virtbox.order_metainfo_collection:get({order_metainfo_id})
         test:ok(tuple == nil, 'tuple was not inserted before')
 
         -- check mutation result
@@ -139,37 +100,39 @@ local function check_insert_order_metainfo(test, gql_wrapper, virtbox,
         local result = gql_mutation_insert:execute(variables)
         test:is_deeply(result.data, exp_result_insert, 'insert result')
 
-        -- check inserted tuple
-        local EXTERNAL_ID_STRING = 1 -- 0 is for int
-        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
-        test:ok(tuple ~= nil, 'inserted tuple exists')
-        local exp_tuple = {
-            'order metainfo 4000',
-            'order_metainfo_id_4000',
-            'order_metainfo_id_4000',
-            'order_id_4000',
-            'store 4000',
-            'street 4000',
-            'city 4000',
-            'state 4000',
-            'zip 4000',
-            'second street 4000',
-            'second city 4000',
-            'second state 4000',
-            'second zip 4000',
-            EXTERNAL_ID_STRING,
-            'eid_4000',
-            {'slow'},
-            {size = 'small'},
-        }
-        test:is_deeply(tuple:totable(), exp_tuple, 'inserted tuple is correct')
+        -- check inserted object
+        local object = virtbox.order_metainfo_collection:get_object({order_metainfo_id})
+        test:ok(object ~= nil, 'inserted tuple exists')
+        local exp_object = yaml.decode([[
+            order_metainfo_id: order_metainfo_id_4000
+            order_metainfo_id_copy: order_metainfo_id_4000
+            metainfo: order metainfo 4000
+            order_id: order_id_4000
+            store:
+              address:
+                state: state 4000
+                zip: zip 4000
+                city: city 4000
+                street: street 4000
+              second_address:
+                state: second state 4000
+                zip: second zip 4000
+                city: second city 4000
+                street: second street 4000
+              tags:
+              - slow
+              external_id:
+                string: eid_4000
+              name: store 4000
+              parametrized_tags:
+                size: small
+        ]])
+        object.bucket_id = nil -- vshard
+        test:is_deeply(object, exp_object, 'inserted tuple is correct')
 
         -- delete inserted tuple & check
-        delete_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
-        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
+        virtbox.order_metainfo_collection:delete({order_metainfo_id})
+        local tuple = virtbox.order_metainfo_collection:get({order_metainfo_id})
         test:ok(tuple == nil, 'inserted tuple was deleted')
         assert(test:check(), 'check plan')
     end)
@@ -179,7 +142,6 @@ local function check_update(test, gql_wrapper, virtbox, mutation_update,
         exp_result_update, opts)
     local opts = opts or {}
     local dont_pass_variables = opts.dont_pass_variables or false
-    local meta = opts.meta
     local extra_xorder = opts.extra_xorder or {}
     local extra_xuser = opts.extra_xuser or {}
 
@@ -209,13 +171,8 @@ local function check_update(test, gql_wrapper, virtbox, mutation_update,
         end
 
         -- save original objects
-        local orig_user_tuple = get_tuple(virtbox, 'user_collection', {user_id})
-        local orig_order_tuple = get_tuple(virtbox, 'order_collection',
-            {order_id})
-        local orig_user_object = test_utils.unflatten_tuple(meta,
-            'user_collection', orig_user_tuple)
-        local orig_order_object = test_utils.unflatten_tuple(meta,
-            'order_collection', orig_order_tuple)
+        local orig_user_object = virtbox.user_collection:get_object({user_id})
+        local orig_order_object = virtbox.order_collection:get_object({order_id})
 
         local gql_mutation_update = gql_wrapper:compile(mutation_update)
 
@@ -224,34 +181,32 @@ local function check_update(test, gql_wrapper, virtbox, mutation_update,
             variables_update)
         test:is_deeply(result.data, exp_result_update, 'update result')
         -- check updated user
-        local tuple = get_tuple(virtbox, 'user_collection', {user_id})
-        test:ok(tuple ~= nil, 'updated tuple exists')
+        local object = virtbox.user_collection:get_object({user_id})
+        test:ok(object ~= nil, 'updated object exists')
         local exp_object = table.copy(variables_update.xuser)
         for k, v in pairs(orig_user_object) do
             if exp_object[k] == nil then
                 exp_object[k] = v
             end
         end
-        local exp_tuple = test_utils.flatten_object(meta,
-            'user_collection', exp_object, {1827767717})
-        test:is_deeply(tuple:totable(), exp_tuple, 'updated tuple is correct')
+        object.bucket_id = exp_object.bucket_id -- vshard
+        test:is_deeply(object, exp_object, 'updated object is correct')
 
         -- check updated order
-        local tuple = get_tuple(virtbox, 'order_collection', {order_id})
-        test:ok(tuple ~= nil, 'updated tuple exists')
+        local object = virtbox.order_collection:get_object({order_id})
+        test:ok(object ~= nil, 'updated object exists')
         local exp_object = table.copy(variables_update.xorder)
         for k, v in pairs(orig_order_object) do
             if exp_object[k] == nil then
                 exp_object[k] = v
             end
         end
-        local exp_tuple = test_utils.flatten_object(meta,
-            'order_collection', exp_object)
-        test:is_deeply(tuple:totable(), exp_tuple, 'updated tuple is correct')
+        object.bucket_id = exp_object.bucket_id -- vshard
+        test:is_deeply(object, exp_object, 'updated object is correct')
 
         -- replace back updated tuples & check
         replace_user_and_order_back(test, virtbox, user_id, order_id,
-            orig_user_tuple, orig_order_tuple)
+            orig_user_object, orig_order_object)
 
         assert(test:check(), 'check plan')
     end)
@@ -265,23 +220,38 @@ local function check_update_order_metainfo(test, gql_wrapper, virtbox,
     test_utils.show_trace(function()
         test:plan(5)
 
-        -- check the original tuple
-        local EXTERNAL_ID_INT = 0
-        local EXTERNAL_ID_STRING = 1
+        -- check the original object
         local order_metainfo_id = 'order_metainfo_id_1'
-        local orig_tuple = get_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
-        local exp_orig_tuple = {
-            'order metainfo 1', order_metainfo_id, order_metainfo_id,
-            'order_id_1', 'store 1', 'street 1', 'city 1', 'state 1',
-            'zip 1', 'second street 1', 'second city 1', 'second state 1',
-            'second zip 1', EXTERNAL_ID_INT, 1, {'fast', 'new'}, {
-                size = 'medium',
-                since = '2018-01-01',
-            },
-        }
-        test:is_deeply(orig_tuple:totable(), exp_orig_tuple,
-            'original tuple is the one that expected')
+        local orig_object = virtbox.order_metainfo_collection:get_object({order_metainfo_id})
+        local exp_orig_object = yaml.decode([[
+            order_metainfo_id: order_metainfo_id_1
+            order_metainfo_id_copy: order_metainfo_id_1
+            metainfo: order metainfo 1
+            order_id: order_id_1
+            store:
+              address:
+                state: state 1
+                zip: zip 1
+                city: city 1
+                street: street 1
+              second_address:
+                state: second state 1
+                zip: second zip 1
+                city: second city 1
+                street: second street 1
+              tags:
+              - fast
+              - new
+              external_id:
+                int: 1
+              name: store 1
+              parametrized_tags:
+                size: medium
+                since: '2018-01-01'
+        ]])
+        orig_object.bucket_id = nil -- vshard
+        test:is_deeply(orig_object, exp_orig_object,
+            'original object is the one that expected')
 
         -- check mutation result
         local gql_mutation_update = gql_wrapper:compile(mutation_update)
@@ -289,26 +259,23 @@ local function check_update_order_metainfo(test, gql_wrapper, virtbox,
         test:is_deeply(result.data, exp_result_update, 'update result')
 
         -- check updated tuple
-        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
-        test:ok(tuple ~= nil, 'updated tuple exists')
-        local exp_tuple = table.copy(exp_orig_tuple)
-        exp_tuple[1] = 'changed'
-        exp_tuple[7] = 'changed city'
-        exp_tuple[11] = 'second changed city'
-        exp_tuple[14] = EXTERNAL_ID_STRING
-        exp_tuple[15] = 'eid changed'
-        exp_tuple[16] = {'slow'}
-        exp_tuple[17] = {size = 'small'}
-        test:is_deeply(tuple:totable(), exp_tuple, 'updated tuple is correct')
+        local object = virtbox.order_metainfo_collection:get_object({order_metainfo_id})
+        test:ok(object ~= nil, 'updated object exists')
+        object.bucket_id = nil
+        local exp_object = table.copy(exp_orig_object)
+        exp_object.metainfo = 'changed'
+        exp_object.store.address.city = 'changed city'
+        exp_object.store.second_address.city = 'second changed city'
+        exp_object.store.external_id = {string = 'eid changed'}
+        exp_object.store.tags = {'slow'}
+        exp_object.store.parametrized_tags = {size = 'small'}
+        test:is_deeply(object, exp_object, 'updated object is correct')
 
         -- replace back updated tuples & check
-        replace_tuple(virtbox, 'order_metainfo_collection', {order_metainfo_id},
-            orig_tuple)
-        local tuple = get_tuple(virtbox, 'order_metainfo_collection',
-            {order_metainfo_id})
-        test:is_deeply(tuple:totable(), orig_tuple:totable(),
-            'updated tuple was replaced back')
+        virtbox.order_metainfo_collection:replace_object(orig_object)
+        local object = virtbox.order_metainfo_collection:get_object({order_metainfo_id})
+        object.bucket_id = nil -- vshard
+        test:is_deeply(object, orig_object, 'updated tuple was replaced back')
 
         assert(test:check(), 'check plan')
     end)
@@ -329,9 +296,8 @@ local function check_delete(test, gql_wrapper, virtbox, mutation_delete,
         }
 
         -- save original tuples
-        local orig_user_tuple = get_tuple(virtbox, 'user_collection', {user_id})
-        local orig_order_tuple = get_tuple(virtbox, 'order_collection',
-            {order_id})
+        local orig_user_object = virtbox.user_collection:get_object({user_id})
+        local orig_order_object = virtbox.order_collection:get_object({order_id})
 
         local gql_mutation_delete = gql_wrapper:compile(mutation_delete)
 
@@ -341,16 +307,16 @@ local function check_delete(test, gql_wrapper, virtbox, mutation_delete,
         test:is_deeply(result.data, exp_result_delete, 'delete result')
 
         -- check the user was deleted
-        local tuple = get_tuple(virtbox, 'user_collection', {user_id})
+        local tuple = virtbox.user_collection:get({user_id})
         test:ok(tuple == nil, 'tuple was deleted')
 
         -- check the order was deleted
-        local tuple = get_tuple(virtbox, 'order_collection', {order_id})
+        local tuple = virtbox.order_collection:get({order_id})
         test:ok(tuple == nil, 'tuple was deleted')
 
         -- replace back deleted tuples & check
         replace_user_and_order_back(test, virtbox, user_id, order_id,
-            orig_user_tuple, orig_order_tuple)
+            orig_user_object, orig_order_object)
 
         assert(test:check(), 'check plan')
     end)
@@ -360,12 +326,11 @@ local function extract_storage_error(err)
     return err:gsub('^failed to execute operation on[^:]+: *', '')
 end
 
-local function run_queries(gql_wrapper, virtbox, meta)
+local function run_queries(gql_wrapper, virtbox)
     local test = tap.test('mutation')
     test:plan(23)
 
     -- {{{ insert
-
     local mutation_insert_1 = [[
         mutation insert_user_and_order($user: user_collection_insert,
                 $order: order_collection_insert) {
@@ -395,7 +360,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
     ]]):strip())
 
     check_insert(test:test('insert_1'), gql_wrapper, virtbox, mutation_insert_1,
-        exp_result_insert_1, {meta = meta})
+        exp_result_insert_1)
 
     -- the same with an immediate argument
     local mutation_insert_1i = [[
@@ -425,8 +390,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
     ]]
 
     check_insert(test:test('insert_1i'), gql_wrapper, virtbox,
-        mutation_insert_1i, exp_result_insert_1, {meta = meta,
-        dont_pass_variables = true})
+        mutation_insert_1i, exp_result_insert_1, {dont_pass_variables = true})
 
     -- test non-top level "insert"
     local mutation_insert_2 = [[
@@ -457,7 +421,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
     ]]):strip())
 
     check_insert(test:test('insert_2-non-top-level'), gql_wrapper, virtbox, mutation_insert_2,
-        exp_result_insert_2, {meta = meta})
+        exp_result_insert_2)
 
     -- test "insert" argument is forbidden in a query
     local query_insert = [[
@@ -597,8 +561,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
     local exp_result_insert_6 = yaml.decode(([[
         ---
         order_metainfo_collection:
-        - metainfo: order metainfo 4000
-          order_metainfo_id: order_metainfo_id_4000
+        - order_metainfo_id: order_metainfo_id_4000
+          metainfo: order metainfo 4000
           order_metainfo_id_copy: order_metainfo_id_4000
           order_id: order_id_4000
           store:
@@ -792,7 +756,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
     ]]):strip())
 
     check_update(test:test('update_1'), gql_wrapper, virtbox, mutation_update_1,
-        exp_result_update_1, {meta = meta})
+        exp_result_update_1)
 
     -- the same with an immediate argument
     local mutation_update_1i = [[
@@ -818,8 +782,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
         }
     ]]
     check_update(test:test('update_1i'), gql_wrapper, virtbox,
-        mutation_update_1i, exp_result_update_1, {meta = meta,
-        dont_pass_variables = true})
+        mutation_update_1i, exp_result_update_1, {dont_pass_variables = true})
 
     -- check on non-top level field (update an object we read by a connection)
 
@@ -874,7 +837,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
     ]]):strip())
 
     check_update(test:test('update_2'), gql_wrapper, virtbox, mutation_update_2,
-        exp_result_update_2, {meta = meta})
+        exp_result_update_2)
 
     -- the same with different order of top-level fields
 
@@ -929,7 +892,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
     ]]):strip())
 
     check_update(test:test('update_2r'), gql_wrapper, virtbox,
-        mutation_update_2r, exp_result_update_2r, {meta = meta})
+        mutation_update_2r, exp_result_update_2r)
 
     -- check with connection argument & connection field
 
@@ -978,8 +941,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
     ]]):strip())
 
     check_update(test:test('update_3'), gql_wrapper, virtbox, mutation_update_3,
-        exp_result_update_3, {meta = meta, extra_xorder =
-        {user_id = 'user_id_2'}})
+        exp_result_update_3, {extra_xorder = {user_id = 'user_id_2'}})
 
     -- test "update" argument is forbidden in a query
     local query_update = [[
@@ -1192,6 +1154,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
     test:is(err, exp_err,
         'updating of a field of a primary key when it is shard key field')
 
+    -- Orders #1 and #3 are on the same replicasets in cases of:
+    -- vshard, shardX2 and shardX4.
     -- violation of an unique index constraint
     local mutation_update_6 = [[
         mutation {
@@ -1199,7 +1163,7 @@ local function run_queries(gql_wrapper, virtbox, meta)
                 order_metainfo_id: "order_metainfo_id_1"
                 update: {
                     metainfo: "updated"
-                    order_metainfo_id_copy: "order_metainfo_id_2"
+                    order_metainfo_id_copy: "order_metainfo_id_3"
                 }
             ) {
                 metainfo
@@ -1212,25 +1176,16 @@ local function run_queries(gql_wrapper, virtbox, meta)
             }
         }
     ]]
-    local conf_name = test_run and test_run:get_cfg('conf') or 'space'
-    if conf_name:startswith('shard') then
-        local old_shard_key_hash = test_utils.get_shard_key_hash(
-            'order_metainfo_id_1')
-        local new_shard_key_hash = test_utils.get_shard_key_hash(
-            'order_metainfo_id_2')
-        -- check the case is really involving moving a tuple from one storage
-        -- to an another
-        assert(old_shard_key_hash ~= new_shard_key_hash)
-    end
+    -- TODO: Check constraint error in case an object moves from one
+    -- storage to another on update for `shard` accessor.
     local gql_mutation_update_6 = gql_wrapper:compile(mutation_update_6)
     test:test('unique constraint violation', function(test)
         test_utils.show_trace(function()
             test:plan(4)
             local order_metainfo_id = 'order_metainfo_id_1'
 
-            -- save the original tuple
-            local orig_tuple = get_tuple(virtbox, 'order_metainfo_collection',
-                {order_metainfo_id})
+            -- save the original object
+            local orig_object = virtbox.order_metainfo_collection:get_object({order_metainfo_id})
 
             -- check mutation result from graphql
             local result = gql_mutation_update_6:execute({})
@@ -1240,21 +1195,17 @@ local function run_queries(gql_wrapper, virtbox, meta)
             local err = extract_storage_error(result.errors[1].message)
             test:is(err, exp_err, 'update result')
 
-            -- check the user was not changed
-            local tuple = get_tuple(virtbox, 'order_metainfo_collection',
-                {order_metainfo_id})
-            test:ok(tuple ~= nil, 'updated tuple exists')
-            test:is_deeply((tuple or box.tuple.new({})):totable(),
-                orig_tuple:totable(), 'tuple was not changed')
+            -- check the data was not changed
+            local object = virtbox.order_metainfo_collection:get_object({order_metainfo_id})
+            test:ok(object ~= nil, 'updated object exists')
+            test:is_deeply(object, orig_object, 'object was not changed')
 
-            -- replace back the tuple & check (in case the test fails and it
+            -- replace back the object & check (in case the test fails and it
             -- was updated)
-            replace_tuple(virtbox, 'order_metainfo_collection',
-                {order_metainfo_id}, orig_tuple)
-            local tuple = get_tuple(virtbox, 'order_metainfo_collection',
-                {order_metainfo_id})
-            test:is_deeply(tuple:totable(), orig_tuple:totable(),
-                'tuple was replaced back')
+            virtbox.order_metainfo_collection:replace_object(orig_object)
+            local object = virtbox.order_metainfo_collection:get_object({order_metainfo_id})
+            object.bucket_id = orig_object.bucket_id --vshard
+            test:is_deeply(object, orig_object, 'object was replaced back')
 
             -- test:check() will be called automatically by the tap module
         end)
@@ -1383,7 +1334,7 @@ end
 -- Mutations are disabled for avro-schema-2* by default, but can be enabled by
 -- the option.
 local function run_queries_avro_schema_2(test, enable_mutations, gql_wrapper,
-        virtbox, meta)
+        virtbox)
     local mutation_insert = [[
         mutation insert_user($user: user_collection_insert) {
             user_collection(insert: $user) {
@@ -1412,17 +1363,15 @@ if test_utils.major_avro_schema_version() == 3 then
 else
     local test = tap.test('mutation')
     test:plan(2)
-    local function workload(_, shard)
-        local virtbox = shard or box.space
-        local meta = testdata.meta or testdata.get_test_metadata()
-        testdata.fill_test_data(virtbox, meta)
+    local function workload(ctx, virtbox)
+        testdata.fill_test_data(virtbox)
         -- test mutations are disabled on avro-schema-2* by default
-        local gql_wrapper = test_utils.graphql_from_testdata(testdata, shard)
-        run_queries_avro_schema_2(test, false, gql_wrapper, virtbox, meta)
+        local gql_wrapper = test_utils.graphql_from_testdata(testdata, {}, ctx)
+        run_queries_avro_schema_2(test, false, gql_wrapper, virtbox)
         -- test mutations can be enabled on avro-schema-2* by the option
-        local gql_wrapper = test_utils.graphql_from_testdata(testdata, shard,
-            {enable_mutations = true})
-        run_queries_avro_schema_2(test, true, gql_wrapper, virtbox, meta)
+        local gql_wrapper = test_utils.graphql_from_testdata(testdata,
+            {enable_mutations = true}, ctx)
+        run_queries_avro_schema_2(test, true, gql_wrapper, virtbox)
     end
     test_utils.run_testdata(testdata, {
         workload = workload,

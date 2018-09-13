@@ -1006,6 +1006,8 @@ end
 --- @tparam table extra table which contains extra information related to
 --- current select and the whole query
 ---
+--- @tparam table parent table which contains parent object
+---
 --- @treturn table `res` with `request_opts`, `select_state`, `select_opts` and
 --- `args` fields
 local function prepare_select_internal(self, collection_name, from, filter,

@@ -114,15 +114,19 @@ function nullable_index_testdata.get_test_metadata()
     }
 end
 
-function nullable_index_testdata.init_spaces(avro_version)
+function nullable_index_testdata.init_spaces(avro_version, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
     -- foo fields
-    local FOO_ID_FN = 1
+    local FOO_ID_FN = 1 + SHARD_EXTRA_FIELDS
 
     -- bar fields
-    local BAR_ID_FN = 1
-    local BAR_ID_OR_NULL_1_FN = avro_version == 3 and 2 or 3
-    local BAR_ID_OR_NULL_2_FN = avro_version == 3 and 3 or 5
-    local BAR_ID_OR_NULL_3_FN = avro_version == 3 and 4 or 7
+    local BAR_ID_FN = 1 + SHARD_EXTRA_FIELDS
+    local BAR_ID_OR_NULL_1_FN =
+        (avro_version == 3 and 2 or 3) + SHARD_EXTRA_FIELDS
+    local BAR_ID_OR_NULL_2_FN =
+        (avro_version == 3 and 3 or 5) + SHARD_EXTRA_FIELDS
+    local BAR_ID_OR_NULL_3_FN =
+        (avro_version == 3 and 4 or 7) + SHARD_EXTRA_FIELDS
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('foo')
@@ -153,10 +157,10 @@ function nullable_index_testdata.init_spaces(avro_version)
     end)
 end
 
-function nullable_index_testdata.fill_test_data(virtbox, meta)
+function nullable_index_testdata.fill_test_data(virtbox)
     for i = 1, 114 do
         local s = tostring(i)
-        test_utils.replace_object(virtbox, meta, 'foo', {
+        virtbox.foo:replace_object({
             id = s,
             bar_id_1 = s,
             bar_id_2 = s,
@@ -166,7 +170,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
     -- str, str, str
     for i = 1, 100 do
         local s = tostring(i)
-        test_utils.replace_object(virtbox, meta, 'bar', {
+        virtbox.bar:replace_object({
             id = s,
             id_or_null_1 = s,
             id_or_null_2 = s,
@@ -176,7 +180,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
     end
     -- null, str, str
     local s = '101'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = box.NULL,
         id_or_null_2 = s,
@@ -184,7 +188,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
         data = s,
     })
     local s = '102'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = box.NULL,
         id_or_null_2 = s,
@@ -193,7 +197,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
     })
     -- str, null, str
     local s = '103'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = s,
         id_or_null_2 = box.NULL,
@@ -201,7 +205,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
         data = s,
     })
     local s = '104'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = s,
         id_or_null_2 = box.NULL,
@@ -210,7 +214,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
     })
     -- str, str, null
     local s = '105'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = s,
         id_or_null_2 = s,
@@ -218,7 +222,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
         data = s,
     })
     local s = '106'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = s,
         id_or_null_2 = s,
@@ -227,7 +231,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
     })
     -- null, null, str
     local s = '107'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = box.NULL,
         id_or_null_2 = box.NULL,
@@ -235,7 +239,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
         data = s,
     })
     local s = '108'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = box.NULL,
         id_or_null_2 = box.NULL,
@@ -244,7 +248,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
     })
     -- null, str, null
     local s = '109'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = box.NULL,
         id_or_null_2 = s,
@@ -252,7 +256,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
         data = s,
     })
     local s = '110'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = box.NULL,
         id_or_null_2 = s,
@@ -261,7 +265,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
     })
     -- str, null, null
     local s = '111'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = s,
         id_or_null_2 = box.NULL,
@@ -269,7 +273,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
         data = s,
     })
     local s = '112'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = s,
         id_or_null_2 = box.NULL,
@@ -278,7 +282,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
     })
     -- null, null, null
     local s = '113'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = box.NULL,
         id_or_null_2 = box.NULL,
@@ -286,7 +290,7 @@ function nullable_index_testdata.fill_test_data(virtbox, meta)
         data = s,
     })
     local s = '114'
-    test_utils.replace_object(virtbox, meta, 'bar', {
+    virtbox.bar:replace_object({
         id = s,
         id_or_null_1 = box.NULL,
         id_or_null_2 = box.NULL,

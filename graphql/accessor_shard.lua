@@ -371,6 +371,8 @@ end
 ---
 --- @param key primary key
 ---
+--- @tparam table object
+---
 --- @tparam table statements
 ---
 --- @tparam table opts
@@ -380,7 +382,9 @@ end
 ---   replica set
 ---
 --- @treturn cdata/table `tuple`
-local function update_tuple(self, collection_name, key, _, statements, opts)
+local function update_tuple(self, collection_name, key, object, statements,
+        opts)
+    local _ = object -- shut luacheck
     local func_name = 'accessor_shard.update_tuple'
     check(self, 'self', 'table')
 
@@ -454,12 +458,15 @@ end
 ---
 --- @param key primary key
 ---
+--- @tparam table object
+---
 --- @tparam table opts
 ---
 --- * tuple (cdata/table, optional); the same as in @{update_tuple}
 ---
 --- @treturn cdata tuple
-local function delete_tuple(self, collection_name, key, _, opts)
+local function delete_tuple(self, collection_name, key, object, opts)
+    local _ = object -- shut luacheck
     local func_name = 'accessor_shard.delete_tuple'
     check(self, 'self', 'table')
 

@@ -1,5 +1,4 @@
 local json = require('json')
-local test_utils = require('test.test_utils')
 
 local bench_testdata = {}
 
@@ -215,23 +214,24 @@ function bench_testdata.get_test_metadata()
     }
 end
 
-function bench_testdata.init_spaces()
+function bench_testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
     -- user fields
-    local U_USER_ID_FN = 1
+    local U_USER_ID_FN = 1 + SHARD_EXTRA_FIELDS
 
     -- user_to_passport fields
-    local UTP_USER_ID_FN = 1
-    local UTP_PASSPORT_ID_FN = 2
+    local UTP_USER_ID_FN = 1 + SHARD_EXTRA_FIELDS
+    local UTP_PASSPORT_ID_FN = 2 + SHARD_EXTRA_FIELDS
 
     -- passport fields
-    local P_PASSPORT_ID_FN = 1
+    local P_PASSPORT_ID_FN = 1 + SHARD_EXTRA_FIELDS
 
     -- user_to_equipment fields
-    local UTE_USER_ID_FN = 1
-    local UTE_EQUIPMENT_ID_FN = 2
+    local UTE_USER_ID_FN = 1 + SHARD_EXTRA_FIELDS
+    local UTE_EQUIPMENT_ID_FN = 2 + SHARD_EXTRA_FIELDS
 
     -- equipment fields
-    local E_EQUIPMENT_ID_FN = 1
+    local E_EQUIPMENT_ID_FN = 1 + SHARD_EXTRA_FIELDS
 
     box.once('init_spaces_bench', function()
         -- user space
@@ -298,30 +298,28 @@ function bench_testdata.init_spaces()
     end)
 end
 
-function bench_testdata.fill_test_data(shard, meta)
-    local virtbox = shard or box.space
-
+function bench_testdata.fill_test_data(virtbox)
     for i = 1, 100 do
         local s = tostring(i)
-        test_utils.replace_object(virtbox, meta, 'user', {
+        virtbox.user:replace_object({
             user_id = 'user_id_' .. s,
             first_name = 'first name ' .. s,
             middle_name = box.NULL,
             last_name = 'last name ' .. s,
         })
-        test_utils.replace_object(virtbox, meta, 'user_to_passport', {
+        virtbox.user_to_passport:replace_object({
             user_id = 'user_id_' .. s,
             passport_id = 'passport_id_' .. s,
         })
-        test_utils.replace_object(virtbox, meta, 'passport', {
+        virtbox.passport:replace_object({
             passport_id = 'passport_id_' .. s,
             number = 'number_' .. s,
         })
-        test_utils.replace_object(virtbox, meta, 'user_to_equipment', {
+        virtbox.user_to_equipment:replace_object({
             user_id = 'user_id_' .. s,
             equipment_id = 'equipment_id_' .. s,
         })
-        test_utils.replace_object(virtbox, meta, 'equipment', {
+        virtbox.equipment:replace_object({
             equipment_id = 'equipment_id_' .. s,
             number = 'number_' .. s,
         })

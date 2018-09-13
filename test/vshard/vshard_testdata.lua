@@ -14,24 +14,24 @@ local test_metadata = {
             "type": "record",
             "name": "user",
             "fields": [
+                { "name": "bucket_id", "type": "int" },
                 { "name": "user_id", "type": "string" },
                 { "name": "first_name", "type": "string" },
-                { "name": "middle_name", "type": "string*" },
-                { "name": "last_name", "type": "string" },
-                { "name": "bucket_id", "type": "int" }
+                { "name": "middle_name", "type": "string" },
+                { "name": "last_name", "type": "string" }
             ]
         },
         "order": {
             "type": "record",
             "name": "order",
             "fields": [
+                { "name": "bucket_id", "type": "int" },
                 { "name": "order_id", "type": "string" },
                 { "name": "user_id", "type": "string" },
                 { "name": "description", "type": "string" },
                 { "name": "price", "type": "double" },
                 { "name": "discount", "type": "float" },
-                { "name": "in_stock", "type": "boolean", "default": true },
-                { "name": "bucket_id", "type": "int" }
+                { "name": "in_stock", "type": "boolean", "default": true }
             ]
         },
         "order_metainfo": {
@@ -245,7 +245,7 @@ local function fill_data(virtbox)
         {
             user_id = 'user_id_2',
             first_name = 'Vasiliy',
-            middle_name = box.NULL,
+            middle_name = 'Pupp',
             last_name = 'Pupkin',
         },
         {
@@ -292,18 +292,16 @@ local function fill_data(virtbox)
     }
     for _, user in ipairs(users) do
         virtbox.user_collection:replace_object(user, {1827767717})
-        --insert_user(router, user)
     end
     for _, order in ipairs(orders) do
         virtbox.order_collection:replace_object(order)
-        --insert_order(router, order)
     end
 
     for i = 3, 100 do
         virtbox.user_collection:replace_object({
             user_id = 'user_id_' .. i,
             first_name = 'first name ' .. i,
-            middle_name = box.NULL,
+            middle_name = 'middle name ' .. i,
             last_name = 'last name ' .. i,
         }, {1827767717})
         for j = (4 + (i - 3) * 40), (4 + (i - 2) * 40) - 1 do
@@ -322,24 +320,24 @@ end
 local function init_spaces()
     local format = {
         {'expires_on', 'unsigned'},
+        {'bucket_id', 'unsigned'},
         {'user_id', 'string'},
         {'first_name', 'string'},
-        {name='middle_name', type='string', is_nullable=true},
+        {name='middle_name', type='string'},
         {'last_name', 'string'},
-        {'bucket_id', 'unsigned'},
     }
     local s = box.schema.create_space('user_collection', {format = format})
     s:create_index('user_id_index', {parts = {{'user_id'}}})
     s:create_index('bucket_id', {parts = {{'bucket_id'}}, unique = false})
 
     local format = {
+        {'bucket_id', 'unsigned'},
         {'order_id', 'string'},
         {'user_id', 'string'},
         {'description', 'string'},
         {'price', 'number'},
         {'discount', 'number'},
         {'in_stock', 'boolean'},
-        {'bucket_id', 'unsigned'},
     }
     local s = box.schema.create_space('order_collection', {format = format})
     s:create_index('order_id_index', {parts = {{'order_id'}}})
@@ -347,6 +345,7 @@ local function init_spaces()
     s:create_index('bucket_id', {parts = {{'bucket_id'}}, unique = false})
 
     -- order_metainfo_collection fields
+    local M_ORDER_BUCKET_ID_FN = 1
     local M_ORDER_METAINFO_ID_FN = 3
     local M_ORDER_METAINFO_ID_COPY_FN = 4
     local M_ORDER_ID_FN = 5
@@ -370,7 +369,7 @@ local function init_spaces()
     )
     s:create_index('bucket_id',
         {type = 'tree', parts = {
-            1, 'unsigned'
+            M_ORDER_BUCKET_ID_FN, 'unsigned'
         }, unique = false}
     )
 end

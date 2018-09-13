@@ -12,6 +12,7 @@ local yaml = require('yaml')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
+local vb = require('test.virtual_box')
 local common_testdata = require('test.testdata.common_testdata')
 local emails_testdata = require('test.testdata.nullable_1_1_conn_testdata')
 
@@ -29,8 +30,12 @@ emails_testdata.init_spaces(avro_version)
 -- upload test data
 local common_meta = common_testdata.meta or common_testdata.get_test_metadata()
 local emails_meta = emails_testdata.meta or emails_testdata.get_test_metadata()
-common_testdata.fill_test_data(box.space, common_meta)
-emails_testdata.fill_test_data(box.space, emails_meta)
+local common_virtbox = vb.get_virtbox_for_accessor('space',
+    {meta = common_meta})
+common_testdata.fill_test_data(common_virtbox)
+local emails_virtbox = vb.get_virtbox_for_accessor('space',
+    {meta = emails_meta})
+emails_testdata.fill_test_data(emails_virtbox)
 
 local LOCALPART_FN = 1
 local DOMAIN_FN = 2

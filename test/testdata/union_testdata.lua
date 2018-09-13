@@ -65,8 +65,9 @@ function union_testdata.get_test_metadata()
     }
 end
 
-function union_testdata.init_spaces()
-    local USER_ID_FIELD = 2
+function union_testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
+    local USER_ID_FIELD = 2 + SHARD_EXTRA_FIELDS
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('user_collection')
@@ -76,35 +77,61 @@ function union_testdata.init_spaces()
     end)
 end
 
-function union_testdata.fill_test_data(shard)
-    local shard = shard or box.space
+function union_testdata.fill_test_data(virtbox)
+    virtbox.user_collection:replace_object(
+        {
+            user_id = 'user_id_1',
+            name = 'Nobody',
+            stuff = box.NULL,
+        },
+        {1827767717})
 
-    local NULL = 0
-    local STRING = 1
-    local INT = 2
-    local MAP = 3
-    local OBJ = 4
-    local ARR_MAP = 5
+    virtbox.user_collection:replace_object(
+        {
+            user_id = 'user_id_2',
+            name = 'Zlata',
+            stuff = {string = 'Some string'}
+        },
+        {1827767717})
 
-    shard.user_collection:replace(
-        {1827767717, 'user_id_1', 'Nobody', NULL, box.NULL})
+    virtbox.user_collection:replace_object(
+        {
+            user_id = 'user_id_3',
+            name = 'Ivan',
+            stuff = {int = 123}
+        },
+        {1827767717})
 
-    shard.user_collection:replace(
-        {1827767717, 'user_id_2', 'Zlata', STRING, 'Some string'})
+    virtbox.user_collection:replace_object(
+        {
+            user_id = 'user_id_4',
+            name = 'Jane',
+            stuff = {map = {salary = 333, deposit = 444}}
+        },
+        {1827767717})
 
-    shard.user_collection:replace(
-        {1827767717, 'user_id_3', 'Ivan', INT, 123})
+    virtbox.user_collection:replace_object(
+        {
+            user_id = 'user_id_5',
+            name = 'Dan',
+            stuff = {
+                Foo = {foo1 = 'foo1 string', foo2 = 'foo2 string'}
+            }
+        },
+        {1827767717})
 
-    shard.user_collection:replace(
-        {1827767717, 'user_id_4', 'Jane', MAP, {salary = 333, deposit = 444}})
-
-    shard.user_collection:replace(
-        {1827767717, 'user_id_5', 'Dan', OBJ, {'foo1 string', 'foo2 string'}})
-
-    shard.user_collection:replace(
-        {1827767717, 'user_id_6', 'Max', ARR_MAP,
-         {{salary = 'salary string', deposit = 'deposit string'},
-         {salary = 'string salary', deposit = 'string deposit'}}})
+    virtbox.user_collection:replace_object(
+        {
+            user_id = 'user_id_6',
+            name = 'Max',
+            stuff = {
+                array = {
+                    {salary = 'salary string', deposit = 'deposit string'},
+                    {salary = 'string salary', deposit = 'string deposit'}
+                }
+            }
+        },
+        {1827767717})
 end
 
 function union_testdata.drop_spaces()

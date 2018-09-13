@@ -74,9 +74,10 @@ function array_testdata.get_test_metadata()
     }
 end
 
-function array_testdata.init_spaces()
+function array_testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
     -- user_collection fields
-    local U_USER_ID_FN = 2
+    local U_USER_ID_FN = 2 + SHARD_EXTRA_FIELDS
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('user_collection')
@@ -86,15 +87,19 @@ function array_testdata.init_spaces()
     end)
 end
 
-function array_testdata.fill_test_data(shard)
-    local shard = shard or box.space
-
-    shard.user_collection:replace(
-        { 1827767717, 'user_id_1', { 'meat', 'potato' },
-        { december = 'new year', march = 'vacation' },
-          { { 33 }, { 44 } },
-          { salary = { 333 }, deposit = { 444 } }
-        })
+function array_testdata.fill_test_data(virtbox)
+    virtbox.user_collection:replace_object(
+        {
+            user_id = 'user_id_1',
+            favorite_food = { 'meat', 'potato' },
+            favorite_holidays = { december = 'new year', march = 'vacation' },
+            user_balances = { { value = 33 }, { value = 44 } },
+            customer_balances = {
+                salary = { value = 333 },
+                deposit = { value = 444 }
+            }
+        },
+        { 1827767717 })
     --@todo add empty array
 end
 

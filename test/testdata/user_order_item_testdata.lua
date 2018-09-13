@@ -202,13 +202,14 @@ testdata.meta = {
 }
 
 
-function testdata.init_spaces()
+function testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
     -- user_collection fields
-    local U_USER_ID_FN = 2
+    local U_USER_ID_FN = 2 + SHARD_EXTRA_FIELDS
 
     -- order_collection fields
-    local O_ORDER_ID_FN = 1
-    local O_USER_ID_FN = 2
+    local O_ORDER_ID_FN = 1 + SHARD_EXTRA_FIELDS
+    local O_USER_ID_FN = 2 + SHARD_EXTRA_FIELDS
 
     box.schema.create_space('user_collection')
     box.space.user_collection:create_index('user_id_index',
@@ -261,21 +262,27 @@ function testdata.fill_test_data(virtbox)
     end
     local order_item_cnt = 0
     for user_id = 1, 15 do
-        virtbox.user_collection:replace(
-            { 1827767717, user_id, 'user fn ' .. user_id,
-            'user ln ' .. user_id })
+        virtbox.user_collection:replace_object(
+            {
+                id = user_id,
+                first_name = 'user fn ' .. user_id,
+                last_name = 'user ln ' .. user_id,
+            }, { 1827767717 })
         -- Each user has N orders, where `N = user id`
         for i = 1, user_id do
-            virtbox.order_collection:replace({
-                order_id, user_id, 'order of user ' .. user_id
+            virtbox.order_collection:replace_object({
+                id = order_id,
+                user_id = user_id,
+                description = 'order of user ' .. user_id,
             })
             order_id = order_id + 1
             local items_cnt = 3
             for k = 1, items_cnt do
                 order_item_cnt = order_item_cnt + 1
                 local item_id = order_item_cnt % item_id_max + 1
-                virtbox.order_item_collection:replace({
-                    order_id, item_id
+                virtbox.order_item_collection:replace_object({
+                    item_id = order_id,
+                    order_id = item_id,
                 })
             end
         end

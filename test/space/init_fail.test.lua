@@ -11,6 +11,7 @@ local tap = require('tap')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
+local vb = require('test.virtual_box')
 local testdata = require('test.testdata.compound_index_testdata')
 
 -- init box, upload test data and acquire metadata
@@ -20,11 +21,12 @@ local testdata = require('test.testdata.compound_index_testdata')
 box.cfg{background = false}
 testdata.init_spaces()
 
--- upload test data
-testdata.fill_test_data()
-
 -- acquire metadata
 local metadata = testdata.get_test_metadata()
+
+-- upload test data
+local virtbox = vb.get_virtbox_for_accessor('space', {meta = metadata})
+testdata.fill_test_data(virtbox)
 
 -- inject an error into the metadata
 -- ---------------------------------

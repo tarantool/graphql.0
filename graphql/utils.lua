@@ -65,6 +65,25 @@ function utils.is_array(table)
     return max >= 0
 end
 
+--- Return a continuous subarray from a table including ends.
+--- May change the provided table.
+function utils.subarray(t, s, f)
+    assert(type(t) == 'table')
+    s = s or 1
+    f = f or #t
+    if s == 1 and f <= #t then
+        return t
+    end
+    local size = f - s + 1
+    local t_offset = s - 1
+    local new_t = table_new(size, 0)
+    for i = 1, size do
+        new_t[i] = t[t_offset + i]
+    end
+    return new_t
+end
+
+--- Combine several arrays into a single table.
 function utils.merge_arrays(arrays)
     local size = 0
     for _, array in pairs(arrays) do

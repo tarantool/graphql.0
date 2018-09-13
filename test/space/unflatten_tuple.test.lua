@@ -13,6 +13,7 @@ local avro = require('avro_schema')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
+local vb = require('test.virtual_box')
 local testdata = require('test.testdata.common_testdata')
 
 local check = utils.check
@@ -32,7 +33,8 @@ local service_fields = metadata.service_fields
 local indexes = metadata.indexes
 
 -- upload test data
-testdata.fill_test_data(box.space, metadata)
+local virtbox = vb.get_virtbox_for_accessor('space', {meta = metadata})
+testdata.fill_test_data(virtbox)
 
 -- build accessor and graphql schemas
 -- ----------------------------------

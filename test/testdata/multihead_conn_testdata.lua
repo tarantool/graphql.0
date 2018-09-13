@@ -226,9 +226,10 @@ function multihead_conn_testdata.get_test_metadata()
     }
 end
 
-function multihead_conn_testdata.init_spaces()
-    local ID_FIELD_NUM = 2
-    local HERO_ID_FIELD_NUM = 3
+function multihead_conn_testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
+    local ID_FIELD_NUM = 2 + SHARD_EXTRA_FIELDS
+    local HERO_ID_FIELD_NUM = 3 + SHARD_EXTRA_FIELDS
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('hero_collection')
@@ -266,43 +267,79 @@ function multihead_conn_testdata.init_spaces()
     end)
 end
 
-function multihead_conn_testdata.fill_test_data(shard)
-    local shard = shard or box.space
+function multihead_conn_testdata.fill_test_data(virtbox)
+    virtbox.hero_collection:replace_object(
+        {
+           hero_id = 'hero_id_1',
+           hero_type = 'human',
+           banking_type = 'credit',
+        },
+        { 1827767717})
 
-    shard.hero_collection:replace(
-        { 1827767717, 'hero_id_1', 'human', 'credit'})
-    shard.hero_collection:replace(
-        { 1827767717, 'hero_id_2', 'starship', 'dublon'})
+    virtbox.hero_collection:replace_object(
+        {
+            hero_id = 'hero_id_2',
+            hero_type = 'starship',
+            banking_type = 'dublon',
+        },
+        { 1827767717})
 
-    shard.human_collection:replace(
-        { 1827767717, 'hero_id_1', 'Luke', "EMPR"})
+    virtbox.human_collection:replace_object(
+        {
+            hero_id = 'hero_id_1',
+            name = 'Luke',
+            episode = 'EMPR',
+        },
+        { 1827767717})
 
-    shard.starship_collection:replace(
-        { 1827767717, 'hero_id_2', 'Falcon-42', "NEW"})
+    virtbox.starship_collection:replace_object(
+        {
+            hero_id = 'hero_id_2',
+            model = 'Falcon-42',
+            episode = 'NEW'
+        },
+        { 1827767717})
+    virtbox.credit_account_collection:replace_object(
+        {
+            account_id = 'credit_account_id_1',
+            hero_id = 'hero_id_1'
+        },
+        { 1827767717})
 
-    shard.credit_account_collection:replace(
-        { 1827767717, 'credit_account_id_1', 'hero_id_1'}
-    )
+    virtbox.credit_account_collection:replace_object(
+        {
+            account_id = 'credit_account_id_2',
+            hero_id = 'hero_id_1'
+        },
+        { 1827767717})
 
-    shard.credit_account_collection:replace(
-        { 1827767717, 'credit_account_id_2', 'hero_id_1'}
-    )
+    virtbox.credit_account_collection:replace_object(
+        {
+            account_id = 'credit_account_id_3',
+            hero_id = 'hero_id_1'
+        },
+        { 1827767717})
 
-    shard.credit_account_collection:replace(
-        { 1827767717, 'credit_account_id_3', 'hero_id_1'}
-    )
+    virtbox.dublon_account_collection:replace_object(
+        {
+            account_id = 'dublon_account_id_1',
+            hero_id = 'hero_id_2'
+        },
+        { 1827767717})
 
-    shard.dublon_account_collection:replace(
-        { 1827767717, 'dublon_account_id_1', 'hero_id_2'}
-    )
+    virtbox.dublon_account_collection:replace_object(
+        {
+            account_id = 'dublon_account_id_2',
+            hero_id = 'hero_id_2'
+        },
+        { 1827767717})
 
-    shard.dublon_account_collection:replace(
-        { 1827767717, 'dublon_account_id_2', 'hero_id_2'}
-    )
-
-    shard.dublon_account_collection:replace(
-        { 1827767717, 'dublon_account_id_3', 'hero_id_2'}
-    )
+    virtbox.dublon_account_collection:replace_object(
+        {
+            account_id = 'dublon_account_id_3',
+            hero_id = 'hero_id_2'
+        },
+        { 1827767717})
 end
 
 function multihead_conn_testdata.drop_spaces()

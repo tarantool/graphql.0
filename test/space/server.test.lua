@@ -12,6 +12,7 @@ local http = require('http.client').new()
 local graphql = require('graphql')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
+local vb = require('test.virtual_box')
 local testdata = require('test.testdata.common_testdata')
 
 box.cfg{background = false}
@@ -20,7 +21,8 @@ testdata.init_spaces()
 
 -- upload test data
 local meta = testdata.meta or testdata.get_test_metadata()
-testdata.fill_test_data(box.space, meta)
+local virtbox = vb.get_virtbox_for_accessor('space', {meta = meta})
+testdata.fill_test_data(virtbox)
 
 -- acquire metadata
 local metadata = testdata.get_test_metadata()

@@ -53,6 +53,9 @@ local CONFS = {
     space = {
         type = 'space',
     },
+    vshard = {
+        type = 'vshard',
+    },
 }
 
 local initialized = false
@@ -93,17 +96,22 @@ local function for_each_server(shard, func)
     end
 end
 
+-- @param meta Table with schemas, indexes, connections...
 local function run_conf(conf_name, opts)
     local conf = CONFS[conf_name]
 
     assert(conf ~= nil)
+    local ctx = {
+        conf_name = conf_name,
+        conf_type = conf.type,
+        meta = opts.meta,
+    }
 
-    local conf_type = conf.type
     local servers = conf.servers
     local shard_conf = conf.shard_conf
 
-    assert(conf_type ~= nil)
-    if conf_type == 'shard' then
+    assert(ctx.conf_type ~= nil)
+    if ctx.conf_type == 'shard' then
         assert(servers ~= nil)
         assert(shard_conf ~= nil)
     end
@@ -123,18 +131,18 @@ local function run_conf(conf_name, opts)
     assert(type(cleanup_function_params) == 'table')
     assert(workload ~= nil)
     assert(use_tcp ~= nil)
-    if conf_type == 'shard' then
+    if ctx.conf_type == 'shard' then
         assert(test_run ~= nil)
         assert(servers ~= nil)
     end
 
     local result
 
-    if conf_type == 'space' then
+    if ctx.conf_type == 'space' then
         init_function(unpack(init_function_params))
-        result = workload(conf_name, nil)
+        result = workload(ctx)
         cleanup_function(unpack(cleanup_function_params))
-    elseif conf_type == 'shard' then
+    elseif ctx.conf_type == 'shard' then
         -- convert functions to string, so, that it can be executed on shards
         local init_script = string.dump(init_function)
         local cleanup_script = string.dump(cleanup_function)
@@ -146,7 +154,8 @@ local function run_conf(conf_name, opts)
             c:eval(init_script, init_function_params)
         end)
 
-        result = workload(conf_name, shard)
+        ctx.shard = shard
+        result = workload(ctx)
 
         for_each_server(shard, function(uri)
             local c = net_box.connect(uri)
@@ -154,8 +163,33 @@ local function run_conf(conf_name, opts)
         end)
 
         shard_cleanup(test_run, servers)
+    elseif ctx.conf_type == 'vshard' then
+        local vutils = require('test.vshard.vshard_utils')
+        assert(use_tcp == false)
+        local SERVERS = {'shard1', 'shard2', 'shard3', 'shard4'}
+        test_run:create_cluster(SERVERS, 'common')
+        -- TODO: make params a dict.
+        -- Offset for vshard specific fields.
+        init_function_params[2] = 1
+        require('fiber').sleep(1)
+        vutils.cluster_setup()
+        vutils.cluster_eval(init_function, init_function_params)
+        vutils.cluster_eval(vutils.create_bucket_id_indexes,
+            {vutils.get_bucket_id_positions(ctx.meta)})
+
+        local vshard = require('vshard')
+        local ok
+        ok, ctx.router = pcall(vshard.router.new, 'my_router', vutils.cfg)
+        ctx.router:bootstrap()
+        assert(ok, ctx.router)
+        assert(ctx.router)
+        ctx.meta = table.deepcopy(ctx.meta)
+        vutils.patch_non_vshard_meta(ctx.meta)
+        result = workload(ctx)
+
+        test_run:drop_cluster(SERVERS)
     else
-        assert(false, 'unknown conf_type: ' .. tostring(conf_type))
+        assert(false, 'unknown conf_type: ' .. tostring(ctx.conf_type))
     end
 
     return result

@@ -13,6 +13,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 local graphql = require('graphql')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
+local vb = require('test.virtual_box')
 local common_testdata = require('test.testdata.common_testdata')
 local union_testdata = require('test.testdata.union_testdata')
 local multihead_testdata = require('test.testdata.multihead_conn_testdata')
@@ -27,7 +28,8 @@ box.cfg{}
 
 common_testdata.init_spaces()
 local common_meta = common_testdata.get_test_metadata()
-common_testdata.fill_test_data(box.space, common_meta)
+local virtbox = vb.get_virtbox_for_accessor('space', {meta = common_meta})
+common_testdata.fill_test_data(virtbox)
 
 local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = common_meta.schemas,
@@ -191,7 +193,8 @@ common_testdata.drop_spaces()
 
 union_testdata.init_spaces()
 local union_meta = union_testdata.get_test_metadata()
-union_testdata.fill_test_data(box.space, union_meta)
+local virtbox = vb.get_virtbox_for_accessor('space', {meta = union_meta})
+union_testdata.fill_test_data(virtbox)
 
 local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = union_meta.schemas,
@@ -356,7 +359,9 @@ union_testdata.drop_spaces()
 
 multihead_testdata.init_spaces()
 local multihead_meta = multihead_testdata.get_test_metadata()
-multihead_testdata.fill_test_data(box.space, multihead_meta)
+local virtbox = vb.get_virtbox_for_accessor('space',
+    {meta = multihead_meta})
+multihead_testdata.fill_test_data(virtbox)
 
 local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = multihead_meta.schemas,

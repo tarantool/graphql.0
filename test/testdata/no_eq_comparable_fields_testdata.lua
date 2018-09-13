@@ -53,9 +53,10 @@ function no_eq_comparable_fields_testdata.get_test_metadata()
     }
 end
 
-function no_eq_comparable_fields_testdata.init_spaces()
+function no_eq_comparable_fields_testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
     -- no_eq_comparable_fields fields
-    local N_ID_FN = 1
+    local N_ID_FN = 1 + SHARD_EXTRA_FIELDS
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('no_eq_comparable_fields')
@@ -68,13 +69,13 @@ function no_eq_comparable_fields_testdata.init_spaces()
     end)
 end
 
-function no_eq_comparable_fields_testdata.fill_test_data(virtbox, meta)
-    test_utils.replace_object(virtbox, meta, 'no_eq_comparable_fields', {
+function no_eq_comparable_fields_testdata.fill_test_data(virtbox)
+    virtbox.no_eq_comparable_fields:replace_object({
         id = 1.0,
         float_value = 1.0,
         double_value = 1.0,
     })
-    test_utils.replace_object(virtbox, meta, 'no_eq_comparable_fields', {
+    virtbox.no_eq_comparable_fields:replace_object({
         id = 2.0,
         float_value = 2.0,
         double_value = 2.0,

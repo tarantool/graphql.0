@@ -1,1 +1,1 @@
-shard1.lua
+../shard_servers/shard.lua

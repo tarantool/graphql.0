@@ -13,6 +13,7 @@ package.path = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 local graphql = require('graphql')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
+local vb = require('test.virtual_box')
 local testdata = require('test.testdata.multihead_conn_with_nulls_testdata')
 
 local test = tap.test('to avro schema')
@@ -23,7 +24,8 @@ box.cfg{}
 
 testdata.init_spaces()
 local meta = testdata.get_test_metadata()
-testdata.fill_test_data(box.space, meta)
+local virtbox = vb.get_virtbox_for_accessor('space', {meta = meta})
+testdata.fill_test_data(virtbox)
 
 local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = meta.schemas,

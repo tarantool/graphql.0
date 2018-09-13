@@ -15,8 +15,6 @@ local accessor_vshard = {}
 
 local LIMIT = 100000 -- XXX: we need to raise an error when a limit reached
 
--- {{{ helpers
-
 --- Wraps a simple router:call to handle errors.
 local function space_call(self, bucket_id, mode, args, opts)
     local ret, err = self.router:call(bucket_id, mode, 'space_call',
@@ -30,7 +28,7 @@ end
 
 --- Get numbers of index parts in a tuple.
 --- This function assumes that
---- @retval {<number, part_1> [<number, part_N>]}
+--- @treturn table {<number, part_1> [<number, part_N>]}
 local function get_index_parts(self, xspace, xindex, retry)
     retry = retry == nil and true or retry
     -- All replicas should have the same schema.
@@ -155,7 +153,11 @@ end
 --- to the whole cluster.
 --- @tparam table self accessor instance
 --- @tparam string collection_name
---- @tparam
+--- @tparam string index
+--- @tparam table key
+--- @tparam table opts
+--- @tparam table select_opts
+--- @treturn table Array of selected tuples
 local function space_call_scan(self, collection_name, index, key, opts,
         select_opts)
     local bucket_id = get_bucket_id(self, collection_name, select_opts)
@@ -185,10 +187,12 @@ local function space_call_scan(self, collection_name, index, key, opts,
     end
 end
 
+--- See detailed documentation here @{accessor_shard.is_collection_exists}
 local function is_collection_exists(self, collection_name)
     return true
 end
 
+--- See detailed documentation here @{accessor_shard.is_index_exists}
 local function is_index_exists()
     return true
 end
@@ -227,6 +231,7 @@ local function get_primary_index(self, collection_name)
     return self.funcs.get_index(self, collection_name, 0)
 end
 
+--- See detailed documentation here @{accessor_shard.unflatten_tuple}
 local function unflatten_tuple(self, collection_name, tuple, opts, default)
     check(self, 'self', 'table')
     local opts = opts or {}
@@ -238,6 +243,7 @@ local function unflatten_tuple(self, collection_name, tuple, opts, default)
     return default(self, collection_name, tuple)
 end
 
+--- See detailed documentation here @{accessor_shard.flatten_object}
 local function flatten_object(self, collection_name, obj, opts, default,
         op_opts)
     check(self, 'self', 'table')
@@ -257,6 +263,7 @@ local function flatten_object(self, collection_name, obj, opts, default,
     return default(self, collection_name, obj, opts)
 end
 
+--- See detailed documentation here @{accessor_shard.xflatten}
 local function xflatten(self, collection_name, xobject, opts, default)
     check(self, 'self', 'table')
     local opts = opts or {}
@@ -266,15 +273,7 @@ local function xflatten(self, collection_name, xobject, opts, default)
     return default(self, collection_name, xobject, opts)
 end
 
---- Insert a tuple into a collection.
----
---- @tparam table self accessor_general instance
----
---- @tparam string collection_name
----
---- @tparam cdata/table tuple
----
---- @treturn cdata/table `tuple`
+--- See detailed documentation here @{accessor_shard.insert_tuple}
 local function insert_tuple(self, collection_name, tuple, insert_opts)
     check(self, 'self', 'table')
 
@@ -288,6 +287,7 @@ local function insert_tuple(self, collection_name, tuple, insert_opts)
     return ret
 end
 
+--- See detailed documentation here @{accessor_shard.update_tuple}
 local function update_tuple(self, collection_name, key, object, statements,
         opts)
     check(self, 'self', 'table')
@@ -322,7 +322,8 @@ local function update_tuple(self, collection_name, key, object, statements,
     return ret
 end
 
-local function delete_tuple(self, collection_name, key, object, opts)
+--- See detailed documentation here @{accessor_shard.delete_tuple}
+local function delete_tuple(self, collection_name, key, object)
     local bucket_id = object[self.vshard[collection_name].bucket_id_field]
     assert(bucket_id, 'Bucket id should be in the object to delete')
     local tuple = space_call(self, bucket_id, 'write',
@@ -333,6 +334,7 @@ local function delete_tuple(self, collection_name, key, object, opts)
     return tuple
 end
 
+--- See detailed documentation here @{accessor_shard.new}
 function accessor_vshard.new(uopts, funcs)
     local router = uopts.router
     uopts.router = nil

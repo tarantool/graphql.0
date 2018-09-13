@@ -156,9 +156,10 @@ function testdata.get_test_metadata()
     }
 end
 
-function testdata.init_spaces()
+function testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
     -- foo fields
-    local ID_FN = 1
+    local ID_FN = 1 + SHARD_EXTRA_FIELDS
 
     box.schema.create_space('foo')
     box.space.foo:create_index('id', {
@@ -174,7 +175,7 @@ function testdata.drop_spaces()
     box.space.foo_2:drop()
 end
 
-function testdata.fill_test_data(virtbox, meta)
+function testdata.fill_test_data(virtbox)
     local x = 1000
     local y = 2000
     local a = 3000
@@ -216,10 +217,10 @@ function testdata.fill_test_data(virtbox, meta)
         }
 
         -- replaces
-        test_utils.replace_object(virtbox, meta, 'foo', obj_1)
-        test_utils.replace_object(virtbox, meta, 'foo', obj_2)
-        test_utils.replace_object(virtbox, meta, 'foo_2', obj_1)
-        test_utils.replace_object(virtbox, meta, 'foo_2', obj_2)
+        virtbox.foo:replace_object(obj_1)
+        virtbox.foo:replace_object(obj_2)
+        virtbox.foo_2:replace_object(obj_1)
+        virtbox.foo_2:replace_object(obj_2)
     else
         obj_1 = {
             id = 1,
@@ -230,8 +231,8 @@ function testdata.fill_test_data(virtbox, meta)
         }
 
         -- replaces
-        test_utils.replace_object(virtbox, meta, 'foo', obj_1)
-        test_utils.replace_object(virtbox, meta, 'foo_2', obj_1)
+        virtbox.foo:replace_object(obj_1)
+        virtbox.foo_2:replace_object(obj_1)
     end
 end
 

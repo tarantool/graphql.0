@@ -55,9 +55,10 @@ testdata.meta = {
 }
 
 
-function testdata.init_spaces()
+function testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
     -- user fields
-    local UID_FN = 1
+    local UID_FN = 1 + SHARD_EXTRA_FIELDS
 
     box.schema.create_space('user')
     box.space.user:create_index('uid', {
@@ -68,14 +69,14 @@ function testdata.drop_spaces()
     box.space.user:drop()
 end
 
-function testdata.fill_test_data(virtbox, meta)
+function testdata.fill_test_data(virtbox)
     for i = 1, 15 do
         local uid = i
         local p1 = 'p1 ' .. tostring(i)
         local p2 = 'p2 ' .. tostring(i)
         local x = 1000 + i
         local y = 2000 + i
-        test_utils.replace_object(virtbox, meta, 'user', {
+        virtbox.user:replace_object({
             uid = uid,
             p1 = p1,
             p2 = p2,

@@ -233,9 +233,10 @@ function multihead_conn_testdata.get_test_metadata()
     }
 end
 
-function multihead_conn_testdata.init_spaces()
-    local HERO_ID_FIELD_NUM = 2
-    local HERO_BANKING_ID_FIELD_NUM = 3
+function multihead_conn_testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
+    local HERO_ID_FIELD_NUM = 2 +SHARD_EXTRA_FIELDS
+    local HERO_BANKING_ID_FIELD_NUM = 3 + SHARD_EXTRA_FIELDS
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('hero_collection')
@@ -280,10 +281,8 @@ function multihead_conn_testdata.init_spaces()
     end)
 end
 
-function multihead_conn_testdata.fill_test_data(shard, meta)
-    local shard = shard or box.space
-
-    test_utils.replace_object(shard, meta, 'hero_collection', {
+function multihead_conn_testdata.fill_test_data(virtbox)
+    virtbox.hero_collection:replace_object({
         hero_id = "hero_id_1",
         hero_subtype_id = "human_id_1",
         hero_type = "human",
@@ -293,7 +292,7 @@ function multihead_conn_testdata.fill_test_data(shard, meta)
         1827767717
     })
 
-    test_utils.replace_object(shard, meta, 'hero_collection', {
+    virtbox.hero_collection:replace_object({
         hero_id = "hero_id_2",
         hero_subtype_id = "starship_id_1",
         hero_type = "starship",
@@ -303,7 +302,7 @@ function multihead_conn_testdata.fill_test_data(shard, meta)
         1827767717
     })
 
-    test_utils.replace_object(shard, meta, 'hero_collection', {
+    virtbox.hero_collection:replace_object({
         hero_id = "hero_id_3",
         hero_subtype_id = box.NULL,
         hero_type = box.NULL,
@@ -313,7 +312,7 @@ function multihead_conn_testdata.fill_test_data(shard, meta)
         1827767717
     })
 
-    test_utils.replace_object(shard, meta, 'human_collection', {
+    virtbox.human_collection:replace_object({
         human_id = "human_id_1",
         name = "Luke",
         episode = "EMPR"
@@ -321,7 +320,7 @@ function multihead_conn_testdata.fill_test_data(shard, meta)
         1827767717
     })
 
-    test_utils.replace_object(shard, meta, 'starship_collection', {
+    virtbox.starship_collection:replace_object({
         starship_id = "starship_id_1",
         model = "Falcon-42",
         episode = "NEW"
@@ -330,14 +329,14 @@ function multihead_conn_testdata.fill_test_data(shard, meta)
     })
 
     for _, i in ipairs({"1", "2", "3"}) do
-        test_utils.replace_object(shard, meta, 'credit_account_collection', {
+        virtbox.credit_account_collection:replace_object({
             account_id = "credit_account_id_" .. i,
             hero_banking_id = "hero_banking_id_1"
         }, {
             1827767717
         })
 
-        test_utils.replace_object(shard, meta, 'dublon_account_collection', {
+        virtbox.dublon_account_collection:replace_object({
             account_id = "dublon_account_id_" .. i,
             hero_banking_id = "hero_banking_id_2"
         },  {

@@ -101,14 +101,17 @@ function nullable_1_1_conn_testdata.get_test_metadata()
     }
 end
 
-function nullable_1_1_conn_testdata.init_spaces(avro_version)
+function nullable_1_1_conn_testdata.init_spaces(avro_version,
+        SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
     assert(avro_version == 2 or avro_version == 3)
-
     -- email fields
-    local LOCALPART_FN = 1
-    local DOMAIN_FN = 2
-    local IN_REPLY_TO_LOCALPART_FN = avro_version == 3 and 3 or 4
-    local IN_REPLY_TO_DOMAIN_FN = avro_version == 3 and 4 or 6
+    local LOCALPART_FN = 1 + SHARD_EXTRA_FIELDS
+    local DOMAIN_FN = 2 + SHARD_EXTRA_FIELDS
+    local IN_REPLY_TO_LOCALPART_FN =
+        (avro_version == 3 and 3 or 4) + SHARD_EXTRA_FIELDS
+    local IN_REPLY_TO_DOMAIN_FN =
+        (avro_version == 3 and 4 or 6) + SHARD_EXTRA_FIELDS
 
     box.once('init_spaces_nullable_1_1_conn', function()
         box.schema.create_space('email')
@@ -155,9 +158,7 @@ end
         |  e   f g      m     |
         +---------------------+
 ]]--
-function nullable_1_1_conn_testdata.fill_test_data(virtbox, meta)
-    local virtbox = virtbox or box.space
-
+function nullable_1_1_conn_testdata.fill_test_data(virtbox)
     local prng = gen_prng(PRNG_SEED)
 
     local function new_email(body)
@@ -222,7 +223,7 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox, meta)
             local localpart = email_node.email.localpart
             local domain = email_node.email.domain
 
-            test_utils.replace_object(virtbox, meta, 'email', {
+            virtbox.email:replace_object({
                 localpart = localpart,
                 domain = domain,
                 in_reply_to_localpart = irt_localpart,
@@ -242,7 +243,7 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox, meta)
     -- FULL MATCH constraints
     local domain = DOMAIN
     local localpart = prng:next_string(16):hex()
-    test_utils.replace_object(virtbox, meta, 'email', {
+    virtbox.email:replace_object({
         localpart = localpart,
         domain = domain,
         in_reply_to_localpart = box.NULL,
@@ -250,7 +251,7 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox, meta)
         body = 'x',
     })
     local localpart = prng:next_string(16):hex()
-    test_utils.replace_object(virtbox, meta, 'email', {
+    virtbox.email:replace_object({
         localpart = localpart,
         domain = domain,
         in_reply_to_localpart = localpart,
@@ -261,7 +262,7 @@ function nullable_1_1_conn_testdata.fill_test_data(virtbox, meta)
     -- Check dangling 1:1 connection.
     local localpart = prng:next_string(16):hex()
     local non_existent_localpart = prng:next_string(16):hex()
-    test_utils.replace_object(virtbox, meta, 'email', {
+    virtbox.email:replace_object({
         localpart = localpart,
         domain = domain,
         in_reply_to_localpart = non_existent_localpart,
@@ -277,7 +278,7 @@ end
 
 function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
     local test = tap.test('nullable_1_1_conn')
-    test:plan(7)
+    test:plan(9)
 
     -- {{{ downside traversal (1:N connections)
 
@@ -396,24 +397,20 @@ function nullable_1_1_conn_testdata.run_queries(gql_wrapper)
     local variables_upside_x = {body = 'x'}
     local result = gql_query_upside:execute(variables_upside_x)
     local err = result.errors[1].message
-    local exp_err = 'FULL MATCH constraint was failed: connection key parts ' ..
-        'must be all non-nulls or all nulls; object: ' ..
-        '{"domain":"graphql.tarantool.org",' ..
-        '"localpart":"062b56b1885c71c51153ccb880ac7315","body":"x",' ..
-        '"in_reply_to_domain":"graphql.tarantool.org",' ..
-        '"in_reply_to_localpart":null}'
-    test:is(err, exp_err, 'upside_x')
+    -- Check error in 2-step-way, because vshard changes object:
+    -- adds `bucket_id` field.
+    local full_match_err = 'FULL MATCH constraint was failed: connection key parts ' ..
+        'must be all non%-nulls or all nulls; object: '
+    local object_error_part = '"localpart":"062b56b1885c71c51153ccb880ac7315"'
+    test:like(err, full_match_err, 'upside_x_err_msg')
+    test:like(err, object_error_part, 'upside_x_correct_object')
 
     local variables_upside_y = {body = 'y'}
     local result = gql_query_upside:execute(variables_upside_y)
     local err = result.errors[1].message
-    local exp_err = 'FULL MATCH constraint was failed: connection key parts ' ..
-        'must be all non-nulls or all nulls; object: ' ..
-        '{"domain":"graphql.tarantool.org",' ..
-        '"localpart":"1f70391f6ba858129413bd801b12acbf","body":"y",' ..
-        '"in_reply_to_domain":null,' ..
-        '"in_reply_to_localpart":"1f70391f6ba858129413bd801b12acbf"}'
-    test:is(err, exp_err, 'upside_y')
+    local object_error_part = '"localpart":"1f70391f6ba858129413bd801b12acbf"'
+    test:like(err, full_match_err, 'upside_y_err_msg')
+    test:like(err, object_error_part, 'upside_y_correct_object')
 
     -- Check we get an error when trying to use dangling 1:1 connection.
     -- See nullable_1_1_conn_nocheck.test.lua for the case when

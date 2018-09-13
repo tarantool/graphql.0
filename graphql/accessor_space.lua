@@ -157,6 +157,8 @@ end
 ---
 --- @param key primary key
 ---
+--- @tparam table object
+---
 --- @tparam table statements
 ---
 --- @tparam table opts
@@ -164,7 +166,9 @@ end
 --- * tuple (ignored in accessor_space)
 ---
 --- @treturn cdata/table `tuple`
-local function update_tuple(self, collection_name, key, _,statements, opts)
+local function update_tuple(self, collection_name, key, object, statements,
+        opts)
+    local _ = object -- shut luacheck
     check(self, 'self', 'table')
     local opts = opts or {}
     check(opts, 'opts', 'table')
@@ -179,12 +183,14 @@ end
 ---
 --- @param key primary key
 ---
+--- @tparam table object
+---
 --- @tparam table opts
 ---
 --- * tuple (ignored in accessor_space)
 ---
 --- @treturn cdata tuple
-local function delete_tuple(self, collection_name, key, _,opts)
+local function delete_tuple(self, collection_name, key, object, opts)
     check(self, 'self', 'table')
     local opts = opts or {}
     check(opts, 'opts', 'table')

@@ -116,16 +116,17 @@ function compound_index_testdata.get_test_metadata()
     }
 end
 
-function compound_index_testdata.init_spaces()
+function compound_index_testdata.init_spaces(_, SHARD_EXTRA_FIELDS)
+    SHARD_EXTRA_FIELDS = SHARD_EXTRA_FIELDS or 0
     -- user_collection fields
-    local U_USER_STR_FN = 1
-    local U_USER_NUM_FN = 2
+    local U_USER_STR_FN = 1 + SHARD_EXTRA_FIELDS
+    local U_USER_NUM_FN = 2 + SHARD_EXTRA_FIELDS
 
     -- order_collection fields
-    local O_ORDER_STR_FN = 1
-    local O_ORDER_NUM_FN = 2
-    local O_USER_STR_FN = 3
-    local O_USER_NUM_FN = 4
+    local O_ORDER_STR_FN = 1 + SHARD_EXTRA_FIELDS
+    local O_ORDER_NUM_FN = 2 + SHARD_EXTRA_FIELDS
+    local O_USER_STR_FN = 3 + SHARD_EXTRA_FIELDS
+    local O_USER_NUM_FN = 4 + SHARD_EXTRA_FIELDS
 
     box.once('test_space_init_spaces', function()
         -- users
@@ -151,9 +152,7 @@ function compound_index_testdata.init_spaces()
     end)
 end
 
-function compound_index_testdata.fill_test_data(shard)
-    local shard = shard or box.space
-
+function compound_index_testdata.fill_test_data(virtbox)
     for i = 1, 20 do
         for j = 1, 5 do
             local s =
@@ -166,14 +165,24 @@ function compound_index_testdata.fill_test_data(shard)
             assert(s ~= nil, 's must not be nil')
             local user_str = 'user_str_' .. s
             local user_num = i
-            shard.user_collection:replace(
-                {user_str, user_num, 'first name ' .. s, 'last name ' .. s})
+            virtbox.user_collection:replace_object(
+                {
+                    user_str = user_str,
+                    user_num = user_num,
+                    first_name = 'first name ' .. s,
+                    last_name = 'last name ' .. s,
+                })
             for k = 1, 10 do
                 local order_str = 'order_str_' .. s .. '_' .. tostring(k)
                 local order_num = i * 100 + k
-                shard.order_collection:replace(
-                    {order_str, order_num, user_str, user_num,
-                    'description ' .. s})
+                virtbox.order_collection:replace_object(
+                    {
+                        order_str = order_str,
+                        order_num = order_num,
+                        user_str = user_str,
+                        user_num = user_num,
+                        description = 'description ' .. s,
+                    })
             end
         end
     end

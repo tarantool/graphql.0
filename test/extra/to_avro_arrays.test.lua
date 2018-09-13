@@ -14,15 +14,17 @@ local utils = require('graphql.utils')
 local graphql = require('graphql')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.array_and_map_testdata')
+local vb = require('test.virtual_box')
 
 local test = tap.test('to avro schema')
 
 box.cfg{wal_mode="none"}
 test:plan(4)
+local meta = testdata.get_test_metadata()
+local virtbox = vb.get_virtbox_for_accessor('space', {meta = meta})
 
 testdata.init_spaces()
-testdata.fill_test_data()
-local meta = testdata.get_test_metadata()
+testdata.fill_test_data(virtbox)
 
 local gql_wrapper = graphql.new(utils.merge_tables({
     schemas = meta.schemas,

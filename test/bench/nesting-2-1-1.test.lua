@@ -15,9 +15,8 @@ local testdata = require('test.testdata.bench_testdata')
 -- functions
 -- ---------
 
-local function bench_prepare(state)
-    local meta = testdata.meta or testdata.get_test_metadata()
-    state.gql_wrapper = bench.bench_prepare_helper(testdata, state.shard, meta)
+local function bench_prepare(state, ctx)
+    state.gql_wrapper = bench.bench_prepare_helper(testdata, ctx, state.virtbox)
     local query = [[
         query match_by_user_and_passport_id($user_id: String,
                 $passport_id: String) {
@@ -52,6 +51,7 @@ box.cfg({})
 bench.run('nesting-2-1-1', {
     init_function = testdata.init_spaces,
     cleanup_function = testdata.drop_spaces,
+    meta = testdata.meta or testdata.get_test_metadata(),
     bench_prepare = bench_prepare,
     bench_iter = bench_iter,
     iterations = {

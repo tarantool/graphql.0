@@ -16,6 +16,7 @@ local multirunner = require('test.common.multirunner')
 local graphql = require('graphql')
 local utils = require('graphql.utils')
 local test_utils = require('test.test_utils')
+local vb = require('test.virtual_box')
 local test_run = utils.optional_require('test_run')
 test_run = test_run and test_run.new()
 
@@ -30,15 +31,14 @@ local SCRIPT_DIR = fio.abspath(debug.getinfo(1).source:match("@?(.*/)")
 
 local bench = {}
 
-local function workload(shard, bench_prepare, bench_iter, opts)
+local function workload(ctx, virtbox, bench_prepare, bench_iter, opts)
     local iterations = opts.iterations
     local exp_checksum = opts.checksum
-    local conf_type = opts.conf_type
+    local conf_type = ctx.conf_type
 
-    local state = {}
-    state.shard = shard
+    local state = {virtbox = virtbox}
 
-    bench_prepare(state)
+    bench_prepare(state, ctx)
 
     local test = tap.test('workload')
     test:plan(1)
@@ -163,11 +163,12 @@ function bench.run(test_name, opts)
         test_run = test_run,
         init_function = opts.init_function,
         cleanup_function = opts.cleanup_function,
-        workload = function(_, shard)
-            return workload(shard, opts.bench_prepare, opts.bench_iter, {
+        meta = opts.meta,
+        workload = function(ctx)
+            local virtbox = vb.get_virtbox_for_accessor(ctx.conf_type, ctx)
+            return workload(ctx, virtbox, opts.bench_prepare, opts.bench_iter, {
                 iterations = iterations,
                 checksum = checksum,
-                conf_type = conf_type,
             })
         end,
         servers = {'shard_tcp1', 'shard_tcp2', 'shard_tcp3', 'shard_tcp4'},
@@ -179,11 +180,11 @@ function bench.run(test_name, opts)
 end
 
 -- helper for preparing benchmarking environment
-function bench.bench_prepare_helper(testdata, shard, meta)
-    testdata.fill_test_data(shard or box.space, meta)
-    return test_utils.graphql_from_testdata(testdata, shard, {
+function bench.bench_prepare_helper(testdata, ctx, virtbox)
+    testdata.fill_test_data(virtbox)
+    return test_utils.graphql_from_testdata(testdata, {
         timeout_ms = graphql.TIMEOUT_INFINITY,
-    })
+    }, ctx)
 end
 
 return bench

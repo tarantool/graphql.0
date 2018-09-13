@@ -15,9 +15,8 @@ local testdata = require('test.testdata.bench_testdata')
 -- functions
 -- ---------
 
-local function bench_prepare(state)
-    local meta = testdata.meta or testdata.get_test_metadata()
-    state.gql_wrapper = bench.bench_prepare_helper(testdata, state.shard, meta)
+local function bench_prepare(state, ctx)
+    state.gql_wrapper = bench.bench_prepare_helper(testdata, ctx, state.virtbox)
     local query = [[
         query match_by_passport_id_and_equipment_id(
             $passport_id: String
@@ -60,6 +59,7 @@ bench.run('forking-2-100-1', {
     init_function = testdata.init_spaces,
     cleanup_function = testdata.drop_spaces,
     bench_prepare = bench_prepare,
+    meta = testdata.meta or testdata.get_test_metadata(),
     bench_iter = bench_iter,
     iterations = {
         space = 10000,
