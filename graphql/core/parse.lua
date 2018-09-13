@@ -150,6 +150,7 @@ local function cOperation(...)
 
     for i = 2, #args do
       -- key ~= nil => result['selectionSet'] = <...>
+      --            or result['name'] = <...>
       -- key == nil => result['variableDefinitions'] = <...>
       --            or result['directives'] = <...>
       local key = args[i].kind

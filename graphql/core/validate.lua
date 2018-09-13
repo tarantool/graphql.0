@@ -51,6 +51,10 @@ local visitors = {
   -- {
   --   kind = 'operation',
   --   operation = 'query' or 'mutation',
+  --   name = {
+  --     kind = 'name',
+  --     value = <string>,
+  --   } (optional),
   --   selectionSet = <selectionSet>,
   --   variableDefinitions = list of <variableDefinition> (optional),
   --   directives = list of <directive> (optional),
