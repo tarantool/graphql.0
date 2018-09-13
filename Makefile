@@ -19,6 +19,7 @@ lint:
 		test/testdata/*.lua \
 		test/common/*.lua \
 		test/extra/*.lua \
+		test/vshard/*.lua \
 		test/*.lua \
 		--no-redefined --no-unused-args
 

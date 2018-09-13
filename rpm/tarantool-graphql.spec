@@ -19,6 +19,7 @@ BuildRequires: tarantool >= 1.9.0.0
 BuildRequires: tarantool-lulpeg
 BuildRequires: tarantool-avro-schema >= 2.2.2.4
 BuildRequires: tarantool-shard >= 1.1.92
+BuildRequires: tarantool-vshard >= 0.1.5
 BuildRequires: tarantool-lrexlib-pcre2
 BuildRequires: tarantool-http
 
@@ -33,6 +34,7 @@ Requires: tarantool >= 1.9.0.0
 Requires: tarantool-lulpeg
 Requires: tarantool-avro-schema >= 2.0.71
 #Suggests: tarantool-shard >= 1.1.91
+#Suggests: tarantool-vshard >= 0.1.5
 #Suggests: tarantool-lrexlib-pcre2
 #Suggests: tarantool-http
 

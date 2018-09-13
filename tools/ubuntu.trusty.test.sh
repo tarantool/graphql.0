@@ -25,6 +25,7 @@ tarantoolctl rocks install lrexlib-pcre
 tarantoolctl rocks install http
 tarantoolctl rocks install shard "${SHARD_VERSION}"
 tarantoolctl rocks install avro-schema "${AVRO_SCHEMA}"
+tarantoolctl rocks install vshard "${VSHARD_VERSION}"
 
 sudo luarocks install luacheck
 sudo pip install virtualenv

@@ -380,7 +380,7 @@ end
 ---   replica set
 ---
 --- @treturn cdata/table `tuple`
-local function update_tuple(self, collection_name, key, statements, opts)
+local function update_tuple(self, collection_name, key, _, statements, opts)
     local func_name = 'accessor_shard.update_tuple'
     check(self, 'self', 'table')
 
@@ -431,7 +431,8 @@ local function update_tuple(self, collection_name, key, statements, opts)
         local old_tuple = opts.tuple or get_tuple(self, collection_name, key)
         local new_tuple = old_tuple:update(statements)
         self.funcs.insert_tuple(self, collection_name, new_tuple)
-        self.funcs.delete_tuple(self, collection_name, key, {tuple = old_tuple})
+        self.funcs.delete_tuple(self, collection_name, key, nil,
+            {tuple = old_tuple})
         return new_tuple
     else
         -- one storage case
@@ -458,7 +459,7 @@ end
 --- * tuple (cdata/table, optional); the same as in @{update_tuple}
 ---
 --- @treturn cdata tuple
-local function delete_tuple(self, collection_name, key, opts)
+local function delete_tuple(self, collection_name, key, _, opts)
     local func_name = 'accessor_shard.delete_tuple'
     check(self, 'self', 'table')
 

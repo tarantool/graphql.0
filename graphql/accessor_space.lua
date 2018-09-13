@@ -164,7 +164,7 @@ end
 --- * tuple (ignored in accessor_space)
 ---
 --- @treturn cdata/table `tuple`
-local function update_tuple(self, collection_name, key, statements, opts)
+local function update_tuple(self, collection_name, key, _,statements, opts)
     check(self, 'self', 'table')
     local opts = opts or {}
     check(opts, 'opts', 'table')
@@ -184,7 +184,7 @@ end
 --- * tuple (ignored in accessor_space)
 ---
 --- @treturn cdata tuple
-local function delete_tuple(self, collection_name, key, opts)
+local function delete_tuple(self, collection_name, key, _,opts)
     check(self, 'self', 'table')
     local opts = opts or {}
     check(opts, 'opts', 'table')

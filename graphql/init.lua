@@ -33,6 +33,7 @@
 local accessor_general = require('graphql.accessor_general')
 local accessor_space = require('graphql.accessor_space')
 local accessor_shard = require('graphql.accessor_shard')
+local accessor_vshard = require('graphql.accessor_vshard')
 local impl = require('graphql.impl')
 local error_codes = require('graphql.error_codes')
 local storage = require('graphql.storage')
@@ -57,6 +58,7 @@ graphql.storage = storage
 graphql.accessor_general = accessor_general
 graphql.accessor_space = accessor_space
 graphql.accessor_shard = accessor_shard
+graphql.accessor_vshard = accessor_vshard
 
 -- functions
 graphql.new = impl.new

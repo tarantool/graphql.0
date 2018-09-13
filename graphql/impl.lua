@@ -3,6 +3,7 @@
 
 local accessor_space = require('graphql.accessor_space')
 local accessor_shard = require('graphql.accessor_shard')
+local accessor_vshard = require('graphql.accessor_vshard')
 local accessor_general = require('graphql.accessor_general')
 local parse = require('graphql.core.parse')
 local validate = require('graphql.core.validate')
@@ -247,32 +248,36 @@ end
 --- @treturn table `accessor` created accessor instance
 local function create_default_accessor(cfg)
     check(cfg.accessor, 'cfg.accessor', 'string')
-    assert(cfg.accessor == 'space' or cfg.accessor == 'shard',
-        'accessor_type must be shard or space, got ' .. cfg.accessor)
     check(cfg.service_fields, 'cfg.service_fields', 'table')
     check(cfg.indexes, 'cfg.indexes', 'table')
     check(cfg.collection_use_tomap, 'cfg.collection_use_tomap', 'table', 'nil')
     check(cfg.accessor_funcs, 'cfg.accessor_funcs', 'table', 'nil')
 
+    -- TODO: just pass cfg
     local accessor_cfg = {
         schemas = cfg.schemas,
         collections = cfg.collections,
         service_fields = cfg.service_fields,
         indexes = cfg.indexes,
+        vshard = cfg.vshard,
         collection_use_tomap = cfg.collection_use_tomap,
         resulting_object_cnt_max = cfg.resulting_object_cnt_max,
         fetched_object_cnt_max = cfg.fetched_object_cnt_max,
         timeout_ms = cfg.timeout_ms,
         enable_mutations = cfg.enable_mutations,
+        router = cfg.router,
     }
 
-    if cfg.accessor == 'space' then
-        return accessor_space.new(accessor_cfg, cfg.accessor_funcs)
+    local accessor_builders = {
+        space = accessor_space.new,
+        shard = accessor_shard.new,
+        vshard = accessor_vshard.new,
+    }
+    local accessor_builder = accessor_builders[cfg.accessor]
+    if not accessor_builder then
+        error(('unknown accessor requisted %s').format(cfg.accessor))
     end
-
-    if cfg.accessor == 'shard' then
-        return accessor_shard.new(accessor_cfg, cfg.accessor_funcs)
-    end
+    return accessor_builder(accessor_cfg, cfg.accessor_funcs)
 end
 
 function impl.compile(query, opts)
@@ -359,7 +364,10 @@ end
 --- })
 function impl.new(cfg)
     local cfg = cfg or {}
+    local router = cfg.router
+    cfg.router = nil
     cfg = table.deepcopy(cfg) -- prevent change of user's data
+    cfg.router = router
 
     -- auto config case
     local perform_auto_configuration =

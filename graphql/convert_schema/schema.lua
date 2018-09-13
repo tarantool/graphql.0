@@ -331,6 +331,7 @@ function schema.convert(state, cfg)
         local list_args_avro = gen_arguments.list_args(cfg, collection_name)
         local extra_args_opts = {
             enable_mutations = accessor.settings.enable_mutations,
+            cfg = cfg,
         }
         local extra_args_avro, extra_args_meta = gen_arguments.extra_args(cfg,
             collection_name, extra_args_opts)

@@ -3,7 +3,7 @@ std = {
         'tonumber', 'type', 'assert', 'ipairs', 'math', 'error', 'string',
         'table', 'pairs', 'os', 'select', 'unpack', 'dofile', 'next',
         'getmetatable', 'setmetatable', 'rawget', 'print', 'shard_status',
-        'loadstring', 'arg',
+        'loadstring', 'arg', 'rawset',
     },
     globals = {'package', '_G'}
 }

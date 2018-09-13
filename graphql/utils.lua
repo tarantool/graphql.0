@@ -3,6 +3,7 @@
 local json = require('json')
 local log = require('log')
 local ffi = require('ffi')
+local table_new = require('table.new')
 
 local utils = {}
 
@@ -62,6 +63,21 @@ function utils.is_array(table)
     end
 
     return max >= 0
+end
+
+function utils.merge_arrays(arrays)
+    local size = 0
+    for _, array in pairs(arrays) do
+        assert(type(array) == 'table', 'merge_arrays: Table type expected')
+        size = size + #array
+    end
+    local res = table_new(size , 0)
+    for _, array in pairs(arrays) do
+        for _, item in ipairs(array) do
+            table.insert(res, item)
+        end
+    end
+    return res
 end
 
 --- Creates a table containing fields from all passed tables.

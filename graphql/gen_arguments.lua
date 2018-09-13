@@ -379,10 +379,7 @@ end
 ---        ...
 ---    }
 function gen_arguments.extra_args(db_schema, collection_name, opts)
-    local opts = opts or {}
-    local enable_mutations = opts.enable_mutations or false
-
-    if not enable_mutations then
+    if not opts.enable_mutations then
         return {}, {}
     end
 
@@ -394,6 +391,16 @@ function gen_arguments.extra_args(db_schema, collection_name, opts)
     if schema_insert ~= nil then
         schema_insert.name = collection_name .. '_insert'
         schema_insert.type = 'record*' -- make the record nullable
+        if opts.cfg.vshard then
+            local bucket_id_field =
+                opts.cfg.vshard[collection_name].bucket_id_field
+            for _, field in ipairs(schema_insert.fields) do
+                if field.name == bucket_id_field then
+                    field.type = avro_helpers.make_avro_type_nullable(
+                        field.type, {raise_on_nullable = false})
+                end
+            end
+        end
     end
 
     local schema_update = get_update_argument_type(db_schema, collection_name)

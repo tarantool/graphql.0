@@ -1,5 +1,4 @@
---- Data accessor module that is base for `accessor_space` and
---- `accessor_shard` ones.
+--- Data accessor module that is base for specific accessors.
 ---
 --- It provides basic logic for such space-like data storages and abstracted
 --- away from details from where tuples are arrived into the application.
@@ -60,6 +59,7 @@ local function compile_schemas(schemas, service_fields)
     for name, service_fields_list in pairs(service_fields) do
         assert(type(name) == 'string',
             'service_fields key must be a string, got ' .. type(name))
+
         assert(type(service_fields_list) == 'table',
             'service_fields_list must be a table, got ' ..
             type(service_fields_list))
@@ -975,7 +975,7 @@ local function perform_primary_key_operation(self, collection_name, schema_name,
         end
         -- XXX: we can pass a tuple corresponding the object to update_tuple /
         -- delete_tuple to save one get operation
-        local new_tuple = self.funcs[operation](self, collection_name, key, ...)
+        local new_tuple = self.funcs[operation](self, collection_name, key, object, ...)
         local new_object = self.funcs.unflatten_tuple(self, collection_name,
             new_tuple, {use_tomap = self.collection_use_tomap[collection_name]},
             self.default_unflatten_tuple[schema_name])
@@ -1009,7 +1009,7 @@ end
 --- @treturn table `res` with `request_opts`, `select_state`, `select_opts` and
 --- `args` fields
 local function prepare_select_internal(self, collection_name, from, filter,
-        args, extra)
+        args, extra, parent)
     check(self, 'self', 'table')
     check(collection_name, 'collection_name', 'string')
     check(from, 'from', 'table')
@@ -1028,6 +1028,8 @@ local function prepare_select_internal(self, collection_name, from, filter,
     assert(self.funcs.is_collection_exists(self, collection_name),
         ('cannot find collection "%s"'):format(collection_name))
 
+    -- Preserve an old filter before in gets cut.
+    local raw_filter = filter
     -- search for suitable index
     local full_match, index_name, filter, index_value, pivot = get_index_name(
         self, collection_name, from, filter, args) -- we redefine filter here
@@ -1062,6 +1064,7 @@ local function prepare_select_internal(self, collection_name, from, filter,
     local select_opts = {
         limit = args.limit,
         filter = filter,
+        raw_filter = raw_filter,
         do_filter = not full_match,
         pivot_filter = nil, -- filled later if needed
         collection_name = collection_name,
@@ -1071,6 +1074,10 @@ local function prepare_select_internal(self, collection_name, from, filter,
         pcre = args.pcre,
         resolveField = extra.resolveField,
         is_hidden = extra.is_hidden,
+        parent = parent,
+        args = args,
+        from = from,
+        deadline_clock = qcontext.deadline_clock,
     }
 
     -- assert that connection constraint applied only to objects got from the
@@ -1178,7 +1185,8 @@ local function invoke_select_internal(self, prepared_select)
         iterable = index
     end
 
-    for _, tuple in iterable:pairs(index_value, iterator_opts, out) do
+    for _, tuple in
+            iterable:pairs(index_value, iterator_opts, out, select_opts) do
         local fetches_cnt = out.fetches_cnt or 0
         local fetched_tuples_cnt = out.fetched_tuples_cnt or 0
         local cache_hits_cnt = out.cache_hits_cnt or 0
@@ -1239,7 +1247,8 @@ end
 ---
 --- We can just return the object and omit select_internal() call, because we
 --- forbid any filters/args that could affect the result.
-local function insert_internal(self, collection_name, from, filter, args, extra)
+local function insert_internal(self, collection_name, from, filter, args, extra,
+        parent)
     local object = extra.extra_args.insert
     if object == nil then return nil end
     local err_msg = '"insert" must be the only argument when it is present'
@@ -1247,6 +1256,13 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     assert(next(args) == nil, err_msg)
     assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
     check(from, 'from', 'table')
+    local insert_opts = {
+        parent = parent,
+        from = from,
+        filter = filter,
+        args = args,
+        object = object,
+    }
 
     -- convert object -> tuple (set default values from a schema)
     local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
@@ -1257,10 +1273,11 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     local tuple = self.funcs.flatten_object(self, collection_name, object, {
         service_fields_defaults =
             self.service_fields_defaults[schema_name],
-    }, default_flatten_object)
+    }, default_flatten_object, insert_opts)
 
     -- insert tuple & tuple -> object (with default values set before)
-    local new_tuple = self.funcs.insert_tuple(self, collection_name, tuple)
+    local new_tuple = self.funcs.insert_tuple(self, collection_name, tuple,
+        insert_opts)
     local use_tomap = self.collection_use_tomap[collection_name]
     local new_object = self.funcs.unflatten_tuple(self, collection_name,
         new_tuple, {use_tomap = use_tomap},
@@ -1301,9 +1318,12 @@ local function update_internal(self, collection_name, extra, selected)
         service_fields_defaults =
             self.service_fields_defaults[schema_name],
     }, default_xflatten)
+    local op_opts = {
+        xobject = xobject,
+    }
 
     return perform_primary_key_operation(self, collection_name, schema_name,
-        selected, 'update_tuple', statements)
+        selected, 'update_tuple', statements, op_opts)
 end
 
 --- Delete an object.
@@ -1631,6 +1651,7 @@ function accessor_general.new(opts, funcs)
         service_fields = service_fields,
         indexes = indexes,
         models = models,
+        vshard = opts.vshard,
         default_unflatten_tuple =
             default_object_tuple_map_funcs.default_unflatten_tuple,
         default_flatten_object =
@@ -1652,7 +1673,7 @@ function accessor_general.new(opts, funcs)
             select = function(self, parent, collection_name, from,
                     filter, args, extra)
                 local inserted = insert_internal(self, collection_name, from,
-                    filter, args, extra)
+                    filter, args, extra, parent)
                 if inserted ~= nil then return inserted end
 
                 local prepared_select = self:prepare_select(parent,
@@ -1677,7 +1698,7 @@ function accessor_general.new(opts, funcs)
                 init_qcontext(self, extra.qcontext)
 
                 return prepare_select_internal(self, collection_name, from,
-                    filter, args, extra)
+                    filter, args, extra, parent)
             end,
             invoke_select = invoke_select_internal,
             cache_is_supported = function(self)
