@@ -100,6 +100,10 @@ local function cField(...)
   local field = { kind = 'field' }
 
   for i = 1, #tokens do
+    -- key ~= nil => result['selectionSet'] = <...>
+    --            or result['alias'] = <...>
+    -- key == nil => result['arguments'] = <...>
+    --            or result['directives'] = <...>
     local key = tokens[i].kind
     if not key then
       if tokens[i][1].kind == 'argument' then
@@ -145,6 +149,9 @@ local function cOperation(...)
     }
 
     for i = 2, #args do
+      -- key ~= nil => result['selectionSet'] = <...>
+      -- key == nil => result['variableDefinitions'] = <...>
+      --            or result['directives'] = <...>
       local key = args[i].kind
       if not key then
         if args[i][1].kind == 'variableDefinition' then
@@ -316,3 +323,5 @@ return function(str)
   line, lastLinePos = 1, 1
   return graphQL:match(str) or error('Syntax error near line ' .. line, 2)
 end
+
+-- vim: set ts=2 sw=2 et:
