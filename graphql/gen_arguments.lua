@@ -348,7 +348,7 @@ function gen_arguments.list_args(db_schema, collection_name)
     return {
         {name = 'limit', type = 'int*'},
         {name = 'offset', type = offset_type},
-        -- {name = 'filter', type = ...},
+        {name = 'filter', type = 'string*'},
         pcre_field,
     }
 end

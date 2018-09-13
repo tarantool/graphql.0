@@ -309,11 +309,11 @@ end
 
 --- Compare pattern with a string using pcre.
 ---
---- @param pattern matching pattern
+--- @tparam table pattern matching pattern
 ---
---- @param string  string to match
+--- @tparam string string to match
 ---
---- @return true or false
+--- @treturn boolean true or false
 function utils.regexp(pattern, string)
     local rex, is_pcre2 = utils.optional_require_rex()
     local flags = rex.flags()

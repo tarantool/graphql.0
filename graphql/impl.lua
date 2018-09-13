@@ -14,6 +14,7 @@ local simple_config = require('graphql.simple_config')
 local config_complement = require('graphql.config_complement')
 local server = require('graphql.server.server')
 local convert_schema = require('graphql.convert_schema')
+local extend_ast = require('graphql.extend_ast')
 
 local utils = require('graphql.utils')
 local check = utils.check
@@ -51,6 +52,7 @@ local function gql_execute(qstate, variables, operation_name)
 
     local qcontext = {
         query_settings = qstate.query_settings,
+        variables = variables,
     }
 
     local traceback
@@ -187,7 +189,7 @@ local function gql_compile(state, query, opts)
     local opts = opts or {}
 
     local ast = parse(query)
-    validate(state.schema, ast)
+    validate(state.schema, ast, extend_ast.visitors())
 
     local qstate = {
         state = state,

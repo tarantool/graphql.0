@@ -1,11 +1,6 @@
 local lpeg = require('lulpeg')
 local utils = require('graphql.utils')
 
---- NOTE: Functions that worth moving out into other modules:
----       1) Regexp implementation (also lies inside of
----          accessor_general.lua)
----       2) Vararg iterator.
-
 --- TODO:
 ---     1) Validation.
 ---     2) Big numbers.

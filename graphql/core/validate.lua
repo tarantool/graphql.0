@@ -18,7 +18,7 @@ local function getParentField(context, name, count)
   return parent.fields[name]
 end
 
-local visitors = {
+local defaultVisitors = {
   -- <document>
   --
   -- {
@@ -467,7 +467,7 @@ local visitors = {
   }
 }
 
-return function(schema, tree)
+return function(schema, tree, extraVisitors)
   local context = {
     schema = schema,
     fragmentMap = {},
@@ -476,41 +476,67 @@ return function(schema, tree)
     usedFragments = {},
     objects = {},
     currentOperation = nil,
-    variableReferences = nil
+    variableReferences = nil,
+    skipVariableUseCheck = {}, -- operation name -> boolean
   }
 
   local function visit(node)
-    local visitor = node.kind and visitors[node.kind]
+    local visitors = {}
+    visitors[#visitors + 1] = node.kind and defaultVisitors[node.kind]
+    visitors[#visitors + 1] = node.kind and extraVisitors[node.kind]
 
-    if not visitor then return end
+    local enterList = {}
+    local ruleList = {}
+    local childrenList = {}
+    local exitRuleList = {}
+    local exitList = {}
 
-    if visitor.enter then
-      visitor.enter(node, context)
-    end
+    -- collect visitors methods
+    for _, visitor in ipairs(visitors) do
+      enterList[#enterList + 1] = visitor.enter
 
-    if visitor.rules then
-      for i = 1, #visitor.rules do
-        visitor.rules[i](node, context)
+      if visitor.rules then
+        for _, rule in ipairs(visitor.rules) do
+          ruleList[#ruleList + 1] = rule
+        end
       end
+
+      childrenList[#childrenList + 1] = visitor.children
+
+      if visitor.rules and visitor.rules.exit then
+        for _, exitRule in ipairs(visitor.rules.exit) do
+          exitRuleList[#exitRuleList + 1] = exitRule
+        end
+      end
+
+      exitList[#exitList + 1] = visitor.exit
     end
 
-    if visitor.children then
-      local children = visitor.children(node)
-      if children then
-        for _, child in ipairs(children) do
+    -- invoke visitors methods
+
+    for _, enter in ipairs(enterList) do
+      enter(node, context)
+    end
+
+    for _, rule in ipairs(ruleList) do
+      rule(node, context)
+    end
+
+    for _, children in ipairs(childrenList) do
+      local childs = children(node)
+      if childs then
+        for _, child in ipairs(childs) do
           visit(child)
         end
       end
     end
 
-    if visitor.rules and visitor.rules.exit then
-      for i = 1, #visitor.rules.exit do
-        visitor.rules.exit[i](node, context)
-      end
+    for _, exitRule in ipairs(exitRuleList) do
+      exitRule(node, context)
     end
 
-    if visitor.exit then
-      visitor.exit(node, context)
+    for _, exit in ipairs(exitList) do
+      exit(node, context)
     end
   end
 
