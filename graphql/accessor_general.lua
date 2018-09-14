@@ -9,12 +9,12 @@ local json = require('json')
 local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 local clock = require('clock')
-local bit = require('bit')
-local rex, is_pcre2 = utils.optional_require_rex()
+local rex = utils.optional_require_rex()
 local avro_helpers = require('graphql.avro_helpers')
 local db_schema_helpers = require('graphql.db_schema_helpers')
 local error_codes = require('graphql.error_codes')
 local statistics = require('graphql.statistics')
+local expressions = require('graphql.expressions')
 
 local check = utils.check
 local e = error_codes
@@ -763,16 +763,16 @@ local function validate_collections(collections, schemas)
     end
 end
 
---- Whether an object match set of PCRE.
----
---- @tparam table obj an object to check
+--- Whether an object match set of PCREs.
 ---
 --- @tparam table pcre map with PCRE as values; names are correspond to field
 --- names of the `obj` to match
 ---
+--- @tparam table obj an object to check
+---
 --- @treturn boolean `res` whether the `obj` object match `pcre` set of
 --- regexps.
-local function match_using_re(obj, pcre)
+local function match_using_re(pcre, obj)
     if pcre == nil then return true end
 
     assert(rex ~= nil, 'we should not pass over :compile() ' ..
@@ -785,36 +785,32 @@ local function match_using_re(obj, pcre)
             return false
         end
         if type(re) == 'table' then
-            local match = match_using_re(obj[field_name], re)
+            local match = match_using_re(re, obj[field_name])
             if not match then return false end
-        else
-            local flags = rex.flags()
-            -- emulate behaviour of (?i) on libpcre (libpcre2 supports it)
-            local cfg = 0
-            if not is_pcre2 then
-                local cnt
-                re, cnt = re:gsub('^%(%?i%)', '')
-                if cnt > 0 then
-                    cfg = bit.bor(cfg, flags.CASELESS)
-                end
-            end
-            -- enable UTF-8
-            if is_pcre2 then
-                cfg = bit.bor(cfg, flags.UTF)
-                cfg = bit.bor(cfg, flags.UCP)
-            else
-                cfg = bit.bor(cfg, flags.UTF8)
-                cfg = bit.bor(cfg, flags.UCP)
-            end
-            -- XXX: compile re once
-            local re = rex.new(re, cfg)
-            if not re:match(obj[field_name]) then
-                return false
-            end
+        elseif not utils.regexp(re, obj[field_name]) then
+            return false
         end
     end
 
     return true
+end
+
+--- Whether an object match an expression.
+---
+--- @param expr (table or string) compiled or raw expression
+---
+--- @tparam table obj an object to check
+---
+--- @tparam[opt] table variables variables values from the request
+---
+--- @treturn boolean `res` whether the `obj` object match `expr` expression
+local function match_using_expr(expr, obj, variables)
+    if expr == nil then return true end
+
+    check(expr, 'expression', 'table')
+    local res = expr:execute(obj, variables)
+    check(res, 'expression result', 'boolean')
+    return res
 end
 
 --- Check whether we meet deadline time.
@@ -857,6 +853,7 @@ end
 --- * `pivot_filter` (table, set of fields to match the objected pointed by
 ---   `offset` arqument of the GraphQL query),
 --- * `resolveField` (function) for subrequests, see @{impl.new}.
+--- * XXX: describe other fields.
 ---
 --- @return nil
 ---
@@ -887,7 +884,9 @@ local function process_tuple(self, state, tuple, opts)
 
     local collection_name = opts.collection_name
     local pcre = opts.pcre
+    local expr = opts.expr
     local resolveField = opts.resolveField
+    local variables = qcontext.variables
 
     -- convert tuple -> object
     local obj = opts.unflatten_tuple(self, collection_name, tuple,
@@ -918,7 +917,7 @@ local function process_tuple(self, state, tuple, opts)
 
     -- filter out non-matching objects
     local match = utils.is_subtable(obj, truncated_filter) and
-        match_using_re(obj, pcre)
+        match_using_re(pcre, obj) and match_using_expr(expr, obj, variables)
     if do_filter then
         if not match then return true end
     else
@@ -1058,6 +1057,13 @@ local function prepare_select_internal(self, collection_name, from, filter,
         qcontext = qcontext
     }
 
+    -- compile an expression argument if provided and did not compiled yet
+    local expr = args.filter
+    check(expr, 'expression', 'table', 'string', 'nil')
+    if type(expr) == 'string' then
+        expr = expressions.new(expr)
+    end
+
     -- read only process_tuple options
     local select_opts = {
         limit = args.limit,
@@ -1069,6 +1075,7 @@ local function prepare_select_internal(self, collection_name, from, filter,
         use_tomap = self.collection_use_tomap[collection_name] or false,
         default_unflatten_tuple = default_unflatten_tuple,
         pcre = args.pcre,
+        expr = expr,
         resolveField = extra.resolveField,
         is_hidden = extra.is_hidden,
     }

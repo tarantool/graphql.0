@@ -92,6 +92,11 @@ function util.coerceValue(node, schemaType, variables, opts)
     return nil
   end
 
+  -- handle precompiled values
+  if node.compiled ~= nil then
+    return node.compiled
+  end
+
   if node.kind == 'variable' then
     return variables[node.name.value]
   end
