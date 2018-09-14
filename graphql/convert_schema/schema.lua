@@ -1,5 +1,6 @@
 --- Convert extended avro-schema (collections) to GraphQL schema.
 
+local log = require('log')
 local core_types = require('graphql.core.types')
 local core_schema = require('graphql.core.schema')
 local gen_arguments = require('graphql.gen_arguments')
@@ -357,6 +358,17 @@ function schema.convert(state, cfg)
     for collection_name, collection in pairs(state.collections) do
         local object_args = state.object_arguments[collection_name]
         local list_args = state.list_arguments[collection_name]
+
+        -- check for names clash
+        for name, _ in pairs(list_args) do
+            if object_args[name] ~= nil then
+                local err = ('the argument "%s" generated from the same ' ..
+                    'named field of the collection "%s" is superseded with ' ..
+                    'the list filtering argument "%s"'):format(name,
+                    collection_name, name)
+                log.warn(err)
+            end
+        end
 
         local args = utils.merge_tables(object_args, list_args)
         state.all_arguments[collection_name] = args
