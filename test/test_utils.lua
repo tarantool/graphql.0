@@ -117,6 +117,10 @@ function test_utils.graphql_from_testdata(testdata, shard, graphql_opts)
     return gql_wrapper
 end
 
+function test_utils.get_conf_name()
+    return test_run and test_run:get_cfg('conf') or 'space'
+end
+
 function test_utils.run_testdata(testdata, opts)
     local opts = opts or {}
     local run_queries = opts.run_queries or testdata.run_queries

@@ -210,6 +210,35 @@ local function get_best_matched_index(node, filter)
     return index_name, max_branch_len
 end
 
+--- Whether list arguments can reduce resulting objects set.
+---
+--- The idea is the following: 'limit', empty 'pcre' and indexed 'offset'
+--- arguments don't reduce the set of resulting objects, so should not prevent
+--- us from setting full_match variable. Hovewer if other arguments are present
+--- we should set full_match to false.
+---
+--- Note: we don't distinguish indexed (fast) and non-indexed (slow) offset
+--- cases here, so a caller should handle that itself.
+---
+--- Note: extra_args now have mutation related arguments and nothing related to
+--- selecting objects, so here we don't pay attention whether any extra
+--- arguments provided or not. If this will be changed in the future, this
+--- function should get extra_args as the argument and analyze it too.
+---
+--- @tparam table args list arguments
+---
+--- @treturn boolean
+local function are_list_args_can_reduce_result(args)
+    for k, v in pairs(args) do
+        if k ~= 'limit' and k ~= 'pcre' and k ~= 'offset' then
+            return true
+        elseif k == 'pcre' and next(v) ~= nil then
+            return true
+        end
+    end
+    return false
+end
+
 -- XXX: raw idea: we can store field-to-field_no mapping when creating
 -- `lookup_index_name` to faster form the value_list
 
@@ -369,12 +398,12 @@ local function get_index_name(self, collection_name, from, filter, args)
         local connection_index =
             connection_indexes[collection_name][from.connection_name]
         local index_name = connection_index.index_name
-        local connection_type = connection_index.connection_type
         assert(index_name ~= nil, 'index_name must not be nil')
-        assert(connection_type ~= nil, 'connection_type must not be nil')
-        local full_match = connection_type == '1:1' and next(filter) == nil
+        -- offset in this case uses frontend filtering, so we should not set
+        -- full_match if it is passed
+        local full_match = next(filter) == nil and
+            not are_list_args_can_reduce_result(args) and args.offset == nil
         local value_list = from.destination_args_values
-        local new_filter = filter
 
         local pivot
         if args.offset ~= nil then
@@ -396,32 +425,33 @@ local function get_index_name(self, collection_name, from, filter, args)
             pivot = {filter = pivot_filter}
         end
 
-        return full_match, index_name, new_filter, value_list, pivot
+        return full_match, index_name, filter, value_list, pivot
     end
 
     -- The 'fast offset' case. Here we fetch top-level objects starting from
     -- passed offset. Select will be performed by the primary index and
     -- corresponding offset in `pivot.value_list`, then the result will be
-    -- postprocessed using `new_filter`, if necessary.
+    -- postprocessed using `filter`, if necessary.
     if args.offset ~= nil then
         local index_name, index_meta = db_schema_helpers.get_primary_index_meta(
             self, collection_name)
-        local full_match
         local pivot_value_list
-        local new_filter = filter
         if type(args.offset) == 'table' then
-            full_match, pivot_value_list, new_filter = flatten_filter(self,
+            local offset_full_match
+            offset_full_match, pivot_value_list = flatten_filter(self,
                 args.offset, collection_name, index_name)
-            assert(full_match == true, 'offset by a partial key is forbidden')
+            assert(offset_full_match == true,
+                'offset by a partial key is forbidden')
         else
             assert(#index_meta.fields == 1,
                 ('index parts count is not 1 for scalar offset: ' ..
                 'index "%s"'):format(index_name))
-            full_match, pivot_value_list = true, {args.offset}
+            pivot_value_list = {args.offset}
         end
         local pivot = {value_list = pivot_value_list}
-        full_match = full_match and next(filter) == nil
-        return full_match, index_name, new_filter, nil, pivot
+        local full_match = next(filter) == nil and
+            not are_list_args_can_reduce_result(args)
+        return full_match, index_name, filter, nil, pivot
     end
 
     -- The 'no offset' case. Here we fetch top-level object either by found
@@ -432,7 +462,6 @@ local function get_index_name(self, collection_name, from, filter, args)
     assert(lookup_index_name[collection_name] ~= nil,
         ('cannot find any index for collection "%s"'):format(collection_name))
     local index_name = lookup_index_name[collection_name][name_list_str]
-    local full_match = false
     local value_list = nil
     local new_filter = filter
 
@@ -442,11 +471,17 @@ local function get_index_name(self, collection_name, from, filter, args)
         index_name = get_best_matched_index(root, filter)
     end
 
-    -- fill full_match and value_list appropriatelly
+    -- fill value_list and new_filter appropriatelly
     if index_name ~= nil then
-        full_match, value_list, new_filter = flatten_filter(self, filter,
+        -- it does not matter for 'full_match' whether we use full or partial
+        -- index key
+        local _
+        _, value_list, new_filter = flatten_filter(self, filter,
             collection_name, index_name)
     end
+
+    local full_match = next(new_filter) == nil and
+        not are_list_args_can_reduce_result(args)
 
     return full_match, index_name, new_filter, value_list
 end
@@ -1075,6 +1110,16 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             pivot.filter ~= nil), err)
     end
 
+    local iterator_opts = {}
+
+    -- It is safe to pass limit down to the iterator when we do not filter
+    -- objects after fetching. We do not lean on assumption that an iterator
+    -- respects passed limit, so it is free (but unlikely is optimal) for an
+    -- accessor to ignore it.
+    if full_match and args.limit ~= nil then
+        iterator_opts.limit = args.limit
+    end
+
     if index == nil then
         -- fullscan
         local primary_index = self.funcs.get_primary_index(self,
@@ -1094,8 +1139,6 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             if not continue then break end
         end
     else
-        -- select by index
-        local iterator_opts = {}
         if pivot ~= nil then
             -- handle case when there is pivot item (offset was passed)
             if pivot.value_list ~= nil then
@@ -1114,16 +1157,6 @@ local function select_internal(self, collection_name, from, filter, args, extra)
             else
                 error('unexpected value of pivot: ' .. json.encode(pivot))
             end
-        end
-
-        -- It is safe to pass limit down to the iterator when we do not filter
-        -- objects after fetching. We do not lean on assumption that an
-        -- iterator respects passed limit.
-        -- Note: accessor_space does not support limit args (we need to wrap
-        -- index:pairs() for that), but accessor_shard does (because calls
-        -- index:select() under hood)
-        if full_match and args.limit ~= nil then
-            iterator_opts.limit = args.limit
         end
 
         local tuple_count = 0
