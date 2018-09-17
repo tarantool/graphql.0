@@ -515,6 +515,12 @@ local function isVariableTypesValid(argument, argumentType, context,
     -- found a variable, check types compatibility
     local variableName = argument.value.name.value
     local variableDefinition = variableMap[variableName]
+
+    if variableDefinition == nil then
+      -- The same error as in rules.variablesAreDefined().
+      error('Unknown variable "' .. variableName .. '"')
+    end
+
     local hasDefault = variableDefinition.defaultValue ~= nil
 
     local variableType = query_util.typeFromAST(variableDefinition.type,
