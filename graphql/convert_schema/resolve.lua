@@ -285,6 +285,7 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
             parts = v.parts,
             name = c.name,
             destination_collection = v.destination_collection,
+            index_name = v.index_name,
         }
         local gen_opts = {
             disable_dangling_check = disable_dangling_check,
