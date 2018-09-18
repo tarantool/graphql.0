@@ -32,7 +32,29 @@ end
 --- @return index or nil
 local function get_index(self, collection_name, index_name)
     check(self, 'self', 'table')
-    return box.space[collection_name].index[index_name]
+    local index = box.space[collection_name].index[index_name]
+    if index == nil then
+        return nil
+    end
+    return setmetatable({}, {
+        __index = {
+            pairs = function(_, value, opts)
+                local count = 0
+                local gen, param, state = index:pairs(value, opts)
+                local function new_gen(param, state)
+                    if opts.limit ~= nil and count >= opts.limit then
+                        return nil, nil
+                    end
+                    local new_state, tuple = gen(param, state)
+                    if tuple ~= nil then
+                        count = count + 1
+                    end
+                    return new_state, tuple
+                end
+                return new_gen, param, state
+            end
+        }
+    })
 end
 
 --- Get primary index to perform `:pairs()` (fullscan).
@@ -44,7 +66,7 @@ end
 --- @return index or nil
 local function get_primary_index(self, collection_name)
     check(self, 'self', 'table')
-    return box.space[collection_name].index[0]
+    return self.funcs.get_index(self, collection_name, 0)
 end
 
 --- Convert a tuple to an object.

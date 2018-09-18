@@ -1131,12 +1131,20 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         qcontext.statistics.full_scan_select_requests_cnt =
             qcontext.statistics.full_scan_select_requests_cnt + 1
 
-        for _, tuple in primary_index:pairs() do
-            assert(pivot == nil,
-                'offset for top-level objects must use a primary index')
-            local continue = process_tuple(self, select_state, tuple,
-                select_opts)
-            if not continue then break end
+        local do_continue = true
+        for _, tuple in primary_index:pairs(nil, iterator_opts) do
+            if do_continue then
+                assert(pivot == nil,
+                    'offset for top-level objects must use a primary index')
+                local continue = process_tuple(self, select_state, tuple,
+                    select_opts)
+                if not continue then
+                    do_continue = false
+                end
+            else
+                qcontext.statistics.fetched_object_cnt =
+                    qcontext.statistics.fetched_object_cnt + 1
+            end
         end
     else
         if pivot ~= nil then
@@ -1167,17 +1175,25 @@ local function select_internal(self, collection_name, from, filter, args, extra)
         qcontext.statistics.index_select_requests_cnt =
             qcontext.statistics.index_select_requests_cnt + 1
 
+        local do_continue = true
         for _, tuple in index:pairs(index_value, iterator_opts) do
-            tuple_count = tuple_count + 1
-            -- check full match constraint
-            if extra.exp_tuple_count ~= nil and
-                    tuple_count > extra.exp_tuple_count then
-                error(('FULL MATCH constraint was failed: we got more then ' ..
-                    '%d tuples'):format(extra.exp_tuple_count))
+            if do_continue then
+                tuple_count = tuple_count + 1
+                -- check full match constraint
+                if extra.exp_tuple_count ~= nil and
+                        tuple_count > extra.exp_tuple_count then
+                    error(('FULL MATCH constraint was failed: we got more then ' ..
+                        '%d tuples'):format(extra.exp_tuple_count))
+                end
+                local continue = process_tuple(self, select_state, tuple,
+                    select_opts)
+                if not continue then
+                    do_continue = false
+                end
+            else
+                qcontext.statistics.fetched_object_cnt =
+                    qcontext.statistics.fetched_object_cnt + 1
             end
-            local continue = process_tuple(self, select_state, tuple,
-                select_opts)
-            if not continue then break end
         end
 
         -- check full match constraint
