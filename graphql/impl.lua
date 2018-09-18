@@ -327,6 +327,7 @@ end
 ---             schema_name = 'schema_name_foo',
 ---             connections = { // the optional field
 ---                 {
+---                     type = '1:1' or '1:N',
 ---                     name = 'connection_name_bar',
 ---                     destination_collection = 'collection_baz',
 ---                     parts = {

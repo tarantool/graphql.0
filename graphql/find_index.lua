@@ -496,34 +496,39 @@ local function build_index_parts_tree(indexes)
     return roots
 end
 
-local function set_connection_index(c, c_name, c_type, collection_name,
-                                    indexes, connection_indexes)
-    assert(type(c.index_name) == 'string',
-        'index_name must be a string, got ' .. type(c.index_name))
+--- Validate a connection against index set as underlying.
+---
+--- @tparam table connection
+---
+--- @tparam string collection_name
+---
+--- @tparam table indexes
+---
+--- @treturn nothing
+local function validate_connection_vs_index(connection, collection_name, indexes)
+    check(connection, 'connection', 'table')
+    check(collection_name, 'collection_name', 'string')
+    check(indexes, 'indexes', 'table')
+
+    local c = connection
+
+    check(c.index_name, 'index_name', 'string')
 
     -- validate index_name against 'indexes'
     local index_meta = indexes[c.destination_collection]
-    assert(type(index_meta) == 'table',
-        'index_meta must be a table, got ' .. type(index_meta))
-
-    assert(type(collection_name) == 'string', 'collection_name expected to ' ..
-        'be string, got ' .. type(collection_name))
+    check(index_meta, 'index_meta', 'table')
 
     -- validate connection parts are match or being prefix of index
     -- fields
     local i = 1
     local index_fields = index_meta[c.index_name].fields
     for _, part in ipairs(c.parts) do
-        assert(type(part.source_field) == 'string',
-            'part.source_field must be a string, got ' ..
-            type(part.source_field))
-        assert(type(part.destination_field) == 'string',
-            'part.destination_field must be a string, got ' ..
-            type(part.destination_field))
+        check(part.source_field, 'part.source_field', 'string')
+        check(part.destination_field, 'part.destination_field', 'string')
         assert(part.destination_field == index_fields[i],
             ('connection "%s" of collection "%s" has destination parts that ' ..
             'is not prefix of the index "%s" parts ' ..
-            '(destination collection - "%s")'):format(c_name, collection_name,
+            '(destination collection - "%s")'):format(c.name, collection_name,
             c.index_name, c.destination_collection))
         i = i + 1
     end
@@ -531,24 +536,19 @@ local function set_connection_index(c, c_name, c_type, collection_name,
 
     -- partial index of an unique index is not guaranteed to being
     -- unique
-    assert(c_type == '1:N' or parts_cnt == #index_fields,
+    assert(c.type == '1:N' or parts_cnt == #index_fields,
         ('1:1 connection "%s" of collection "%s" ' ..
         'has less fields than the index of "%s" collection ' ..
-        '(cannot prove uniqueness of the partial index)'):format(c_name,
+        '(cannot prove uniqueness of the partial index)'):format(c.name,
         collection_name, c.index_name, c.destination_collection))
 
     -- validate connection type against index uniqueness (if provided)
     if index_meta.unique ~= nil then
-        assert(c_type == '1:N' or index_meta.unique == true,
+        assert(c.type == '1:N' or index_meta.unique == true,
             ('1:1 connection ("%s") cannot be implemented ' ..
             'on top of non-unique index ("%s")'):format(
-            c_name, c.index_name))
+            c.name, c.index_name))
     end
-
-    return {
-        index_name = c.index_name,
-        connection_type = c_type,
-    }
 end
 
 --- Build `connection_indexes` table (part of `index_cache`) to use in the
@@ -568,21 +568,28 @@ end
 ---
 --- @treturn table `connection_indexes`
 local function build_connection_indexes(indexes, collections)
-    assert(type(indexes) == 'table', 'indexes must be a table, got ' ..
-        type(indexes))
-    assert(type(collections) == 'table', 'collections must be a table, got ' ..
-        type(collections))
+    check(indexes, 'indexes', 'table')
+    check(collections, 'collections', 'table')
     local connection_indexes = {}
     for collection_name, collection in pairs(collections) do
         for _, c in ipairs(collection.connections) do
+            local ok = (c.destination_collection ~= nil and c.variants == nil)
+                or (c.destination_collection == nil and c.variants ~= nil)
+            if not ok then
+                error(('wrong connection format: either ' ..
+                    '"destination_collection" or "variants" should be ' ..
+                    'present, but not both: %s'):format(json.encode(c)))
+            end
+
             if c.destination_collection ~= nil then
                 if connection_indexes[c.destination_collection] == nil then
                     connection_indexes[c.destination_collection] = {}
                 end
-
-                connection_indexes[c.destination_collection][c.name] =
-                set_connection_index(c, c.name, c.type, collection_name,
-                    indexes, connection_indexes)
+                validate_connection_vs_index(c, collection_name, indexes)
+                connection_indexes[c.destination_collection][c.name] = {
+                    index_name = c.index_name,
+                    connection_type = c.type,
+                }
             end
 
             if c.variants ~= nil then
@@ -590,9 +597,19 @@ local function build_connection_indexes(indexes, collections)
                     if connection_indexes[v.destination_collection] == nil then
                         connection_indexes[v.destination_collection] = {}
                     end
-                    connection_indexes[v.destination_collection][c.name] =
-                        set_connection_index(v, c.name, c.type, collection_name,
-                            indexes, connection_indexes)
+                    local quazi_connection = {
+                        type = c.type,
+                        parts = v.parts,
+                        name = c.name,
+                        destination_collection = v.destination_collection,
+                        index_name = v.index_name,
+                    }
+                    validate_connection_vs_index(quazi_connection,
+                        collection_name, indexes)
+                    connection_indexes[v.destination_collection][c.name] = {
+                        index_name = v.index_name,
+                        connection_type = c.type,
+                    }
                 end
             end
         end
