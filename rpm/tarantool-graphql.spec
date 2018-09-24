@@ -30,7 +30,7 @@ BuildRequires: tarantool-http
 
 # Dependencies for a user
 Requires: tarantool >= 1.9.0.0
-Requires: tarantool-lulpeg
+Requires: tarantool-lulpeg = 0.1
 Requires: tarantool-avro-schema >= 2.0.71
 #Suggests: tarantool-shard >= 1.1.91
 #Suggests: tarantool-lrexlib-pcre2
