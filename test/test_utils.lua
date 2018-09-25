@@ -83,7 +83,9 @@ function test_utils.flatten_object(meta, collection_name, object,
             'stack: ' .. json.encode(debug.traceback()),
             'object: ' .. json.encode(object),
         }
-        error(table.concat(errmsg, '\n'))
+        local io = require('io')
+        io.stderr:write(table.concat(errmsg, '\n'))
+        error(tostring(tuple))
     end
     return tuple
 end
