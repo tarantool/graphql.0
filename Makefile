@@ -28,7 +28,7 @@ test: lint
 	. ./.env-2.7/bin/activate && \
 		pip install -r ./test-run/requirements.txt && \
 		pip install tarantool && \
-		cd test && ./test-run.py
+		cd test && ./test-run.py common common common common common
 
 .PHONY: bench
 bench: lint

@@ -54,6 +54,12 @@ Set of adapters for GraphQL query language to the Tarantool data model
 cp -R . /build/graphql
 cd /build/graphql
 make test
+make test
+make test
+make test
+make test
+make test
+make test
 
 %install
 mkdir -p %{br_module_dir}
