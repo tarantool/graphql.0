@@ -250,130 +250,101 @@ local function execute_node(node, context)
     if node.kind == 'const' then
         if node.value_class == 'string' then
             return node.value
-        end
-
-        if node.value_class == 'bool' then
+        elseif node.value_class == 'bool' then
             if node.value == 'false' then
                 return false
+            elseif node.value == 'true' then
+                return true
+            else
+                error('Unknown boolean node value: ' .. tostring(node.value))
             end
-            return true
-        end
-
-        if node.value_class == 'number' then
+        elseif node.value_class == 'number' then
             return tonumber(node.value)
+        else
+            error('Unknown const class: ' .. tostring(node.value_class))
         end
-    end
-
-    if node.kind == 'variable' then
+    elseif node.kind == 'variable' then
         local name = node.name
         return context.variables[name]
-    end
-
-    if node.kind == 'object_field' then
+    elseif node.kind == 'object_field' then
         local path = node.path
         local field = context.object
-        local table_path = (path:split('.'))
+        local table_path = path:split('.')
         for i = 1, #table_path do
             field = field[table_path[i]]
         end
         return field
-    end
-
-    if node.kind == 'func' then
+    elseif node.kind == 'func' then
         -- regexp() implementation.
         if node.name == 'regexp' then
             return utils.regexp(execute_node(node.args[1], context),
                                 execute_node(node.args[2], context))
-        end
-
         -- is_null() implementation.
-        if node.name == 'is_null' then
+        elseif node.name == 'is_null' then
             return execute_node(node.args[1], context) == nil
-        end
-
         -- is_not_null() implementation.
-        if node.name == 'is_not_null' then
+        elseif node.name == 'is_not_null' then
             return execute_node(node.args[1], context) ~= nil
+        else
+            error('Unknown func name: ' .. tostring(node.name))
         end
-    end
-
-    if node.kind == 'unary_operation' then
+    elseif node.kind == 'unary_operation' then
         -- Negation.
         if node.op == '!' then
             return not execute_node(node.node, context)
-        end
-
         -- Unary '+'.
-        if node.op == '+' then
+        elseif node.op == '+' then
             return execute_node(node.node, context)
-        end
-
         -- Unary '-'.
-        if node.op == '-' then
+        elseif node.op == '-' then
             return -execute_node(node.node, context)
+        else
+            error('Unknown unary operation: ' .. tostring(node.op))
         end
-    end
-
-    if node.kind == 'binary_operations' then
-        local prev = execute_node(node.operands[1], context)
+    elseif node.kind == 'binary_operations' then
+        local acc = execute_node(node.operands[1], context)
         for i, op in ipairs(node.operators) do
-            local second_operand = execute_node(node.operands[i + 1],
-                                                context)
+            local right = execute_node(node.operands[i + 1], context)
+
             -- Sum.
             if op == '+' then
-                prev = sum(prev, second_operand)
-            end
-
+                acc = sum(acc, right)
             -- Subtraction.
-            if op == '-' then
-                prev = subtract(prev, second_operand)
-            end
-
+            elseif op == '-' then
+                acc = subtract(acc, right)
             -- Logical and.
-            if op == '&&' then
-                prev = prev and second_operand
-            end
-
+            elseif op == '&&' then
+                acc = acc and right
             -- Logical or.
-            if op == '||' then
-                prev = prev or second_operand
-            end
-
+            elseif op == '||' then
+                acc = acc or right
             -- Equal.
-            if op == '==' then
-                prev = prev == second_operand
-            end
-
+            elseif op == '==' then
+                acc = acc == right
             -- Not equal.
-            if op == '!=' then
-                prev = prev ~= second_operand
-            end
-
+            elseif op == '!=' then
+                acc = acc ~= right
             -- Greater than.
-            if op == '>' then
-                prev = prev > second_operand
-            end
-
+            elseif op == '>' then
+                acc = acc > right
             -- Greater or equal.
-            if op == '>=' then
-                prev = prev >= second_operand
-            end
-
+            elseif op == '>=' then
+                acc = acc >= right
             -- Lower than.
-            if op == '<' then
-                prev = prev < second_operand
-            end
-
+            elseif op == '<' then
+                acc = acc < right
             -- Lower or equal.
-            if op == '<=' then
-                prev = prev <= second_operand
+            elseif op == '<=' then
+                acc = acc <= right
+            else
+                error('Unknown binary operation: ' .. tostring(op))
             end
         end
-        return prev
-    end
-
-    if node.kind == 'root_expression' then
+        return acc
+    elseif node.kind == 'root_expression' then
         return execute_node(node.expr, context)
+    else
+        error('Unknown node kind: ' .. tostring(node.kind))
     end
 end
 
