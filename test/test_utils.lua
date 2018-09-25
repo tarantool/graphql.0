@@ -77,10 +77,11 @@ function test_utils.flatten_object(meta, collection_name, object,
     local model = get_model(meta, collection_name)
     local ok, tuple = model.flatten(object, unpack(service_field_values or {}))
     if not ok then
+        local json = require('json')
         local errmsg = {
             'tuple: ' .. tostring(tuple),
-            'stack: ' .. yaml.encode(debug.traceback()),
-            'object: ' .. yaml.encode(object),
+            'stack: ' .. json.encode(debug.traceback()),
+            'object: ' .. json.encode(object),
         }
         error(table.concat(errmsg, '\n'))
     end
