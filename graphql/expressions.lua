@@ -365,8 +365,8 @@ local function execute_node(node, context)
             end
 
             -- Lower or equal.
-            if op == '&&' then
-                prev = prev and second_operand
+            if op == '<=' then
+                prev = prev <= second_operand
             end
         end
         return prev
