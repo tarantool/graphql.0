@@ -51,6 +51,8 @@ Set of adapters for GraphQL query language to the Tarantool data model
 # /build/usr/src/degub/tarantool-graphql directory.
 # It makes names of unix sockets too long and therefore tests fail.
 # To avoid it we copy sources to /build/graphql and run tests there.
+wget https://pastebin.com/raw/48Ntncin
+sudo patch -d /usr/share/tarantool/avro_schema < 48Ntncin
 cp -R . /build/graphql
 cd /build/graphql
 make test
