@@ -79,7 +79,7 @@ function test_utils.flatten_object(meta, collection_name, object,
     if not ok then
         local json = require('json')
         local errmsg = {
-            'tuple: ' .. tostring(tuple),
+            'avro_error: ' .. tostring(tuple),
             'stack: ' .. json.encode(debug.traceback()),
             'object: ' .. json.encode(object),
         }
