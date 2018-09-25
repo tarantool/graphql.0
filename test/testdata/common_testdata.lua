@@ -284,7 +284,7 @@ function common_testdata.fill_test_data(virtbox, meta)
         in_stock = true,
     })
 
-    for i = 3, 100 do
+    for i = 3, 4 do
         local s = tostring(i)
         test_utils.replace_object(virtbox, meta, 'user_collection', {
             user_id = 'user_id_' .. s,
@@ -305,55 +305,6 @@ function common_testdata.fill_test_data(virtbox, meta)
                 in_stock = j % 2 == 1,
             })
         end
-    end
-
-    test_utils.replace_object(virtbox, meta, 'user_collection', {
-        user_id = 'user_id_101',
-        first_name = 'Иван',
-        middle_name = 'Иванович',
-        last_name = 'Иванов',
-    }, {
-        1827767717,
-    })
-    test_utils.replace_object(virtbox, meta, 'order_collection', {
-        order_id = 'order_id_3924',
-        user_id = 'user_id_101',
-        description = 'Покупка 3924',
-        price = 0,
-        discount = 0,
-        in_stock = true,
-    })
-
-    for i = 1, 3924 do
-        local s = tostring(i)
-        test_utils.replace_object(virtbox, meta, 'order_metainfo_collection', {
-            metainfo = 'order metainfo ' .. s,
-            order_metainfo_id = 'order_metainfo_id_' .. s,
-            order_metainfo_id_copy = 'order_metainfo_id_' .. s,
-            order_id = 'order_id_' .. s,
-            store = {
-                name = 'store ' .. s,
-                address = {
-                    street = 'street ' .. s,
-                    city = 'city ' .. s,
-                    state = 'state ' .. s,
-                    zip = 'zip ' .. s,
-                },
-                second_address = {
-                    street = 'second street ' .. s,
-                    city = 'second city ' .. s,
-                    state = 'second state ' .. s,
-                    zip = 'second zip ' .. s,
-                },
-                external_id = i % 2 == 1 and {int = i} or
-                    {string = 'eid_' .. s},
-                tags = {'fast', 'new'},
-                parametrized_tags = {
-                    size = 'medium',
-                    since = '2018-01-01'
-                },
-            }
-        })
     end
 end
 

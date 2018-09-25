@@ -22,14 +22,6 @@ env:
       - OS=el DIST=7 EXT=1
       - OS=fedora DIST=26 EXT=1
       - OS=fedora DIST=27 EXT=1
-      - OS=el DIST=6 EXT=2
-      - OS=el DIST=7 EXT=2
-      - OS=fedora DIST=26 EXT=2
-      - OS=fedora DIST=27 EXT=2
-      - SHARD_VERSION=1.2 AVRO_SCHEMA=2.3.2
-      - SHARD_VERSION=2.1 AVRO_SCHEMA=2.3.2
-      - SHARD_VERSION=1.2 AVRO_SCHEMA=3.0.0
-      - SHARD_VERSION=2.1 AVRO_SCHEMA=3.0.0
 
 script:
   - git describe --long

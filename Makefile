@@ -28,7 +28,7 @@ test: lint
 	. ./.env-2.7/bin/activate && \
 		pip install -r ./test-run/requirements.txt && \
 		pip install tarantool && \
-		cd test && ./test-run.py
+		cd test && ./test-run.py common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua common/directives.test.lua
 
 .PHONY: bench
 bench: lint
