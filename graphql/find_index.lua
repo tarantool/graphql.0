@@ -270,7 +270,7 @@ end
 ---          \             \
 ---           \             + --> abc ~~> index 2
 ---            \
----             + ------> abc --> efg --> hij ~~ index 3
+---             + ------> abc --> efg --> hij ~~> index 3
 ---                        \
 ---                         + ~~> index 4
 --- ```
@@ -409,7 +409,7 @@ end
 --- In short: O(SIZE(filter)^2 * COUNT(index parts for all indexes)).
 ---
 --- Say we have N fields in filter (N = SIZE(filter), M indexes and K index
---- parts at max ((M * K) and COUNT(index parts for all indexes) both are are
+--- parts at max ((M * K) and COUNT(index parts for all indexes) both are
 --- upside limits of nodes count in the tree). We look for successors for
 --- each filter item (<= N items) in each of the tree node (<= M * K nodes),
 --- so have O(I * N * (M * K)) of somewhat we call 'iteration' of I
@@ -510,7 +510,7 @@ end
 ---
 --- @treturn table `value_list` (optional) is values list from the `filter`
 --- argument ordered in the such way that it can be passed to the found index
--- (has some meaning only when `index_name ~= nil`)
+--- (has some meaning only when `index_name ~= nil`)
 ---
 --- @treturn table `pivot` (optional) an offset argument represented depending
 --- of a case: whether we'll lookup for the offset by an index; it is either
