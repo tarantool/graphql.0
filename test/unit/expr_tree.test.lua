@@ -92,7 +92,7 @@ for i_1, id_1 in ipairs(identifiers) do
                 left = node_1,
                 right = node_2,
             }
-            local expected = {kind = 'root_expression', expr = op_node}
+            local expected = op_node
             local test_name = ('ast_bin_op_1_%d.%s.%d'):format(i_1, op, i_2)
             test:is_deeply(ast, expected, test_name)
 
@@ -100,12 +100,10 @@ for i_1, id_1 in ipairs(identifiers) do
                 second_identifier)
             ast = expressions.new(bin_operation).ast
             expected = {
-                kind = 'root_expression',
-                expr = {
-                    kind = 'unary_operation',
-                    op = '!',
-                    node = op_node
-                } }
+                kind = 'unary_operation',
+                op = '!',
+                node = op_node
+            }
             test_name = ('ast_bin_op_2_%d.%s.%d'):format(i_1, op, i_2)
             test:is_deeply(ast, expected, test_name)
         end
@@ -139,12 +137,9 @@ for i_1, id_1 in ipairs(identifiers) do
         arg_node_1 = {kind = 'object_field', path = id_1[2]}
     end
     local expected = {
-        kind = 'root_expression',
-        expr = {
-            kind = 'func',
-            name = 'is_null',
-            args = {arg_node_1}
-        }
+        kind = 'func',
+        name = 'is_null',
+        args = {arg_node_1}
     }
     local test_name = ('ast_func_is_null_%d'):format(i_1)
     test:is_deeply(ast, expected, test_name)
@@ -152,12 +147,9 @@ for i_1, id_1 in ipairs(identifiers) do
     func = ('is_not_null( %s )'):format(first_identifier)
     ast = expressions.new(func).ast
     expected = {
-        kind = 'root_expression',
-        expr = {
-            kind = 'func',
-            name = 'is_not_null',
-            args = {arg_node_1}
-        }
+        kind = 'func',
+        name = 'is_not_null',
+        args = {arg_node_1}
     }
     test_name = ('ast_func_not_null_%d'):format(i_1)
     test:is_deeply(ast, expected, test_name)
@@ -186,12 +178,9 @@ for i_1, id_1 in ipairs(identifiers) do
             arg_node_2 = {kind = 'object_field', path = id_2[2]}
         end
         expected = {
-            kind = 'root_expression',
-            expr = {
-                kind = 'func',
-                name = 'regexp',
-                args = {arg_node_1, arg_node_2}
-            }
+            kind = 'func',
+            name = 'regexp',
+            args = {arg_node_1, arg_node_2}
         }
         test_name = ('ast_func_regexp_%d.%d'):format(i_1, i_2)
         test:is_deeply(ast, expected, test_name)
@@ -201,70 +190,67 @@ end
 local ast = expressions.new('true && ($variable + 7 <= field.path_1 || ' ..
         '!("abc" > "abd")) && !false').ast
 local expected = {
-    kind = 'root_expression',
-    expr = {
+    kind = 'binary_operation',
+    op = '&&',
+    left = {
         kind = 'binary_operation',
         op = '&&',
         left = {
+            kind = 'const',
+            value_class = 'bool',
+            value = 'true'
+        },
+        right = {
             kind = 'binary_operation',
-            op = '&&',
+            op = '||',
             left = {
-                kind = 'const',
-                value_class = 'bool',
-                value = 'true'
-            },
-            right = {
                 kind = 'binary_operation',
-                op = '||',
+                op = '<=',
                 left = {
                     kind = 'binary_operation',
-                    op = '<=',
+                    op = '+',
                     left = {
-                        kind = 'binary_operation',
-                        op = '+',
-                        left = {
-                            kind = 'variable',
-                            name = 'variable'
-                        },
-                        right = {
-                            kind = 'const',
-                            value_class = 'number',
-                            value = '7'
-                        }
+                        kind = 'variable',
+                        name = 'variable'
                     },
                     right = {
-                        kind = 'object_field',
-                        path = 'field.path_1'
+                        kind = 'const',
+                        value_class = 'number',
+                        value = '7'
                     }
                 },
                 right = {
-                    kind = 'unary_operation',
-                    op = '!',
-                    node = {
-                        kind = 'binary_operation',
-                        op = '>',
-                        left = {
-                            kind = 'const',
-                            value_class = 'string',
-                            value = 'abc'
-                        },
-                        right = {
-                            kind = 'const',
-                            value_class = 'string',
-                            value = 'abd'
-                        }
+                    kind = 'object_field',
+                    path = 'field.path_1'
+                }
+            },
+            right = {
+                kind = 'unary_operation',
+                op = '!',
+                node = {
+                    kind = 'binary_operation',
+                    op = '>',
+                    left = {
+                        kind = 'const',
+                        value_class = 'string',
+                        value = 'abc'
+                    },
+                    right = {
+                        kind = 'const',
+                        value_class = 'string',
+                        value = 'abd'
                     }
                 }
             }
-        },
-        right = {
-            kind = 'unary_operation',
-            op = '!',
-            node = {
-                kind = 'const',
-                value_class = 'bool',
-                value = 'false'
-            }
+        }
+    },
+    right = {
+        kind = 'unary_operation',
+        op = '!',
+        node = {
+            kind = 'const',
+            value_class = 'bool',
+            value = 'false'
         }
     }
 }
@@ -275,45 +261,42 @@ test:is_deeply(ast, expected, 'ast_handwritten_test_1')
 -- amount of brackets" are actually different nodes.
 ast = expressions.new('(!false|| true) && (!(true)              || false)').ast
 expected = {
-    kind = 'root_expression',
-    expr = {
+    kind = 'binary_operation',
+    op = '&&',
+    left = {
         kind = 'binary_operation',
-        op = '&&',
+        op = '||',
         left = {
-            kind = 'binary_operation',
-            op = '||',
-            left = {
-                kind = 'unary_operation',
-                op = '!',
-                node = {
-                    kind = 'const',
-                    value_class = 'bool',
-                    value = 'false'
-                }
-            },
-            right = {
+            kind = 'unary_operation',
+            op = '!',
+            node = {
+                kind = 'const',
+                value_class = 'bool',
+                value = 'false'
+            }
+        },
+        right = {
+            kind = 'const',
+            value_class = 'bool',
+            value = 'true'
+        }
+    },
+    right = {
+        kind = 'binary_operation',
+        op = '||',
+        left = {
+            kind = 'unary_operation',
+            op = '!',
+            node = {
                 kind = 'const',
                 value_class = 'bool',
                 value = 'true'
             }
         },
         right = {
-            kind = 'binary_operation',
-            op = '||',
-            left = {
-                kind = 'unary_operation',
-                op = '!',
-                node = {
-                    kind = 'const',
-                    value_class = 'bool',
-                    value = 'true'
-                }
-            },
-            right = {
-                kind = 'const',
-                value_class = 'bool',
-                value = 'false'
-            }
+            kind = 'const',
+            value_class = 'bool',
+            value = 'false'
         }
     }
 }
@@ -323,8 +306,9 @@ ast = expressions.new('false && "hello there" && 72.1 && $variable && ' ..
         '_object1__.field && is_null($non_nil_variable) && ' ..
         'regexp("pattern", "string")').ast
 expected = {
-    kind = 'root_expression',
-    expr = {
+    kind = 'binary_operation',
+    op = '&&',
+    left = {
         kind = 'binary_operation',
         op = '&&',
         left = {
@@ -340,60 +324,56 @@ expected = {
                         kind = 'binary_operation',
                         op = '&&',
                         left = {
-                            kind = 'binary_operation',
-                            op = '&&',
-                            left = {
-                                kind = 'const',
-                                value_class = 'bool',
-                                value = 'false'
-                            },
-                            right = {
-                                kind = 'const',
-                                value_class = 'string',
-                                value = 'hello there'
-                            }
+                            kind = 'const',
+                            value_class = 'bool',
+                            value = 'false'
                         },
                         right = {
                             kind = 'const',
-                            value_class = 'number',
-                            value = '72.1'
+                            value_class = 'string',
+                            value = 'hello there'
                         }
                     },
                     right = {
-                        kind = 'variable',
-                        name = 'variable'
+                        kind = 'const',
+                        value_class = 'number',
+                        value = '72.1'
                     }
                 },
                 right = {
-                    kind = 'object_field',
-                    path = '_object1__.field'
+                    kind = 'variable',
+                    name = 'variable'
                 }
             },
             right = {
-                kind = 'func',
-                name = 'is_null',
-                args = {
-                    {
-                        kind = 'variable',
-                        name = 'non_nil_variable'
-                    }
-                }
+                kind = 'object_field',
+                path = '_object1__.field'
             }
         },
         right = {
             kind = 'func',
-            name = 'regexp',
+            name = 'is_null',
             args = {
                 {
-                    kind = 'const',
-                    value_class = 'string',
-                    value = 'pattern'
-                },
-                {
-                    kind = 'const',
-                    value_class = 'string',
-                    value = 'string'
+                    kind = 'variable',
+                    name = 'non_nil_variable'
                 }
+            }
+        }
+    },
+    right = {
+        kind = 'func',
+        name = 'regexp',
+        args = {
+            {
+                kind = 'const',
+                value_class = 'string',
+                value = 'pattern'
+            },
+            {
+                kind = 'const',
+                value_class = 'string',
+                value = 'string'
             }
         }
     }

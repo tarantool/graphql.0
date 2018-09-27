@@ -79,13 +79,6 @@ local identical_node = identical
 
 local op_name = identical
 
-local function root_expr_node(expr)
-    return {
-        kind = 'root_expression',
-        expr = expr
-    }
-end
-
 -- left associativity
 local function bin_op_node(...)
     local args_cnt = select('#', ...)
@@ -176,7 +169,7 @@ local _functions = (is_null + is_not_null + regexp) / identical
 -- terms of priority.
 local expression_grammar = P {
     'init_expr',
-    init_expr = V('expr') * eof / root_expr_node,
+    init_expr = V('expr') * eof / identical_node,
     expr = spaces * V('log_expr_or') * spaces / identical_node,
 
     log_expr_or = V('log_expr_and') * (spaces * _logic_or *
@@ -333,9 +326,6 @@ local function execute_node(node, context)
         else
             error('Unknown binary operation: ' .. tostring(op))
         end
-        return acc
-    elseif node.kind == 'root_expression' then
-        return execute_node(node.expr, context)
     else
         error('Unknown node kind: ' .. tostring(node.kind))
     end
