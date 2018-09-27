@@ -86,25 +86,19 @@ local function root_expr_node(expr)
     }
 end
 
+-- left associativity
 local function bin_op_node(...)
-    if select('#', ...) == 1 then
+    local args_cnt = select('#', ...)
+    assert(args_cnt % 2 == 1)
+    if args_cnt == 1 then
         return select(1, ...)
     end
-    local operators = {}
-    local operands = {}
-    for i = 1, select('#', ...) do
-        local v = select(i, ...)
-        if i % 2 == 0 then
-            table.insert(operators, v)
-        else
-            table.insert(operands, v)
-        end
-    end
-    return {
-        kind = 'binary_operations',
-        operators = operators,
-        operands = operands
-    }
+    return bin_op_node({
+        kind = 'binary_operation',
+        op = select(2, ...),
+        left = select(1, ...),
+        right = select(3, ...),
+    }, select(4, ...))
 end
 
 local function unary_op_node(unary_operator, operand_1)
@@ -301,44 +295,43 @@ local function execute_node(node, context)
         else
             error('Unknown unary operation: ' .. tostring(node.op))
         end
-    elseif node.kind == 'binary_operations' then
-        local acc = execute_node(node.operands[1], context)
-        for i, op in ipairs(node.operators) do
-            local right = execute_node(node.operands[i + 1], context)
+    elseif node.kind == 'binary_operation' then
+        local op = node.op
+        local left = execute_node(node.left, context)
+        local right = execute_node(node.right, context)
 
-            -- Sum.
-            if op == '+' then
-                acc = sum(acc, right)
-            -- Subtraction.
-            elseif op == '-' then
-                acc = subtract(acc, right)
-            -- Logical and.
-            elseif op == '&&' then
-                acc = acc and right
-            -- Logical or.
-            elseif op == '||' then
-                acc = acc or right
-            -- Equal.
-            elseif op == '==' then
-                acc = acc == right
-            -- Not equal.
-            elseif op == '!=' then
-                acc = acc ~= right
-            -- Greater than.
-            elseif op == '>' then
-                acc = acc > right
-            -- Greater or equal.
-            elseif op == '>=' then
-                acc = acc >= right
-            -- Lower than.
-            elseif op == '<' then
-                acc = acc < right
-            -- Lower or equal.
-            elseif op == '<=' then
-                acc = acc <= right
-            else
-                error('Unknown binary operation: ' .. tostring(op))
-            end
+        -- Sum.
+        if op == '+' then
+            return sum(left, right)
+        -- Subtraction.
+        elseif op == '-' then
+            return subtract(left, right)
+        -- Logical and.
+        elseif op == '&&' then
+            return left and right
+        -- Logical or.
+        elseif op == '||' then
+            return left or right
+        -- Equal.
+        elseif op == '==' then
+            return left == right
+        -- Not equal.
+        elseif op == '!=' then
+            return left ~= right
+        -- Greater than.
+        elseif op == '>' then
+            return left > right
+        -- Greater or equal.
+        elseif op == '>=' then
+            return left >= right
+        -- Lower than.
+        elseif op == '<' then
+            return left < right
+        -- Lower or equal.
+        elseif op == '<=' then
+            return left <= right
+        else
+            error('Unknown binary operation: ' .. tostring(op))
         end
         return acc
     elseif node.kind == 'root_expression' then

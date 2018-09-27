@@ -87,9 +87,10 @@ for i_1, id_1 in ipairs(identifiers) do
             end
 
             local op_node = {
-                kind = 'binary_operations',
-                operators = {op},
-                operands = {node_1, node_2}
+                kind = 'binary_operation',
+                op = op,
+                left = node_1,
+                right = node_2,
             }
             local expected = {kind = 'root_expression', expr = op_node}
             local test_name = ('ast_bin_op_1_%d.%s.%d'):format(i_1, op, i_2)
@@ -202,65 +203,67 @@ local ast = expressions.new('true && ($variable + 7 <= field.path_1 || ' ..
 local expected = {
     kind = 'root_expression',
     expr = {
-        kind = 'binary_operations',
-        operators = {'&&', '&&'},
-        operands = {
-            {kind = 'const', value_class = 'bool', value = 'true'},
-            {
-                kind = 'binary_operations',
-                operators = {'||'},
-                operands = {
-                    {
-                        kind = 'binary_operations',
-                        operators = {'<='},
-                        operands = {
-                            {
-                                kind = 'binary_operations',
-                                operators = {'+'},
-                                operands = {
-                                    {
-                                        kind = 'variable',
-                                        name = 'variable'
-                                    },
-                                    {
-                                        kind = 'const',
-                                        value_class = 'number',
-                                        value = '7'
-                                    }
-                                }
-                            },
-                            {
-                                kind = 'object_field',
-                                path = 'field.path_1'
-                            }
+        kind = 'binary_operation',
+        op = '&&',
+        left = {
+            kind = 'binary_operation',
+            op = '&&',
+            left = {
+                kind = 'const',
+                value_class = 'bool',
+                value = 'true'
+            },
+            right = {
+                kind = 'binary_operation',
+                op = '||',
+                left = {
+                    kind = 'binary_operation',
+                    op = '<=',
+                    left = {
+                        kind = 'binary_operation',
+                        op = '+',
+                        left = {
+                            kind = 'variable',
+                            name = 'variable'
+                        },
+                        right = {
+                            kind = 'const',
+                            value_class = 'number',
+                            value = '7'
                         }
                     },
-                    {
-                        kind = 'unary_operation',
-                        op = '!',
-                        node = {
-                            kind = 'binary_operations',
-                            operators = {'>'},
-                            operands = {
-                                {
-                                    kind = 'const',
-                                    value_class = 'string',
-                                    value = 'abc'
-                                },
-                                {
-                                    kind = 'const',
-                                    value_class = 'string',
-                                    value = 'abd'
-                                }
-                            }
+                    right = {
+                        kind = 'object_field',
+                        path = 'field.path_1'
+                    }
+                },
+                right = {
+                    kind = 'unary_operation',
+                    op = '!',
+                    node = {
+                        kind = 'binary_operation',
+                        op = '>',
+                        left = {
+                            kind = 'const',
+                            value_class = 'string',
+                            value = 'abc'
+                        },
+                        right = {
+                            kind = 'const',
+                            value_class = 'string',
+                            value = 'abd'
                         }
                     }
                 }
-            },
-            {
-                kind = 'unary_operation',
-                op = '!',
-                node = {kind = 'const', value_class = 'bool', value = 'false'}
+            }
+        },
+        right = {
+            kind = 'unary_operation',
+            op = '!',
+            node = {
+                kind = 'const',
+                value_class = 'bool',
+                value = 'false'
             }
         }
     }
@@ -274,48 +277,42 @@ ast = expressions.new('(!false|| true) && (!(true)              || false)').ast
 expected = {
     kind = 'root_expression',
     expr = {
-        kind = 'binary_operations',
-        operators = {'&&'},
-        operands = {
-            {
-                kind = 'binary_operations',
-                operators = {'||'},
-                operands = {
-                    {
-                        kind = 'unary_operation',
-                        op = '!',
-                        node = {
-                            kind = 'const',
-                            value_class = 'bool',
-                            value = 'false'
-                        }
-                    },
-                    {
-                        kind = 'const',
-                        value_class = 'bool',
-                        value = 'true'
-                    }
+        kind = 'binary_operation',
+        op = '&&',
+        left = {
+            kind = 'binary_operation',
+            op = '||',
+            left = {
+                kind = 'unary_operation',
+                op = '!',
+                node = {
+                    kind = 'const',
+                    value_class = 'bool',
+                    value = 'false'
                 }
             },
-            {
-                kind = 'binary_operations',
-                operators = {'||'},
-                operands = {
-                    {
-                        kind = 'unary_operation',
-                        op = '!',
-                        node = {
-                            kind = 'const',
-                            value_class = 'bool',
-                            value = 'true'
-                        }
-                    },
-                    {
-                        kind = 'const',
-                        value_class = 'bool',
-                        value = 'false'
-                    }
+            right = {
+                kind = 'const',
+                value_class = 'bool',
+                value = 'true'
+            }
+        },
+        right = {
+            kind = 'binary_operation',
+            op = '||',
+            left = {
+                kind = 'unary_operation',
+                op = '!',
+                node = {
+                    kind = 'const',
+                    value_class = 'bool',
+                    value = 'true'
                 }
+            },
+            right = {
+                kind = 'const',
+                value_class = 'bool',
+                value = 'false'
             }
         }
     }
@@ -328,33 +325,51 @@ ast = expressions.new('false && "hello there" && 72.1 && $variable && ' ..
 expected = {
     kind = 'root_expression',
     expr = {
-        kind = 'binary_operations',
-        operators = {'&&', '&&', '&&', '&&', '&&', '&&'},
-        operands = {
-            {
-                kind = 'const',
-                value_class = 'bool',
-                value = 'false'
+        kind = 'binary_operation',
+        op = '&&',
+        left = {
+            kind = 'binary_operation',
+            op = '&&',
+            left = {
+                kind = 'binary_operation',
+                op = '&&',
+                left = {
+                    kind = 'binary_operation',
+                    op = '&&',
+                    left = {
+                        kind = 'binary_operation',
+                        op = '&&',
+                        left = {
+                            kind = 'binary_operation',
+                            op = '&&',
+                            left = {
+                                kind = 'const',
+                                value_class = 'bool',
+                                value = 'false'
+                            },
+                            right = {
+                                kind = 'const',
+                                value_class = 'string',
+                                value = 'hello there'
+                            }
+                        },
+                        right = {
+                            kind = 'const',
+                            value_class = 'number',
+                            value = '72.1'
+                        }
+                    },
+                    right = {
+                        kind = 'variable',
+                        name = 'variable'
+                    }
+                },
+                right = {
+                    kind = 'object_field',
+                    path = '_object1__.field'
+                }
             },
-            {
-                kind = 'const',
-                value_class = 'string',
-                value = 'hello there'
-            },
-            {
-                kind = 'const',
-                value_class = 'number',
-                value = '72.1'
-            },
-            {
-                kind = 'variable',
-                name = 'variable'
-            },
-            {
-                kind = 'object_field',
-                path = '_object1__.field'
-            },
-            {
+            right = {
                 kind = 'func',
                 name = 'is_null',
                 args = {
@@ -363,21 +378,21 @@ expected = {
                         name = 'non_nil_variable'
                     }
                 }
-            },
-            {
-                kind = 'func',
-                name = 'regexp',
-                args = {
-                    {
-                        kind = 'const',
-                        value_class = 'string',
-                        value = 'pattern'
-                    },
-                    {
-                        kind = 'const',
-                        value_class = 'string',
-                        value = 'string'
-                    }
+            }
+        },
+        right = {
+            kind = 'func',
+            name = 'regexp',
+            args = {
+                {
+                    kind = 'const',
+                    value_class = 'string',
+                    value = 'pattern'
+                },
+                {
+                    kind = 'const',
+                    value_class = 'string',
+                    value = 'string'
                 }
             }
         }
