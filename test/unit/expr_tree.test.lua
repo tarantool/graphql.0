@@ -23,6 +23,9 @@ local binary_operators = {
     '&&',
     '+',
     '-',
+    '*',
+    '/',
+    '%',
     '==',
     '!=',
     '>',
@@ -31,7 +34,7 @@ local binary_operators = {
     '<=',
 }
 
-test:plan(1046)
+test:plan(1340)
 
 -- Bunch of tests for all the sets of binary operator and its
 -- operands.

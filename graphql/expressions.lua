@@ -49,25 +49,18 @@ local unary_minus = P('-')
 local unary_plus = P('+')
 
 -- Possible binary operator patterns:
---   1) Logical and.
 local logic_and = P('&&')
---   2) logical or.
 local logic_or = P('||')
---   3) +
 local addition = P('+')
---   4) -
 local subtraction = P('-')
---   5) ==
+local multiplication = P('*')
+local division = P('/')
+local modulo = P('%')
 local eq = P('==')
---   6) !=
 local not_eq = P('!=')
---   7) >
 local gt = P('>')
---   8) >=
 local ge = P('>=')
---   9) <
 local lt = P('<')
---   10) <=
 local le = P('<=')
 
 -- AST nodes generating functions.
@@ -161,7 +154,8 @@ local _literal = _bool + _number + _string
 local _logic_or = logic_or / op_name
 local _logic_and = logic_and / op_name
 local _comparison_op = (eq + not_eq + ge + gt + le + lt) / op_name
-local _arithmetic_op = (addition + subtraction) / op_name
+local _arithmetic_sum_op = (addition + subtraction) / op_name
+local _arithmetic_mul_op = (multiplication + division + modulo) / op_name
 local _unary_op = (negation + unary_minus + unary_plus) / op_name
 local _functions = (is_null + is_not_null + regexp) / identical
 
@@ -176,10 +170,13 @@ local expression_grammar = P {
                   spaces * V('log_expr_and')) ^ 0 / bin_op_node,
     log_expr_and = V('comparison') * (spaces * _logic_and * spaces *
                    V('comparison')) ^ 0 / bin_op_node,
-    comparison = V('arithmetic_expr') * (spaces * _comparison_op * spaces *
-                 V('arithmetic_expr')) ^ 0 / bin_op_node,
-    arithmetic_expr = V('unary_expr') * (spaces * _arithmetic_op * spaces *
-                      V('unary_expr')) ^ 0 / bin_op_node,
+    comparison = V('arithmetic_sum_expr') * (spaces * _comparison_op * spaces *
+                 V('arithmetic_sum_expr')) ^ 0 / bin_op_node,
+    arithmetic_sum_expr = V('arithmetic_mul_expr') * (spaces *
+                          _arithmetic_sum_op * spaces *
+                          V('arithmetic_mul_expr')) ^ 0 / bin_op_node,
+    arithmetic_mul_expr = V('unary_expr') * (spaces * _arithmetic_mul_op *
+                          spaces * V('unary_expr')) ^ 0 / bin_op_node,
 
     unary_expr = (_unary_op * V('first_prio') / unary_op_node) +
                  (V('first_prio') / identical_node),
@@ -262,27 +259,21 @@ local function execute_node(node, context)
         end
         return field
     elseif node.kind == 'func' then
-        -- regexp() implementation.
         if node.name == 'regexp' then
             return utils.regexp(execute_node(node.args[1], context),
                                 execute_node(node.args[2], context))
-        -- is_null() implementation.
         elseif node.name == 'is_null' then
             return execute_node(node.args[1], context) == nil
-        -- is_not_null() implementation.
         elseif node.name == 'is_not_null' then
             return execute_node(node.args[1], context) ~= nil
         else
             error('Unknown func name: ' .. tostring(node.name))
         end
     elseif node.kind == 'unary_operation' then
-        -- Negation.
         if node.op == '!' then
             return not execute_node(node.node, context)
-        -- Unary '+'.
         elseif node.op == '+' then
             return execute_node(node.node, context)
-        -- Unary '-'.
         elseif node.op == '-' then
             return -execute_node(node.node, context)
         else
@@ -293,34 +284,30 @@ local function execute_node(node, context)
         local left = execute_node(node.left, context)
         local right = execute_node(node.right, context)
 
-        -- Sum.
         if op == '+' then
             return sum(left, right)
-        -- Subtraction.
         elseif op == '-' then
             return subtract(left, right)
-        -- Logical and.
+        elseif op == '*' then
+            return left * right
+        elseif op == '/' then
+            return left / right
+        elseif op == '%' then
+            return left % right
         elseif op == '&&' then
             return left and right
-        -- Logical or.
         elseif op == '||' then
             return left or right
-        -- Equal.
         elseif op == '==' then
             return left == right
-        -- Not equal.
         elseif op == '!=' then
             return left ~= right
-        -- Greater than.
         elseif op == '>' then
             return left > right
-        -- Greater or equal.
         elseif op == '>=' then
             return left >= right
-        -- Lower than.
         elseif op == '<' then
             return left < right
-        -- Lower or equal.
         elseif op == '<=' then
             return left <= right
         else

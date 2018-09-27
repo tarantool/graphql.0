@@ -28,7 +28,7 @@ local variables = {
 
 -- case: complex
 local case_name = 'complex'
-local str = 'true && ($variable + 7 == field.path_1 && !(2399>23941)) && !false'
+local str = 'true && ($variable + 1 * 7 == field.path_1 && !(2399>23941)) && !false'
 local exp_result = true
 local expr = expressions.new(str)
 test:is(expr:execute(object, variables), exp_result, case_name)
