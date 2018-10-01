@@ -93,3 +93,16 @@ coverage: lint apidoc-lint
 		tools/luacov_merge.lua # create luacov.stats.out
 	luacov ^graphql  # generate luacov.report.out
 	awk '/^Summary$$/{i=1;}{if(i){print;}}' luacov.report.out
+
+.PHONY: fpm
+fpm:
+	fpm -s dir -t rpm -n tarantool-graphql --rpm-os linux -a noarch  \
+		--prefix /usr/share/tarantool \
+		--license "BSD 2-Clause License" \
+		--rpm-summary "Tarantool graphql module" \
+		--url "https://github.com/tarantool/graphql" \
+		--vendor "Tarantool" \
+		--depends "tarantool >= 1.9.1" \
+		-m "Pavel Yudin <pavel@tarantool.org>" \
+		--version `git describe --abbrev=0 || echo "0.4.1"` \
+		graphql
