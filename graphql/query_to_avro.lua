@@ -160,7 +160,11 @@ union_to_avro = function(fieldType, subSelections, context)
                 break
             end
         end
-        assert(box_sub_selections ~= nil)
+
+        -- Skip Union variants that are not parts of the query.
+        if box_sub_selections == nil then
+            goto continue
+        end
 
         -- We have to extract subSelections from 'box' type.
         local type_sub_selections
@@ -183,6 +187,8 @@ union_to_avro = function(fieldType, subSelections, context)
             table.insert(result, gql_type_to_avro(type.kind,
                 type_sub_selections, context))
         end
+
+        ::continue::
     end
 
     return result
