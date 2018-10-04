@@ -1,4 +1,3 @@
-local json = require('json')
 local utils = require('graphql.utils')
 
 local request_batch = {}
@@ -50,37 +49,11 @@ local function batch_compare_bins(self, other)
         utils.are_tables_same(self.iterator_opts, other.iterator_opts)
 end
 
---- Compare batches by bin with detailed error in case they don't match.
-local function batch_compare_bins_extra(self, other)
-    if self.collection_name ~= other.collection_name then
-        local err = ('prepared object list has different collection names: ' ..
-            '"%s" and "%s"'):format(self.collection_name, other.collection_name)
-        return false, err
-    end
-
-    if self.index_name ~= other.index_name then
-        local err = ('prepared object list has different index names: ' ..
-            '"%s" and "%s"'):format(tostring(self.index_name),
-            tostring(other.index_name))
-        return false, err
-    end
-
-    if not utils.are_tables_same(self.iterator_opts, other.iterator_opts) then
-        local err = ('prepared object list has different iterator options: ' ..
-            '"%s" and "%s"'):format(json.encode(self.iterator_opts),
-            json.encode(other.iterator_opts))
-        return false, err
-    end
-
-    return true
-end
-
 local request_batch_mt = {
     __index = {
         bin = batch_bin,
         select_ids = batch_select_ids,
         compare_bins = batch_compare_bins,
-        compare_bins_extra = batch_compare_bins_extra,
     }
 }
 

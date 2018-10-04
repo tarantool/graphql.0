@@ -842,10 +842,9 @@ fetch_resolve_list = function(prepared_object_list, opts)
                 batches[field_name] = batch
                 size = i
             else
-                local ok, err = batches[field_name]:compare_bins_extra(batch)
-                if not ok then
-                    error(('internal error: %s: %s'):format(func_name, err))
-                end
+                local ok = batches[field_name] ~= nil and
+                    batches[field_name]:compare_bins(batch)
+                if not ok then goto ret end
                 table.insert(batches[field_name].keys, batch.keys[1])
                 size = i
             end
