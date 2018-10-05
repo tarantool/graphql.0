@@ -778,7 +778,7 @@ fetch_first_same = function(open_set, opts)
             local prepared_resolve = field_info.prepared_resolve
             if prepared_resolve.is_calculated then
                 size = i
-                break
+                goto ret
             end
             local batch = request_batch.from_prepared_resolve(prepared_resolve)
 
@@ -791,12 +791,14 @@ fetch_first_same = function(open_set, opts)
             else
                 local ok = batches[field_name] ~= nil and
                     batches[field_name]:compare_bins(batch)
-                if not ok then break end
+                if not ok then goto ret end
                 table.insert(batches[field_name].keys, batch.keys[1])
                 size = i
             end
         end
     end
+
+    ::ret::
 
     -- don't flood cache with single-key (non-batch) select results
     if not force_caching and size <= 1 then
@@ -829,7 +831,7 @@ fetch_resolve_list = function(prepared_object_list, opts)
             local prepared_resolve = field_info.prepared_resolve
             if prepared_resolve.is_calculated then
                 size = i
-                break
+                goto ret
             end
             local batch = request_batch.from_prepared_resolve(prepared_resolve)
 
@@ -849,6 +851,8 @@ fetch_resolve_list = function(prepared_object_list, opts)
             end
         end
     end
+
+    ::ret::
 
     -- don't flood cache with single-key (non-batch) select results
     if not force_caching and size <= 1 then
