@@ -792,7 +792,7 @@ fetch_first_same = function(open_set, opts)
                 local ok = batches[field_name] ~= nil and
                     batches[field_name]:compare_bins(batch)
                 if not ok then goto ret end
-                table.insert(batches[field_name].keys, batch.keys[1])
+                batches[field_name]:add_key(batch.keys[1])
                 size = i
             end
         end
@@ -845,7 +845,7 @@ fetch_resolve_list = function(prepared_object_list, opts)
                 local ok = batches[field_name] ~= nil and
                     batches[field_name]:compare_bins(batch)
                 if not ok then goto ret end
-                table.insert(batches[field_name].keys, batch.keys[1])
+                batches[field_name]:add_key(batch.keys[1])
                 size = i
             end
         end

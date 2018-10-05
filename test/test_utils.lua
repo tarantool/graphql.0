@@ -128,6 +128,27 @@ function test_utils.get_conf_name()
     return test_run and test_run:get_cfg('conf') or 'space'
 end
 
+function test_utils.get_executor_name()
+    local conf_name = test_utils.get_conf_name()
+    local on_shard = conf_name == 'shard_2x2' or conf_name == 'shard_4x1'
+    local graphql_opts = test_run and test_run:get_cfg('graphql_opts') or {}
+    local use_bfs_executor = graphql_opts.use_bfs_executor or 'shard'
+
+    if use_bfs_executor == 'always' then
+        return 'bfs'
+    elseif use_bfs_executor == 'shard' then
+        return on_shard and 'bfs' or 'dfs'
+    end
+
+    assert(use_bfs_executor == 'never')
+    return 'dfs'
+end
+
+function test_utils.is_cache_supported()
+    local conf_name = test_utils.get_conf_name()
+    return conf_name == 'shard_2x2' or conf_name == 'shard_4x1'
+end
+
 function test_utils.run_testdata(testdata, opts)
     local opts = opts or {}
     local run_queries = opts.run_queries or testdata.run_queries
