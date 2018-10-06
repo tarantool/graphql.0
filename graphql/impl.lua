@@ -33,7 +33,7 @@ local default_instance
 ---
 --- @tparam table qstate compiled query
 ---
---- @tparam table variables variables to pass to the query
+--- @tparam[opt] table variables variables to pass to the query
 ---
 --- @tparam[opt] string operation_name optional operation name
 ---
@@ -45,6 +45,7 @@ local function gql_execute(qstate, variables, operation_name)
     assert(state.schema)
     local max_batch_size = qstate.query_settings.max_batch_size or
         state.max_batch_size
+    local variables = variables or {}
 
     check(variables, 'variables', 'table')
     check(operation_name, 'operation_name', 'string', 'nil')

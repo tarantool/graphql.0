@@ -8,20 +8,6 @@ local check = utils.check
 
 local accessor_shard_cache = {}
 
-local function get_select_ids(self, batch, opts)
-    local opts = opts or {}
-    local skip_cached = opts.skip_cached or false
-
-    local skip_function
-    if skip_cached then
-        skip_function = function(id)
-            return self.cache[id] ~= nil
-        end
-    end
-
-    return batch:select_ids(skip_function)
-end
-
 local function net_box_call_wrapper(conn, func_name, call_args)
     local ok, result = pcall(conn.call, conn, func_name, call_args,
         {is_async = true})
@@ -43,8 +29,31 @@ local function is_future(result)
 end
 
 local function cache_fetch_batch(self, batch, fetch_id, stat)
-    local ids = get_select_ids(self, batch, {skip_cached = true})
-    if next(ids) == nil then return end
+    -- collect ids and keys that does not correspond to already cached data
+    local new_ids = {}
+    local new_keys = {}
+    local ids = batch:select_ids()
+    assert(#ids == #batch.keys)
+    for i = 1, #ids do
+        if self.cache[ids[i]] == nil then
+            table.insert(new_ids, ids[i])
+            table.insert(new_keys, batch.keys[i])
+        end
+    end
+
+    -- nothing to do if the batch requests only data we already have in the
+    -- cache
+    if next(new_keys) == nil then return end
+
+    -- the copy prevents a change of user-provided argument
+    local batch = table.copy(batch)
+    -- Use abstraction-breaking assignment instead of :add_key() to avoid extra
+    -- 'key_tostring' calls. The field keys_hash is inconsistent with keys
+    -- then.
+    batch.keys = new_keys
+    batch.keys_hash = {}
+    -- old ids does not correspond the new batch, update them
+    ids = new_ids
 
     -- perform requests
     local results_per_replica_set = {}
@@ -128,26 +137,23 @@ local function cache_fetch_batch(self, batch, fetch_id, stat)
         end)
     end
 
-    -- write to cache
     assert(#results == #batch.keys,
         ('results count %d is not the same as requests count %d'):format(
         #results, #batch.keys))
+
+    -- write to the cache
     for i = 1, #ids do
+        -- Now graphql consequently requests for data, so it is not possible to
+        -- have several requests for the same data on the fly. We checked the
+        -- data against the cache in the begin of this function.
         if self.cache[ids[i]] == nil then
             self.cache[ids[i]] = {
                 result = results[i],
                 fetch_ids = {fetch_id}
             }
         else
-            -- XXX: we can skip this key from a request
-            for j, tuple in ipairs(self.cache[ids[i]].result) do
-                if not utils.are_tables_same(results[i][j], tuple) then
-                    error(('fetched tuple %s is not the same as one in ' ..
-                        'the cache: %s'):format(json.encode(tuple),
-                        json.encode(results[i][j])))
-                end
-            end
-            table.insert(self.cache[ids[i]].fetch_ids, fetch_id)
+            error(('internal error: received data for an entry %s are ' ..
+                'already in the cache'):format(ids[i]))
         end
     end
 end
@@ -259,7 +265,7 @@ local function cache_lookup(self, collection_name, index_name, key,
         iterator_opts)
     local batch = request_batch.new(collection_name, index_name,
         {key or box.NULL}, iterator_opts)
-    local id = get_select_ids(self, batch)[1]
+    local id = batch:select_ids()[1]
     if self.cache[id] == nil then
         return nil
     end

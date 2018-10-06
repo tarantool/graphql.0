@@ -1067,6 +1067,11 @@ local function prepare_select_internal(self, collection_name, from, filter,
         self, collection_name, from, filter, args) -- we redefine filter here
     local index = index_name ~= nil and
         self.funcs.get_index(self, collection_name, index_name) or nil
+    if index_name ~= nil and index == nil then
+        error(('cannot find actual index "%s" in the collection "%s", ' ..
+            'but the index metainformation contains it'):format(index_name,
+            collection_name))
+    end
     if from.collection_name ~= nil then
         -- allow fullscan only for a top-level object
         assert(index ~= nil,
