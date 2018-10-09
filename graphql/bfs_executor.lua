@@ -210,6 +210,7 @@ local bfs_executor = {}
 -- forward declarations
 local fetch_first_same
 local fetch_resolve_list
+local filter_object_list
 
 -- Generate cache only requests for filters over connections {{{
 
@@ -432,6 +433,48 @@ end
 --- Select fields from fetched object and create prepared resolve functions for
 --- connection fields.
 ---
+--- Special handling of multihead connections
+--- =========================================
+---
+--- A schema of a regular 1:1 connection is the following:
+---
+---     <source collection name> = {          // type: source collection
+---         ...fields of source collection...
+---         <connection name> = {             // type: dest collection
+---             ...fields of destination collection...
+---         }
+---     }
+---
+--- A schema of a multihead 1:1 connection is slightly different:
+---
+---     <source collection name> = {              // type: source collection
+---         ...fields of source collection...
+---         <connection name> = {
+---             <destination collection name> = { // type: dest collection
+---                 ...fields of destination collection...
+---             }
+---         }
+---     }
+---
+--- The idea of this function is to select requested fields from an object
+--- and generate prepared resolve structures for unresolved fields. Such
+--- fields has a collection type and has 'prepare_resolve' function for this
+--- purpose.
+---
+--- The difference between a regular and a multihead connection is that a
+--- field of a collection type is always nested directly inside other
+--- collection type field for regular connections. It is not so in case of a
+--- multihead connection, because of the wrapper (we refer it as 'box'
+--- across the sources) around the nested collection type.
+---
+--- This is why a multihead connection need the special handling here and
+--- then during construction in 'invoke_resolve' function.
+---
+--- Things are quite similar for 1:N regular/multihead connections, except
+--- that a list of objects is connected, but not a single object.
+---
+--- =========================================
+---
 --- @tparam table object (can be nil)
 ---
 --- @tparam table object_type GraphQL type
@@ -457,6 +500,7 @@ end
 ---     prepared = {
 --          cache_only_prepared_object = <...>,
 --          prepared_object = <...>,
+--          insert_into = <string> or <nil>,
 ---     }
 ---
 --- `cache_only_prepared_object` and `prepared_object` has the following
@@ -474,6 +518,10 @@ end
 ---            ...
 ---        }
 ---    }
+---
+--- In case of multihead connection this function can return a value in
+--- @{filter_object_list} return format with additional `insert_into` string
+--- field.
 local function filter_object(object, object_type, selections, context, opts)
     local opts = opts or {}
     local qcontext = opts.qcontext
@@ -528,7 +576,20 @@ local function filter_object(object, object_type, selections, context, opts)
             }
         end
 
-        if field_type.prepare_resolve then
+        if object_type.isMultiheadWrapper then
+            assert(filtered_object[field_name] == nil)
+
+            local child_res
+            if is_list then
+                child_res = filter_object_list(object[field_name], inner_type,
+                    child_selections, context, opts)
+            else
+                child_res = filter_object(object[field_name], inner_type,
+                    child_selections, context, opts)
+            end
+            child_res.insert_into = field_name
+            return child_res
+        elseif field_type.prepare_resolve then
             local prepared_resolve = field_type.prepare_resolve(object, args,
                 info, {is_hidden = is_item_cache_only})
 
@@ -573,7 +634,7 @@ local function filter_object(object, object_type, selections, context, opts)
     }
 end
 
-local function filter_object_list(object_list, object_type, selections, context,
+filter_object_list = function(object_list, object_type, selections, context,
         opts)
     local opts = opts or {}
     local qcontext = opts.qcontext
@@ -643,23 +704,46 @@ local function invoke_resolve(prepared_object, context, opts)
         local child_cache_only
         local child
 
-        if field_info.is_list then
-            local child_prepared_list = filter_object_list(
+        -- filter_object can return filter_object_list result in case of a
+        -- multihead connection
+        local is_list = field_info.is_list
+        local filter_res
+        if is_list then
+            filter_res = filter_object_list(
                 object_or_list, object_type, selections, context,
                 {qcontext = qcontext, is_item_cache_only = is_item_cache_only})
+        else
+            filter_res = filter_object(object_or_list,
+                object_type, selections, context, {qcontext = qcontext,
+                is_item_cache_only = is_item_cache_only})
+            is_list =
+                filter_res.cache_only_prepared_object_list ~= nil or
+                filter_res.prepared_object_list ~= nil
+        end
+
+        if is_list then
+            local child_prepared_list = filter_res
             -- don't perform construction for cache_only objects
             local child_cache_only_prepared_object_list =
                 child_prepared_list.cache_only_prepared_object_list
             local child_prepared_object_list =
                 child_prepared_list.prepared_object_list
+            local insert_into = child_prepared_list.insert_into
 
             -- construction
             if not is_item_cache_only then
-                prepared_object.filtered_object[field_name] = {}
+                local dest
+                local filtered_object = prepared_object.filtered_object
+                filtered_object[field_name] = {}
+                if insert_into ~= nil then
+                    filtered_object[field_name][insert_into] = {}
+                    dest = filtered_object[field_name][insert_into]
+                else
+                    dest = filtered_object[field_name]
+                end
                 for _, child_prepared_object in
                         ipairs(child_prepared_object_list) do
-                    table.insert(prepared_object.filtered_object[field_name],
-                        child_prepared_object.filtered_object)
+                    table.insert(dest, child_prepared_object.filtered_object)
                 end
             end
 
@@ -675,19 +759,25 @@ local function invoke_resolve(prepared_object, context, opts)
                 }
             end
         else
-            local child_prepared = filter_object(object_or_list,
-                object_type, selections, context, {qcontext = qcontext,
-                is_item_cache_only = is_item_cache_only})
+            local child_prepared = filter_res
             -- don't perform construction for cache_only objects
             local child_cache_only_prepared_object =
                 child_prepared.cache_only_prepared_object
             local child_prepared_object = child_prepared.prepared_object
+            local insert_into = child_prepared.insert_into
 
             if child_prepared_object ~= nil then
                 -- construction
                 if not is_item_cache_only then
-                    prepared_object.filtered_object[field_name] =
-                        child_prepared_object.filtered_object
+                    local filtered_object = prepared_object.filtered_object
+                    if insert_into ~= nil then
+                        filtered_object[field_name] = {}
+                        filtered_object[field_name][insert_into] =
+                            child_prepared_object.filtered_object
+                    else
+                        filtered_object[field_name] =
+                            child_prepared_object.filtered_object
+                    end
                 end
 
                 child = {

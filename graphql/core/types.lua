@@ -84,7 +84,9 @@ function types.object(config)
     description = config.description,
     isTypeOf = config.isTypeOf,
     fields = fields,
-    interfaces = config.interfaces
+    interfaces = config.interfaces,
+    -- helper flag for BFS executor
+    isMultiheadWrapper = config.isMultiheadWrapper,
   }
 
   instance.nonNull = types.nonNull(instance)
