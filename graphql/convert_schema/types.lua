@@ -112,7 +112,8 @@ local function box_collection_type(type_to_box, connection_type,
     local box_type = core_types.object({
         name = box_type_name,
         description = box_type_description,
-        fields = box_field
+        fields = box_field,
+        isMultiheadWrapper = true,
     })
 
     return box_type, field_name
