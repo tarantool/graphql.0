@@ -60,7 +60,7 @@ deploy:
       condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
   - provider: packagecloud
     username: ${PACKAGECLOUD_USER}
-    repository: "2_0"
+    repository: "2x"
     token: ${PACKAGECLOUD_TOKEN}
     dist: ${OS}/${DIST}
     package_glob: build/*.{rpm,deb}
