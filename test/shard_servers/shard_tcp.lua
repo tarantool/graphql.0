@@ -18,5 +18,6 @@ box.cfg({
 })
 
 box.once('shard_init', function()
-    box.schema.user.grant('guest', 'read,write,execute', 'universe')
+    box.schema.user.grant('guest', 'read,write,execute,create,alter,drop',
+        'universe')
 end)
