@@ -5,12 +5,14 @@ local yaml = require('yaml')
 local utils = require('graphql.utils')
 local shard = utils.optional_require('shard')
 local accessor_shard_helpers = require('graphql.accessor_shard_helpers')
+local key_def_lib = utils.optional_require('key_def')
 
 local accessor_shard_index_info = {}
 
 -- XXX: accessor_shard_index_info.new()
 
 local index_info_cache = {}
+local key_def_cache = {}
 
 --- Determines whether certain fields of two tables are the same.
 ---
@@ -40,7 +42,7 @@ local function compare_table_by_fields(t1, t2, fields)
     return true
 end
 
---- Get index object from net_box under the shard module.
+--- Get an index object from net_box under the shard module.
 ---
 --- The function performs some optimistic consistency checks and raises an
 --- error in the case. It caches results and returns a result from the cache
@@ -55,7 +57,7 @@ end
 ---
 --- @return index object
 function accessor_shard_index_info.get_index_info(collection_name, index_name)
-    local func_name = 'accessor_shard.get_index_info'
+    local func_name = 'accessor_shard_index_info.get_index_info'
     local index_info
 
     -- get from the cache if exists
@@ -93,6 +95,51 @@ function accessor_shard_index_info.get_index_info(collection_name, index_name)
     index_info_cache[collection_name][index_name] = index_info
 
     return index_info
+end
+
+--- Create or get cached key_def for given collection and index.
+---
+--- XXX: Implement some cache clean up strategy and a way to manual cache
+--- purge.
+---
+--- @tparam string collection_name
+---
+--- @tparam string index_name
+---
+--- @treturn cdata `key_def`
+function accessor_shard_index_info.get_key_def(collection_name,
+        index_name)
+    local func_name = 'accessor_shard_index_info.get_key_def'
+
+    if key_def_lib == nil then
+        error(('internal error: %s: key_def is requested, but is not ' ..
+            'supported by the current tarantool version'):format(func_name))
+    end
+
+    -- get from the cache if exists
+    if key_def_cache[collection_name] ~= nil then
+        local key_def = key_def_cache[collection_name][index_name]
+        if key_def ~= nil then
+            return key_def
+        end
+    end
+
+    local index_info = accessor_shard_index_info.get_index_info(collection_name,
+        index_name)
+    local key_def = key_def_lib.new(index_info.parts)
+    if not index_info.unique then
+        local primary_index_info = accessor_shard_index_info.get_index_info(
+            collection_name, 0)
+        key_def = key_def:merge(key_def_lib.new(primary_index_info.parts))
+    end
+
+    -- write to the cache
+    if key_def_cache[collection_name] == nil then
+        key_def_cache[collection_name] = {}
+    end
+    key_def_cache[collection_name][index_name] = key_def
+
+    return key_def
 end
 
 return accessor_shard_index_info

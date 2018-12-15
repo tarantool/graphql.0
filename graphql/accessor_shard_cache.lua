@@ -5,14 +5,18 @@ local utils = require('graphql.utils')
 local shard = utils.optional_require('shard')
 local request_batch = require('graphql.request_batch')
 local accessor_shard_index_info = require('graphql.accessor_shard_index_info')
+local buffer = require('buffer')
+local msgpack = require('msgpack')
+local merger = utils.optional_require('merger')
 
 local check = utils.check
 
 local accessor_shard_cache = {}
 
-local function net_box_call_wrapper(conn, func_name, call_args)
-    local ok, result = pcall(conn.call, conn, func_name, call_args,
-        {is_async = true})
+-- {{{ Helpers for cache_fetch_batch* functions
+
+local function net_box_call_wrapper(conn, func_name, call_args, opts)
+    local ok, result = pcall(conn.call, conn, func_name, call_args, opts)
 
     if not ok then
         return nil, {
@@ -30,32 +34,85 @@ local function is_future(result)
     return type(result) == 'table' and type(result.wait_result) == 'function'
 end
 
-local function cache_fetch_batch(self, batch, fetch_id, stat)
-    -- collect ids and keys that does not correspond to already cached data
-    local new_ids = {}
-    local new_keys = {}
-    local ids = batch:select_ids()
-    assert(#ids == #batch.keys)
-    for i = 1, #ids do
-        if self.cache[ids[i]] == nil then
-            table.insert(new_ids, ids[i])
-            table.insert(new_keys, batch.keys[i])
+--- Delete subrequests that are related to already cached data.
+local function filter_cached_keys(self, source_batch)
+    return source_batch:filter(function(source_batch, key)
+        local id = source_batch:select_id(key)
+        return self.cache[id] == nil
+    end)
+end
+
+local function update_stat_after_cache_fetch(stat, keys, results)
+    assert(#results == #keys,
+        ('results count %d is not the same as requests count %d'):format(
+        #results, #keys))
+
+    -- count fetches: assume a fetch as one request across cluster (don't
+    -- count individulal requests to storages)
+    stat.fetches_cnt = stat.fetches_cnt + 1
+    -- count full scan and index lookup counts
+    for i, key in ipairs(keys) do
+        if key == nil or (type(key) == 'table' and next(key) == nil) then
+            stat.full_scan_cnt = stat.full_scan_cnt + 1
+        else
+            stat.index_lookup_cnt = stat.index_lookup_cnt + 1
         end
     end
 
-    -- nothing to do if the batch requests only data we already have in the
-    -- cache
-    if next(new_keys) == nil then return end
+    -- count fetched tuples
+    for _, result in ipairs(results) do
+        stat.fetched_tuples_cnt = stat.fetched_tuples_cnt + #result
+    end
+end
 
-    -- the copy prevents a change of user-provided argument
-    local batch = table.copy(batch)
-    -- Use abstraction-breaking assignment instead of :add_key() to avoid extra
-    -- 'key_tostring' calls. The field keys_hash is inconsistent with keys
-    -- then.
-    batch.keys = new_keys
-    batch.keys_hash = {}
-    -- old ids does not correspond the new batch, update them
-    ids = new_ids
+local function write_to_cache(self, batch, results, fetch_id)
+    local ids = batch:select_ids()
+    assert(#ids == #batch.keys)
+
+    for i = 1, #ids do
+        -- Now graphql consequently requests for data, so it is not possible to
+        -- have several requests for the same data on the fly. We checked the
+        -- data against the cache in the begin of this function.
+        if self.cache[ids[i]] == nil then
+            self.cache[ids[i]] = {
+                result = results[i],
+                fetch_ids = {fetch_id}
+            }
+        else
+            error(('internal error: received data for an entry %s are ' ..
+                'already in the cache'):format(ids[i]))
+        end
+    end
+end
+
+--- Give buffer, nil, buffer, nil, etc. Stops after param.remaining iterations.
+local function reusable_source_gen(param)
+    local remaining = param.remaining
+    local buf = param.buffer
+
+    -- final stop
+    if remaining == 0 then
+        return
+    end
+
+    param.remaining = remaining - 1
+
+    -- report end of an iteration
+    if remaining % 2 == 0 then
+        return
+    end
+
+    -- give a buffer
+    return box.NULL, buf
+end
+
+-- }}}
+
+local function cache_fetch_batch(self, batch, fetch_id, stat)
+    local batch = filter_cached_keys(self, batch)
+
+    -- all data are already in the cache
+    if next(batch.keys) == nil then return end
 
     -- perform requests
     local results_per_replica_set = {}
@@ -74,13 +131,14 @@ local function cache_fetch_batch(self, batch, fetch_id, stat)
                 batch.iterator_opts
             }
             local node_results, node_err = net_box_call_wrapper(conn,
-                'batch_select', call_args)
+                'batch_select', call_args, {is_async = true})
 
             if node_results == nil then
                 if first_err == nil then
                     first_err = node_err
                 end
             else
+                -- save results
                 results_per_replica_set[i] = node_results
                 break -- go to the next replica_set
             end
@@ -92,16 +150,14 @@ local function cache_fetch_batch(self, batch, fetch_id, stat)
         end
     end
 
+    local results = {}
     -- merge results without sorting: transform
     -- results_per_replica_set[replica_set_num][request_num] 2d-array into
     -- results[request_num] 1d-array
-    local results = {}
     for _, node_results in ipairs(results_per_replica_set) do
         if is_future(node_results) then
             node_results = node_results:wait_result()[1]
         end
-        -- we cannot use C merger for now, because buffers will contain
-        -- list of list of tuples instead of list of tuples
         for j, node_result in ipairs(node_results) do
             results[j] = results[j] or {}
             for _, tuple in ipairs(node_result) do
@@ -110,25 +166,10 @@ local function cache_fetch_batch(self, batch, fetch_id, stat)
         end
     end
 
-    -- count fetches: assume a fetch as one request across cluster (don't
-    -- count individulal requests to storages)
-    stat.fetches_cnt = stat.fetches_cnt + 1
-    -- count full scan and index lookup counts
-    for i, key in ipairs(batch.keys) do
-        if key == nil or (type(key) == 'table' and
-                next(key) == nil) then
-            stat.full_scan_cnt = stat.full_scan_cnt + 1
-        else
-            stat.index_lookup_cnt = stat.index_lookup_cnt + 1
-        end
-    end
-
     -- sort by a primary key
     local primary_index_info = accessor_shard_index_info.get_index_info(
         batch.collection_name, 0)
     for _, result in ipairs(results) do
-        -- count fetched tuples
-        stat.fetched_tuples_cnt = stat.fetched_tuples_cnt + #result
         table.sort(result, function(a, b)
             for i, part in pairs(primary_index_info.parts) do
                 if a[part.fieldno] ~= b[part.fieldno] then
@@ -139,25 +180,96 @@ local function cache_fetch_batch(self, batch, fetch_id, stat)
         end)
     end
 
-    assert(#results == #batch.keys,
-        ('results count %d is not the same as requests count %d'):format(
-        #results, #batch.keys))
+    -- update statistics
+    update_stat_after_cache_fetch(stat, batch.keys, results)
 
-    -- write to the cache
-    for i = 1, #ids do
-        -- Now graphql consequently requests for data, so it is not possible to
-        -- have several requests for the same data on the fly. We checked the
-        -- data against the cache in the begin of this function.
-        if self.cache[ids[i]] == nil then
-            self.cache[ids[i]] = {
-                result = results[i],
-                fetch_ids = {fetch_id}
+    -- write results to the cache
+    write_to_cache(self, batch, results, fetch_id)
+end
+
+local function cache_fetch_batch_merger(self, batch, fetch_id, stat)
+    local batch = filter_cached_keys(self, batch)
+
+    -- all data are already in the cache
+    if next(batch.keys) == nil then return end
+
+    -- perform requests
+    local futures = {}
+    local buffers = {}
+    for i, replica_set in ipairs(shard.shards) do
+        local first_err
+
+        -- perform the request on each node in a replica set starting from
+        -- a master node until success or end of the nodes
+        for n = #replica_set, 1, -1 do
+            local node = replica_set[n]
+            local conn = node.conn
+            local call_args = {
+                batch.collection_name,
+                batch.index_name,
+                batch.keys,
+                batch.iterator_opts
             }
-        else
-            error(('internal error: received data for an entry %s are ' ..
-                'already in the cache'):format(ids[i]))
+            local buf = buffer.ibuf()
+            local net_box_opts = {is_async = true, buffer = buf,
+                skip_header = true}
+            local future, node_err = net_box_call_wrapper(conn,
+                'batch_select', call_args, net_box_opts)
+
+            if future == nil then
+                if first_err == nil then
+                    first_err = node_err
+                end
+            else
+                -- save futures and buffers
+                futures[i] = future
+                buffers[i] = buf
+                break -- go to the next replica_set
+            end
+        end
+
+        -- no successful requests, return the error from the master node
+        if first_err ~= nil then
+            error(first_err)
         end
     end
+
+    -- wait for results, create merge sources
+    local merge_sources = {}
+    for i, future in ipairs(futures) do
+        -- when merger is supported is_async should be supported too
+        assert(is_future(future))
+        future:wait_result()
+
+        -- skip arrays headers
+        local buf = buffers[i]
+        local len
+        len, buf.rpos = msgpack.decode_array_header(buf.rpos, buf:size())
+        assert(len == 1)
+        len, buf.rpos = msgpack.decode_array_header(buf.rpos, buf:size())
+        assert(len == #batch.keys)
+
+        -- we cannot use merger.new_source_frombuffer(buf) here, because we
+        -- need to report end-of-tuples, but return tuples from a next request
+        -- on the next call to a gen function.
+        merge_sources[i] = merger.new_buffer_source(reusable_source_gen,
+            {buffer = buf, remaining = 2 * #batch.keys - 1})
+    end
+
+    -- merge with sorting (it assumes the same sorting within each buffer)
+    local results = {}
+    local key_def = accessor_shard_index_info.get_key_def(
+        batch.collection_name, 0)
+    for i = 1, #batch.keys do
+        local merger_inst = merger.new(key_def, merge_sources)
+        results[i] = merger_inst:select()
+    end
+
+    -- update statistics
+    update_stat_after_cache_fetch(stat, batch.keys, results)
+
+    -- write results to the cache
+    write_to_cache(self, batch, results, fetch_id)
 end
 
 --- Fetch data to the cache.
@@ -199,7 +311,11 @@ local function cache_fetch(self, batches)
     }
 
     for _, batch in pairs(batches) do
-        cache_fetch_batch(self, batch, fetch_id, stat)
+        if merger == nil then
+            cache_fetch_batch(self, batch, fetch_id, stat)
+        else
+            cache_fetch_batch_merger(self, batch, fetch_id, stat)
+        end
     end
 
     return {
