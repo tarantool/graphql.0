@@ -31,18 +31,23 @@ local function key_tostring(key)
     return res
 end
 
---- List of strings, each uniquely identifies select request in the batch.
-local function batch_select_ids(self, skip_function)
-    local ids = {}
-
+--- A string uniquely identifies a certain request in a batch.
+local function batch_select_id(self, key)
     local collection_name = self.collection_name
     local index_name = self.index_name or ''
     local iterator_opts_str = iterator_opts_tostring(self.iterator_opts)
 
+    local key_str = key_tostring(key)
+    return ('%s.%s.%s.%s'):format(collection_name, index_name, key_str,
+        iterator_opts_str)
+end
+
+--- List of strings, each uniquely identifies a request in a batch.
+local function batch_select_ids(self, skip_function)
+    local ids = {}
+
     for _, key in ipairs(self.keys) do
-        local key_str = key_tostring(key)
-        local id = ('%s.%s.%s.%s'):format(collection_name, index_name, key_str,
-            iterator_opts_str)
+        local id = batch_select_id(self, key)
         if skip_function == nil or not skip_function(id) then
             table.insert(ids, id)
         end
@@ -66,7 +71,7 @@ local function batch_compare_bins(self, other)
         utils.are_tables_same(self.iterator_opts, other.iterator_opts)
 end
 
--- Add a key to the batch and update the keys hash.
+--- Add a key to a batch and update its keys hash.
 local function batch_add_key(self, key)
     local key_str = key_tostring(key)
     if self.keys_hash[key_str] then
@@ -76,12 +81,36 @@ local function batch_add_key(self, key)
     table.insert(self.keys, key)
 end
 
+--- Create a new batch with a subset of keys.
+---
+--- Keys to includes to the new batch is ones on which `predicate` returns true.
+---
+--- @tparam table self source batch
+---
+--- @tparam function predicate predicate(source_batch, key) -> boolean
+---
+--- @treturn table new batch
+local function batch_filter(self, predicate)
+    local keys = {}
+
+    for _, key in ipairs(self.keys) do
+        if predicate(self, key) then
+            table.insert(keys, key)
+        end
+    end
+
+    return request_batch.new(self.collection_name, self.index_name, keys,
+        self.iterator_opts)
+end
+
 local request_batch_mt = {
     __index = {
         bin = batch_bin,
+        select_id = batch_select_id,
         select_ids = batch_select_ids,
         compare_bins = batch_compare_bins,
         add_key = batch_add_key,
+        filter = batch_filter,
     }
 }
 
