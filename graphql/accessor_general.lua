@@ -566,7 +566,7 @@ local function prepare_select_internal(self, collection_name, from, filter,
                     'pivot.value_list must be nil or a table, got ' ..
                     type(pivot.value_list))
                 index_value = pivot.value_list
-                iterator_opts.iterator = 'GT'
+                iterator_opts.iterator = box.index.GT
             elseif pivot.filter ~= nil then
                 -- the 'slow offset' case
                 assert(type(pivot.filter) == 'table',

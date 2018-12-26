@@ -15,7 +15,6 @@ local check = utils.check
 
 local accessor_shard = {}
 
-local LIMIT = 100000 -- XXX: we need to raise an error when a limit reached
 -- shard module calculates sharding key by the first field of a tuple
 local SHARD_KEY_FIELD_NO = 1
 
@@ -201,36 +200,34 @@ local function get_index(self, collection_name, index_name, opts)
         return nil
     end
 
-    -- XXX: wrap all data into the table, don't create the capture
-    local index = setmetatable({}, {
+    return setmetatable({
+        collection_name = collection_name,
+        index_name = index_name,
+    }, {
         __index = {
-            pairs = function(_, value, opts, out)
-                local func_name = 'accessor_shard.get_index.<index>.pairs'
+            pairs = function(self, key, opts, out)
+                return accessor_shard_helpers.mr_call(function(metainfo)
+                    -- update statistic counters from previous request metainfo
+                    if metainfo ~= nil then
+                        -- amount of fetch requests / replicaset count
+                        out.fetches_cnt = (out.fetches_cnt or 0) +
+                            (1 / #shard.shards)
+                        -- amount of tuples from fetched from all replicasets
+                        out.fetched_tuples_cnt = (out.fetched_tuples_cnt or 0) +
+                            metainfo.size
+                    end
 
-                -- perform select
-                local opts = opts or {}
-                opts.limit = opts.limit or LIMIT
-                local tuples, err = shard:secondary_select(collection_name,
-                    index_name, opts, value, 0)
-                accessor_shard_helpers.shard_check_error(func_name,
-                    tuples, err)
-                out.fetches_cnt = 1
-                out.fetched_tuples_cnt = #tuples
-
-                -- create iterator
-                local cur = 1
-                local function gen()
-                    if cur > #tuples then return nil end
-                    local res = tuples[cur]
-                    cur = cur + 1
-                    return cur, res
-                end
-
-                return gen, nil, nil
+                    -- generate next arguments
+                    local cursor = metainfo and metainfo.cursor
+                    if cursor and cursor.is_end then
+                        return nil
+                    end
+                    return 'single_select', {self.collection_name,
+                        self.index_name, key, opts, cursor}
+                end)
             end
         }
     })
-    return index
 end
 
 --- Get primary index to perform `:pairs()` (fullscan).

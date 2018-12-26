@@ -130,6 +130,19 @@ function test_utils.get_conf_name()
     return test_run and test_run:get_cfg('conf') or 'space'
 end
 
+local replicasets_count = {
+    space = 1,
+    shard_2x2 = 2,
+    shard_4x1 = 4,
+}
+
+function test_utils.get_replicasets_count()
+    local conf_name = test_utils.get_conf_name()
+    local res = replicasets_count[conf_name]
+    assert(res)
+    return res
+end
+
 function test_utils.get_executor_name()
     local conf_name = test_utils.get_conf_name()
     local on_shard = conf_name == 'shard_2x2' or conf_name == 'shard_4x1'

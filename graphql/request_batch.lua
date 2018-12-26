@@ -4,9 +4,12 @@ local utils = require('graphql.utils')
 
 local request_batch = {}
 
+-- We lean on the fact iterator_opts is always the table.
+-- Use 'default', because it is not clear EQ (non-empty key) or ALL (empty key)
+-- should be used; anyway it does not matter.
 local function iterator_opts_tostring(iterator_opts)
     return ('%s,%s'):format(
-        iterator_opts.iterator or iterator_opts[1] or 'EQ',
+        iterator_opts.iterator or 'default',
         iterator_opts.limit or '')
 end
 

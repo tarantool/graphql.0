@@ -12,10 +12,16 @@ local tap = require('tap')
 local yaml = require('yaml')
 local test_utils = require('test.test_utils')
 local testdata = require('test.testdata.common_testdata')
+local storage = require('graphql.storage')
 
 local function run_queries(gql_wrapper)
     local test = tap.test('pass limit to storages when no filters present')
     local conf_name = test_utils.get_conf_name()
+    local replicasets_count = test_utils.get_replicasets_count()
+    local block_size = storage.get_block_size()
+    -- 3924 is amount of tuples in order_collection; keep it is sync with
+    -- test/testdata/common_testdata.lua::fill_test_data() code
+    local no_limit_size = math.min(replicasets_count * block_size, 3924)
     test:plan(16)
 
     local exp_result_1_1_to_1_5 = yaml.decode(([[
@@ -67,7 +73,7 @@ local function run_queries(gql_wrapper)
 
     test:is_deeply(result_1_1.data, exp_result_1_1_to_1_5,
         'only limit case: check data')
-    test:ok(result_1_1.meta.statistics.fetched_object_cnt == 1,
+    test:ok(result_1_1.meta.statistics.fetched_object_cnt <= replicasets_count,
         'only limit case: check meta')
 
     -- case: object argument w/o an index underhood should discard limit
@@ -84,7 +90,7 @@ local function run_queries(gql_wrapper)
     test:is_deeply(result_1_2.data, exp_result_1_1_to_1_5,
         'limit + non-index object argument case: check data')
     test:ok(conf_name == 'space' or
-        result_1_2.meta.statistics.fetched_object_cnt > 3000,
+        result_1_2.meta.statistics.fetched_object_cnt >= no_limit_size,
         'limit + non-index object argument case: check meta')
 
     -- case: when one object argument with an index underhood is passed we can
@@ -100,7 +106,7 @@ local function run_queries(gql_wrapper)
 
     test:is_deeply(result_1_3.data, exp_result_1_1_to_1_5,
         'limit + index object argument case: check data')
-    test:ok(result_1_3.meta.statistics.fetched_object_cnt == 1,
+    test:ok(result_1_3.meta.statistics.fetched_object_cnt <= replicasets_count,
         'limit + index object argument case: check meta')
 
     -- case: object argument that is not choosen for index lookup (say, because
@@ -138,7 +144,7 @@ local function run_queries(gql_wrapper)
     test:is_deeply(result_1_5.data, exp_result_1_1_to_1_5,
         'limit + list argument case: check data')
     test:ok(conf_name == 'space' or
-        result_1_5.meta.statistics.fetched_object_cnt > 3000,
+        result_1_5.meta.statistics.fetched_object_cnt >= no_limit_size,
         'limit + list argument case: check meta')
 
     -- case: when only 'offset' list argument is passed we can pass a limit to
@@ -154,7 +160,7 @@ local function run_queries(gql_wrapper)
 
     test:is_deeply(result_1_6.data, exp_result_1_6_to_1_7,
         'limit + offset case: check data')
-    test:ok(result_1_6.meta.statistics.fetched_object_cnt == 1,
+    test:ok(result_1_6.meta.statistics.fetched_object_cnt <= replicasets_count,
         'limit + offset case: check meta')
 
     -- case: offset and other list argument (say, 'pcre') should discard limit
@@ -171,8 +177,9 @@ local function run_queries(gql_wrapper)
 
     test:is_deeply(result_1_7.data, exp_result_1_6_to_1_7,
         'limit + offset + non-empty pcre case: check data')
+    -- -1 is due to offset
     test:ok(conf_name == 'space' or
-        result_1_7.meta.statistics.fetched_object_cnt > 3000,
+        result_1_7.meta.statistics.fetched_object_cnt >= no_limit_size - 1,
         'limit + offset + non-empty pcre case: check meta')
 
     -- case: when an extra argument passed we can pass a limit to storages
@@ -206,8 +213,8 @@ local function run_queries(gql_wrapper)
 
     test:is_deeply(result_m_1_1.data, exp_result_1_1_to_1_5,
         'limit + extra argument case: check data')
-    test:ok(result_m_1_1.meta.statistics.fetched_object_cnt == 1,
-        'limit + extra argument case: check meta')
+    test:ok(result_m_1_1.meta.statistics.fetched_object_cnt <=
+        replicasets_count, 'limit + extra argument case: check meta')
 
     assert(test:check(), 'check plan')
 end
