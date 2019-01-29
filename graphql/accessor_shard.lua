@@ -234,6 +234,7 @@ end
 ---   collection_name intended to be unflattened using
 ---   `tuple:tomap({names_only = true})` method instead of
 ---   `compiled_avro_schema.unflatten(tuple)`
+--- * `qcontext` table per-query table which stores query internal state
 --- @tparam function default unflatten action, call it in the following way:
 ---
 ---     return default(self, collection_name, tuple)
@@ -257,6 +258,7 @@ end
 --- @tparam table opts
 --- * `service_fields_defaults` (list (Lua table), default: empty list; list of
 ---   values to set service fields)
+--- * `qcontext` table per-query table which stores query internal state
 --- @tparam function default flatten action, call it in the following way:
 ---
 ---    return default(self, collection_name, obj, opts)
@@ -371,6 +373,9 @@ end
 ---
 --- @param key primary key
 ---
+--- @tparam table extra table which contains extra information related to
+--- current select and the whole query
+---
 --- @tparam table statements
 ---
 --- @tparam table opts
@@ -380,7 +385,7 @@ end
 ---   replica set
 ---
 --- @treturn cdata/table `tuple`
-local function update_tuple(self, collection_name, key, statements, opts)
+local function update_tuple(self, collection_name, key, extra, statements, opts)
     local func_name = 'accessor_shard.update_tuple'
     check(self, 'self', 'table')
 
@@ -389,7 +394,6 @@ local function update_tuple(self, collection_name, key, statements, opts)
     check(opts.tuple, 'opts.tuple', 'nil', 'cdata', 'table')
 
     shard_check_status(func_name)
-
     -- We follow tarantool convention and disallow update of primary key parts.
     local primary_index_info = accessor_shard_index_info.get_index_info(
         collection_name, 0)
@@ -431,7 +435,7 @@ local function update_tuple(self, collection_name, key, statements, opts)
         local old_tuple = opts.tuple or get_tuple(self, collection_name, key)
         local new_tuple = old_tuple:update(statements)
         self.funcs.insert_tuple(self, collection_name, new_tuple)
-        self.funcs.delete_tuple(self, collection_name, key, {tuple = old_tuple})
+        self.funcs.delete_tuple(self, collection_name, key, extra, {tuple = old_tuple})
         return new_tuple
     else
         -- one storage case
@@ -453,12 +457,15 @@ end
 ---
 --- @param key primary key
 ---
+--- @tparam table extra table which contains extra information related to
+--- current select and the whole query
+---
 --- @tparam table opts
 ---
 --- * tuple (cdata/table, optional); the same as in @{update_tuple}
 ---
 --- @treturn cdata tuple
-local function delete_tuple(self, collection_name, key, opts)
+local function delete_tuple(self, collection_name, key, _, opts)
     local func_name = 'accessor_shard.delete_tuple'
     check(self, 'self', 'table')
 

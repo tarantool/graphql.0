@@ -157,6 +157,9 @@ end
 ---
 --- @param key primary key
 ---
+--- @tparam table extra table which contains extra information related to
+--- current select and the whole query
+---
 --- @tparam table statements
 ---
 --- @tparam table opts
@@ -164,7 +167,7 @@ end
 --- * tuple (ignored in accessor_space)
 ---
 --- @treturn cdata/table `tuple`
-local function update_tuple(self, collection_name, key, statements, opts)
+local function update_tuple(self, collection_name, key, _, statements, opts)
     check(self, 'self', 'table')
     local opts = opts or {}
     check(opts, 'opts', 'table')
@@ -179,12 +182,15 @@ end
 ---
 --- @param key primary key
 ---
+--- @tparam table extra table which contains extra information related to
+--- current select and the whole query
+---
 --- @tparam table opts
 ---
 --- * tuple (ignored in accessor_space)
 ---
 --- @treturn cdata tuple
-local function delete_tuple(self, collection_name, key, opts)
+local function delete_tuple(self, collection_name, key, _, opts)
     check(self, 'self', 'table')
     local opts = opts or {}
     check(opts, 'opts', 'table')

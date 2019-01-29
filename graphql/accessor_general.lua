@@ -925,7 +925,9 @@ local function process_tuple(self, state, tuple, opts)
 
     -- convert tuple -> object
     local obj = opts.unflatten_tuple(self, collection_name, tuple,
-        { use_tomap = opts.use_tomap }, opts.default_unflatten_tuple)
+        { use_tomap = opts.use_tomap, qcontext = qcontext },
+        opts.default_unflatten_tuple
+    )
 
     -- skip all items before pivot (the item pointed by offset)
     if not state.pivot_found and pivot_filter then
@@ -994,7 +996,7 @@ end
 --- @treturn table `new_objects` list of returned objects (in the order of the
 --- `selected` parameter)
 local function perform_primary_key_operation(self, collection_name, schema_name,
-        selected, operation, ...)
+        selected, extra, operation, ...)
     check(operation, 'operation', 'string')
 
     local _, primary_index_meta = db_schema_helpers.get_primary_index_meta(
@@ -1009,9 +1011,14 @@ local function perform_primary_key_operation(self, collection_name, schema_name,
         end
         -- XXX: we can pass a tuple corresponding the object to update_tuple /
         -- delete_tuple to save one get operation
-        local new_tuple = self.funcs[operation](self, collection_name, key, ...)
+        local new_tuple = self.funcs[operation](self, collection_name, key, {
+            qcontext = extra.qcontext
+        }, ...)
         local new_object = self.funcs.unflatten_tuple(self, collection_name,
-            new_tuple, {use_tomap = self.collection_use_tomap[collection_name]},
+            new_tuple, {
+                use_tomap = self.collection_use_tomap[collection_name],
+                qcontext = extra.qcontext,
+            },
             self.default_unflatten_tuple[schema_name])
         table.insert(new_objects, new_object)
     end
@@ -1065,8 +1072,11 @@ local function prepare_select_internal(self, collection_name, from, filter,
     -- search for suitable index
     local full_match, index_name, filter, index_value, pivot = get_index_name(
         self, collection_name, from, filter, args) -- we redefine filter here
+    local qcontext = extra.qcontext
     local index = index_name ~= nil and
-        self.funcs.get_index(self, collection_name, index_name) or nil
+        self.funcs.get_index(self, collection_name, index_name, {
+            qcontext = qcontext
+        }) or nil
     if index_name ~= nil and index == nil then
         error(('cannot find actual index "%s" in the collection "%s", ' ..
             'but the index metainformation contains it'):format(index_name,
@@ -1089,7 +1099,6 @@ local function prepare_select_internal(self, collection_name, from, filter,
         collection_name))
 
     -- read-write variables for process_tuple
-    local qcontext = extra.qcontext
     local select_state = {
         count = 0,
         objs = {},
@@ -1138,7 +1147,7 @@ local function prepare_select_internal(self, collection_name, from, filter,
     if index == nil then
         assert(pivot == nil,
             'offset for top-level objects must use a primary index')
-        index = self.funcs.get_primary_index(self, collection_name)
+        index = self.funcs.get_primary_index(self, collection_name, { qcontext = qcontext })
         index_value = nil
         is_full_scan = true
     else
@@ -1202,7 +1211,6 @@ local function invoke_select_internal(self, prepared_select)
     local collection_name = prepared_select.collection_name
     local args = prepared_select.args
     local extra = prepared_select.extra
-
     local index = request_opts.index
     local index_name = request_opts.index_name
     local index_value = request_opts.index_value
@@ -1300,16 +1308,18 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     assert(default_flatten_object ~= nil,
         ('cannot find default_flatten_object ' ..
         'for collection "%s"'):format(collection_name))
+    local qcontext = extra.qcontext
     local tuple = self.funcs.flatten_object(self, collection_name, object, {
         service_fields_defaults =
             self.service_fields_defaults[schema_name],
+        qcontext = qcontext,
     }, default_flatten_object)
 
     -- insert tuple & tuple -> object (with default values set before)
-    local new_tuple = self.funcs.insert_tuple(self, collection_name, tuple)
+    local new_tuple = self.funcs.insert_tuple(self, collection_name, tuple, {qcontext = qcontext})
     local use_tomap = self.collection_use_tomap[collection_name]
     local new_object = self.funcs.unflatten_tuple(self, collection_name,
-        new_tuple, {use_tomap = use_tomap},
+        new_tuple, {use_tomap = use_tomap, qcontext = qcontext},
         self.default_unflatten_tuple[schema_name])
 
     return {new_object}
@@ -1346,10 +1356,11 @@ local function update_internal(self, collection_name, extra, selected)
     local statements = self.funcs.xflatten(self, collection_name, xobject, {
         service_fields_defaults =
             self.service_fields_defaults[schema_name],
+        qcontext = extra.qcontext,
     }, default_xflatten)
 
     return perform_primary_key_operation(self, collection_name, schema_name,
-        selected, 'update_tuple', statements)
+        selected, extra, 'update_tuple', statements)
 end
 
 --- Delete an object.
@@ -1376,7 +1387,7 @@ local function delete_internal(self, collection_name, extra, selected)
     local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
 
     return perform_primary_key_operation(self, collection_name, schema_name,
-        selected, 'delete_tuple')
+        selected, extra, 'delete_tuple')
 end
 
 --- Set of asserts to check the `funcs` argument of the @{accessor_general.new}

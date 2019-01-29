@@ -37,8 +37,10 @@ local default_instance
 ---
 --- @tparam[opt] string operation_name optional operation name
 ---
+--- @tparam[opt] table request_context option context of the request
+---
 --- @treturn table result of the operation
-local function gql_execute(qstate, variables, operation_name)
+local function gql_execute(qstate, variables, operation_name, request_context)
     assert(qstate.state)
     assert(qstate.query_settings)
     local state = qstate.state
@@ -50,10 +52,11 @@ local function gql_execute(qstate, variables, operation_name)
     check(variables, 'variables', 'table')
     check(operation_name, 'operation_name', 'string', 'nil')
     check(max_batch_size, 'max_batch_size', 'number')
-
+    check(request_context, 'request_context', 'table', 'nil')
     local qcontext = {
         query_settings = qstate.query_settings,
         variables = variables,
+        request_context = request_context,
     }
 
     local traceback
