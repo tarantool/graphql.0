@@ -394,7 +394,8 @@ local function filter_value(value, value_type, selections, context)
             selections, context)
         local res = {}
 
-        for field_name, selection in pairs(selections_per_fields) do
+        for alias_name, selection in pairs(selections_per_fields) do
+            local field_name = selection.name.value
             local field_type = core_introspection.fieldMap[field_name] or
                 value_type.fields[field_name]
             assert(field_type ~= nil)
@@ -416,8 +417,8 @@ local function filter_value(value, value_type, selections, context)
             local child_selections = selection.selectionSet ~= nil and
                 selection.selectionSet.selections or {}
 
-            assert(res[field_name] == nil)
-            res[field_name] = filter_value(child_value, child_type,
+            assert(res[alias_name] == nil)
+            res[alias_name] = filter_value(child_value, child_type,
                 child_selections, context)
         end
 
@@ -553,7 +554,8 @@ local function filter_object(object, object_type, selections, context, opts)
     local cache_only_fields_info = {}
     local fields_info = {}
 
-    for field_name, selection in pairs(selections_per_fields) do
+    for alias_name, selection in pairs(selections_per_fields) do
+        local field_name = selection.name.value
         local field_type = core_introspection.fieldMap[field_name] or
             object_type.fields[field_name]
         assert(field_type ~= nil)
@@ -577,7 +579,7 @@ local function filter_object(object, object_type, selections, context, opts)
         end
 
         if object_type.isMultiheadWrapper then
-            assert(filtered_object[field_name] == nil)
+            assert(filtered_object[alias_name] == nil)
 
             local child_res
             if is_list then
@@ -587,13 +589,13 @@ local function filter_object(object, object_type, selections, context, opts)
                 child_res = filter_object(object[field_name], inner_type,
                     child_selections, context, opts)
             end
-            child_res.insert_into = field_name
+            child_res.insert_into = alias_name
             return child_res
         elseif field_type.prepare_resolve then
             local prepared_resolve = field_type.prepare_resolve(object, args,
                 info, {is_hidden = is_item_cache_only})
 
-            fields_info[field_name] = {
+            fields_info[alias_name] = {
                 is_list = is_list,
                 kind = inner_type,
                 prepared_resolve = prepared_resolve,
@@ -611,8 +613,8 @@ local function filter_object(object, object_type, selections, context, opts)
             if field_type.resolve ~= nil then
                 value = field_type.resolve(object, args, info)
             end
-            assert(filtered_object[field_name] == nil)
-            filtered_object[field_name] = filter_value(
+            assert(filtered_object[alias_name] == nil)
+            filtered_object[alias_name] = filter_value(
                 value, inner_type, child_selections, context)
         end
     end
