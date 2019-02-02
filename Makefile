@@ -48,7 +48,7 @@ pure-bench:
 
 .PHONY: clean
 clean:
-	rm -rf test/var
+	rm -rf test/var luacov.stats.out luacov.report.out
 
 .PHONY: apidoc-lint
 apidoc-lint:
@@ -74,3 +74,20 @@ demo:
 rpm:
 	OS=el DIST=7 PACKAGECLOUD_USER=tarantool PACKAGECLOUD_REPO=1_9 \
 	   ./3rd_party/packpack/packpack
+
+.PHONY: coverage
+coverage: lint
+	virtualenv -p python2.7 ./.env-2.7
+	. ./.env-2.7/bin/activate && \
+		pip install -r ./test-run/requirements.txt && \
+		pip install tarantool && \
+		cd test && ./test-run.py --luacov
+	find test/var -name luacov.stats.out | xargs -I {} sed \
+		-e 's@/test/[^ /]\+/\.\./\.\./graphql@/graphql@' \
+		-e 's@/test/../graphql@/graphql@' \
+		-e 's@'"$$(realpath .)"'/@@' \
+		-i {}
+	find test/var -name luacov.stats.out | xargs \
+		tools/luacov_merge.lua # create luacov.stats.out
+	luacov ^graphql  # generate luacov.report.out
+	awk '/^Summary$$/{i=1;}{if(i){print;}}' luacov.report.out

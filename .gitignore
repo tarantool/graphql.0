@@ -25,3 +25,7 @@ bench.*.result.txt
 
 # temporary directory for make apidoc-lint
 doc/apidoc-lint-tmp
+
+# luacov files
+luacov.stats.out
+luacov.report.out

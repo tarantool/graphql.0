@@ -118,8 +118,18 @@ function test_utils.graphql_from_testdata(testdata, shard, graphql_opts)
     local test_conf_graphql_opts = test_run and test_run:get_cfg('graphql_opts')
         or {}
 
+    -- disable timeouts when we're run under luacov
+    -- note: when a timeout is set and is tiny it is query_timeout.test.lua, so
+    -- we should leave the timeout as is
+    local luacov_graphql_opts = {}
+    if rawget(_G, 'TEST_RUN_LUACOV') and (graphql_opts.timeout_ms == nil or
+            graphql_opts.timeout_ms > 1) then
+        luacov_graphql_opts = {timeout_ms = 100000}
+    end
+
     local gql_wrapper = graphql.new(utils.merge_tables(
-        default_graphql_opts, test_conf_graphql_opts, graphql_opts))
+        default_graphql_opts, test_conf_graphql_opts, graphql_opts,
+        luacov_graphql_opts))
 
     return gql_wrapper
 end
