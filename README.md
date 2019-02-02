@@ -1,6 +1,12 @@
 ## Overview
 
-[![Build Status](https://travis-ci.org/tarantool/graphql.svg?branch=master)](https://travis-ci.org/tarantool/graphql)
+[![Build Status][travis-ci-badge]][travis-ci-page]
+[![Coverage Status][coveralls-badge]][coveralls-page]
+
+[travis-ci-badge]: https://travis-ci.org/tarantool/graphql.svg?branch=master
+[travis-ci-page]: https://travis-ci.org/tarantool/graphql
+[coveralls-badge]: https://coveralls.io/repos/github/tarantool/graphql/badge.svg?branch=master
+[coveralls-page]: https://coveralls.io/github/tarantool/graphql?branch=master
 
 Set of adapters for GraphQL query language to the Tarantool data model. Based
 on [graphql-lua](https://github.com/bjornbytes/graphql-lua).
