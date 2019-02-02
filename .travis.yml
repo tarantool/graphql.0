@@ -22,15 +22,22 @@ env:
       - SHARD_VERSION=2.1 AVRO_SCHEMA=2.3.2
       - SHARD_VERSION=1.2 AVRO_SCHEMA=3.0.0
       - SHARD_VERSION=2.1 AVRO_SCHEMA=3.0.0
+      - TARGET=coverage
 
 script:
   - git describe --long
+  - git submodule update --recursive --init
   - |
-    if [ -n "${OS}" ]; then
-        git submodule update --recursive --init
+    if [ "${TARGET}" = coverage ]; then
+        ./tools/ubuntu.trusty.prepare.sh
+        export PATH="${PATH}:$(realpath .)/.rocks/bin"
+        make coverage
+        luacov-coveralls --include ^graphql --repo-token "${COVERALLS_TOKEN}"
+    elif [ -n "${OS}" ]; then
         ./3rd_party/packpack/packpack
     else
-        ./tools/ubuntu.trusty.test.sh
+        ./tools/ubuntu.trusty.prepare.sh
+        make test
     fi
 
 before_deploy:
