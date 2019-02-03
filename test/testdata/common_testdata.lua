@@ -365,9 +365,8 @@ function common_testdata.drop_spaces()
 end
 
 function common_testdata.run_queries(gql_wrapper)
-    local avro_version = test_utils.major_avro_schema_version()
     local test = tap.test('common')
-    test:plan(avro_version == 3 and 54 or 30)
+    test:plan(54)
 
     local query_1 = [[
         query user_by_order($order_id: String) {
@@ -1280,8 +1279,6 @@ end
 -- extracted from run_queries to prevent 'function at line NNN has more than
 -- 200 local variables' error
 type_mismatch_cases = function(gql_wrapper, test)
-    local avro_version = test_utils.major_avro_schema_version()
-
     -- {{{ fail cases for a variable type
 
     local query_12 = [[
@@ -1322,11 +1319,6 @@ type_mismatch_cases = function(gql_wrapper, test)
         'Int for a String type')
 
     -- }}}
-
-    if avro_version == 2 then
-        assert(test:check(), 'check plan')
-        return
-    end
 
     local query_13 = [[
         mutation($xorder_metainfo: order_metainfo_collection_update) {

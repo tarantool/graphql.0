@@ -101,14 +101,12 @@ function nullable_1_1_conn_testdata.get_test_metadata()
     }
 end
 
-function nullable_1_1_conn_testdata.init_spaces(avro_version)
-    assert(avro_version == 2 or avro_version == 3)
-
+function nullable_1_1_conn_testdata.init_spaces()
     -- email fields
     local LOCALPART_FN = 1
     local DOMAIN_FN = 2
-    local IN_REPLY_TO_LOCALPART_FN = avro_version == 3 and 3 or 4
-    local IN_REPLY_TO_DOMAIN_FN = avro_version == 3 and 4 or 6
+    local IN_REPLY_TO_LOCALPART_FN = 3
+    local IN_REPLY_TO_DOMAIN_FN = 4
 
     box.once('init_spaces_nullable_1_1_conn', function()
         box.schema.create_space('email')

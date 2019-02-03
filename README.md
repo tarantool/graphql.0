@@ -147,11 +147,6 @@ multi-head connection is known to have no connected object.
 
 ### Mutations
 
-Mutations are disabled for avro-schema-2\*, because it can work incorrectly for
-schemas with nullable types (ones whose marked with asterisk). Mutations still
-can be enabled with the `enable_mutations = true` option, but use it with
-caution. Don't enable this option with schemas involve nullable types.
-
 #### Mutations with space accessor
 
 TBD: Describe which changes are transactional and which views are guaranteed to
@@ -399,7 +394,7 @@ TEST_RUN_TESTS=common/mutation make test
 * For use:
   * tarantool,
   * lulpeg,
-  * \>=tarantool/avro-schema-2.0-71-gfea0ead,
+  * \>=tarantool/avro-schema-3.0.1,
   * \>=tarantool/shard-1.1-91-gfa88bf8 (but < 2.0) or
     \>=tarantool/shard-2.1-0-g0a7d98f (optional),
   * lrexlib-pcre2 or lrexlib-pcre (optional),
@@ -408,7 +403,7 @@ TEST_RUN_TESTS=common/mutation make test
   * python 2.7,
   * virtualenv,
   * luacheck,
-  * \>=tarantool/avro-schema-2.2.2-4-g1145e3e,
+  * \>=tarantool/avro-schema-3.0.1,
   * \>=tarantool/shard-1.1-92-gec1a27e (but < 2.0) or
     \>=tarantool/shard-2.1-0-g0a7d98f,
   * lrexlib-pcre2 or lrexlib-pcre,

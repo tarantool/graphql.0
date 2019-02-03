@@ -21,10 +21,8 @@ local emails_testdata = require('test.testdata.nullable_1_1_conn_testdata')
 -- init box and data schema
 box.cfg{background = false}
 
-local avro_version = test_utils.major_avro_schema_version()
-
-common_testdata.init_spaces(avro_version)
-emails_testdata.init_spaces(avro_version)
+common_testdata.init_spaces()
+emails_testdata.init_spaces()
 
 -- upload test data
 local common_meta = common_testdata.meta or common_testdata.get_test_metadata()
@@ -34,7 +32,7 @@ emails_testdata.fill_test_data(box.space, emails_meta)
 
 local LOCALPART_FN = 1
 local DOMAIN_FN = 2
-local BODY_FN = avro_version == 3 and 5 or 7
+local BODY_FN = 5
 
 for _, tuple in box.space.email:pairs() do
     local body = tuple[BODY_FN]

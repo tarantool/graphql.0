@@ -94,14 +94,6 @@ function test_utils.replace_object(virtbox, meta, collection_name, object,
     virtbox[collection_name]:replace(tuple)
 end
 
-function test_utils.major_avro_schema_version()
-    local ok, handle = avro_schema.create('boolean')
-    assert(ok)
-    local ok, model = avro_schema.compile(handle)
-    assert(ok)
-    return model.get_types == nil and 2 or 3
-end
-
 function test_utils.graphql_from_testdata(testdata, shard, graphql_opts)
     local graphql_opts = graphql_opts or {}
     local meta = testdata.meta or testdata.get_test_metadata()
@@ -172,7 +164,7 @@ function test_utils.run_testdata(testdata, opts)
     multirunner.run_conf(conf_name, {
         test_run = test_run,
         init_function = testdata.init_spaces,
-        init_function_params = {test_utils.major_avro_schema_version()},
+        init_function_params = {},
         cleanup_function = testdata.drop_spaces,
         workload = function(conf_name, shard)
             if workload then

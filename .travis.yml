@@ -12,17 +12,24 @@ cache:
 git:
     depth: 100500
 
-env:
-    matrix:
-      - OS=el DIST=6
-      - OS=el DIST=7
-      - OS=fedora DIST=26
-      - OS=fedora DIST=27
-      - SHARD_VERSION=1.2 AVRO_SCHEMA=2.3.2
-      - SHARD_VERSION=2.1 AVRO_SCHEMA=2.3.2
-      - SHARD_VERSION=1.2 AVRO_SCHEMA=3.0.0
-      - SHARD_VERSION=2.1 AVRO_SCHEMA=3.0.0
-      - TARGET=coverage
+jobs:
+  include:
+    - name: "CentOS 6: test, deploy RPM"
+      env: TARGET=pack OS=el DIST=6
+    - name: "CentOS 7: test, deploy RPM"
+      env: TARGET=pack OS=el DIST=7
+    - name: "Fedora 26: test, deploy RPM"
+      env: TARGET=pack OS=fedora DIST=26
+    - name: "Fedora 27: test, deploy RPM"
+      env: TARGET=pack OS=fedora DIST=27
+    - name: "Test: shard 1.2, avro-schema 3.0.1"
+      env: TARGET=test SHARD_VERSION=1.2 AVRO_SCHEMA=3.0.1
+    - name: "Test: shard 2.1, avro-schema 3.0.1"
+      env: TARGET=test SHARD_VERSION=2.1 AVRO_SCHEMA=3.0.1
+    - name: "Test: shard master, avro-schema master"
+      env: TARGET=test SHARD_VERSION= AVRO_SCHEMA=
+    - name: "Coverage: shard 2.1, avro-schema 3.0.1"
+      env: TARGET=coverage SHARD_VERSION=2.1 AVRO_SCHEMA=3.0.1
 
 script:
   - git describe --long
@@ -33,11 +40,15 @@ script:
         export PATH="${PATH}:$(realpath .)/.rocks/bin"
         make coverage
         luacov-coveralls --include ^graphql --repo-token "${COVERALLS_TOKEN}"
-    elif [ -n "${OS}" ]; then
+    elif [ "${TARGET}" = pack ]; then
+        [ -n "${OS}" ] || exit 1
+        [ -n "${DIST}" ] || exit 1
         ./3rd_party/packpack/packpack
-    else
+    elif [ "${TARGET}" = test ]; then
         ./tools/ubuntu.trusty.prepare.sh
         make test
+    else
+        exit 1
     fi
 
 before_deploy:
@@ -75,6 +86,7 @@ deploy:
     on:
       branch: master
       condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
+
 notifications:
   email:
     recipients:
