@@ -268,9 +268,6 @@ local ok, err = avro.validate(compiled_schema_heroes, result_1.data)
 test:ok(ok, 'query 1 response validation (obtainHeroes)', {err = err})
 
 -- humans
-result_expected_1.hero_collection[1].hero_connection.starship_collection = nil
-result_expected_1.hero_collection[1].hero_banking_connection
-    .dublon_account_collection = nil
 local result_1 = gql_query:execute(variables_1, 'obtainHumans')
 test:is_deeply(result_1.data, result_expected_1,
     'query 1 response (obtainHumans)')
@@ -307,11 +304,9 @@ local ok, err = avro.validate(compiled_schema_heroes, result_2.data)
 test:ok(ok, 'query 2 response validation (obtainHeroes)', {err = err})
 
 -- humans
-result_expected_2.hero_collection[1].hero_connection.starship_collection = nil
-result_expected_2.hero_collection[1].hero_banking_connection
-    .dublon_account_collection = nil
+result_expected_2.hero_collection[1].hero_connection = nil
+result_expected_2.hero_collection[1].hero_banking_connection = nil
 local result_2 = gql_query:execute(variables_2, 'obtainHumans')
-print(yaml.encode(result_2.data))
 test:is_deeply(result_2.data, result_expected_2,
     'query 2 response (obtainHumans)')
 local ok, err = avro.validate(compiled_schema_humans, result_2.data)
