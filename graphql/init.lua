@@ -36,8 +36,15 @@ local accessor_shard = require('graphql.accessor_shard')
 local impl = require('graphql.impl')
 local error_codes = require('graphql.error_codes')
 local storage = require('graphql.storage')
+local avro_helpers = require('graphql.avro_helpers')
 
 local graphql = {}
+
+-- avro-schema-2* is known to be broken with nullable types
+if avro_helpers.major_avro_schema_version() ~= 3 then
+    error('The graphql module does not support avro-schema-2*. ' ..
+        'Consider update to >=avro-schema-3.0.1.')
+end
 
 -- constants
 graphql.TIMEOUT_INFINITY = accessor_general.TIMEOUT_INFINITY

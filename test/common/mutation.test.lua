@@ -1367,54 +1367,8 @@ local function run_queries(gql_wrapper, virtbox, meta)
     assert(test:check(), 'check plan')
 end
 
--- Mutations are disabled for avro-schema-2* by default, but can be enabled by
--- the option.
-local function run_queries_avro_schema_2(test, enable_mutations, gql_wrapper,
-        virtbox, meta)
-    local mutation_insert = [[
-        mutation insert_user($user: user_collection_insert) {
-            user_collection(insert: $user) {
-                user_id
-                first_name
-                last_name
-            }
-        }
-    ]]
-    local ok, err = pcall(gql_wrapper.compile, gql_wrapper, mutation_insert)
-
-    if enable_mutations then
-        test:ok(ok, 'mutations are enabled with the enable_mutations flag')
-    else
-        local exp_err = 'Variable specifies unknown type ' ..
-            '"user_collection_insert"'
-        test:is_deeply({ok, utils.strip_error(err)}, {false, exp_err},
-            'mutations are forbidden for avro-schema-2*')
-    end
-end
-
-if test_utils.major_avro_schema_version() == 3 then
-    test_utils.run_testdata(testdata, {
-        run_queries = run_queries,
-    })
-else
-    local test = tap.test('mutation')
-    test:plan(2)
-    local function workload(_, shard)
-        local virtbox = shard or box.space
-        local meta = testdata.meta or testdata.get_test_metadata()
-        testdata.fill_test_data(virtbox, meta)
-        -- test mutations are disabled on avro-schema-2* by default
-        local gql_wrapper = test_utils.graphql_from_testdata(testdata, shard)
-        run_queries_avro_schema_2(test, false, gql_wrapper, virtbox, meta)
-        -- test mutations can be enabled on avro-schema-2* by the option
-        local gql_wrapper = test_utils.graphql_from_testdata(testdata, shard,
-            {enable_mutations = true})
-        run_queries_avro_schema_2(test, true, gql_wrapper, virtbox, meta)
-    end
-    test_utils.run_testdata(testdata, {
-        workload = workload,
-    })
-    assert(test:check(), 'check plan')
-end
+test_utils.run_testdata(testdata, {
+    run_queries = run_queries,
+})
 
 os.exit()

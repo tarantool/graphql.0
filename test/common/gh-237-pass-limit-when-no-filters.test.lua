@@ -16,8 +16,7 @@ local testdata = require('test.testdata.common_testdata')
 local function run_queries(gql_wrapper)
     local test = tap.test('pass limit to storages when no filters present')
     local conf_name = test_utils.get_conf_name()
-    local avro_version = test_utils.major_avro_schema_version()
-    test:plan(avro_version == 3 and 16 or 14)
+    test:plan(16)
 
     local exp_result_1_1_to_1_5 = yaml.decode(([[
         ---
@@ -178,11 +177,6 @@ local function run_queries(gql_wrapper)
 
     -- case: when an extra argument passed we can pass a limit to storages
     -- (because extra args is mutation args and do nothing with filtering)
-
-    if avro_version == 2 then
-        assert(test:check(), 'check plan')
-        return
-    end
 
     local mutation_1 = [[
         mutation update_order(

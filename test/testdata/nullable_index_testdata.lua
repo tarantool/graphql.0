@@ -114,15 +114,15 @@ function nullable_index_testdata.get_test_metadata()
     }
 end
 
-function nullable_index_testdata.init_spaces(avro_version)
+function nullable_index_testdata.init_spaces()
     -- foo fields
     local FOO_ID_FN = 1
 
     -- bar fields
     local BAR_ID_FN = 1
-    local BAR_ID_OR_NULL_1_FN = avro_version == 3 and 2 or 3
-    local BAR_ID_OR_NULL_2_FN = avro_version == 3 and 3 or 5
-    local BAR_ID_OR_NULL_3_FN = avro_version == 3 and 4 or 7
+    local BAR_ID_OR_NULL_1_FN = 2
+    local BAR_ID_OR_NULL_2_FN = 3
+    local BAR_ID_OR_NULL_3_FN = 4
 
     box.once('test_space_init_spaces', function()
         box.schema.create_space('foo')

@@ -363,10 +363,6 @@ end
 ---
 --- @tparam string collection_name name of collection to create the fields
 ---
---- @tparam table opts
----
---- * enable_mutations (boolean)
----
 --- @treturn table list of avro-schema fields
 ---
 --- @treturn table map with flags to describe where generated arguments should
@@ -379,14 +375,7 @@ end
 ---        },
 ---        ...
 ---    }
-function gen_arguments.extra_args(db_schema, collection_name, opts)
-    local opts = opts or {}
-    local enable_mutations = opts.enable_mutations or false
-
-    if not enable_mutations then
-        return {}, {}
-    end
-
+function gen_arguments.extra_args(db_schema, collection_name)
     local schema_name = db_schema_helpers.get_schema_name(db_schema,
         collection_name)
     local e_schema = db_schema.e_schemas[schema_name]

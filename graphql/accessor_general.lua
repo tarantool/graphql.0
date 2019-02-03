@@ -10,7 +10,6 @@ local avro_schema = require('avro_schema')
 local utils = require('graphql.utils')
 local clock = require('clock')
 local rex = utils.optional_require_rex()
-local avro_helpers = require('graphql.avro_helpers')
 local db_schema_helpers = require('graphql.db_schema_helpers')
 local error_codes = require('graphql.error_codes')
 local statistics = require('graphql.statistics')
@@ -1550,8 +1549,6 @@ end
 ---   requires more resources than expected _(default value is 10,000 for
 ---   both)_,
 --- * `timeout_ms` _(default is 1000)_,
---- * `enable_mutations`: boolean flag _(default is `false` for avro-schema-2*
----    and `true` for avro-schema-3*)_,
 --- * `name` is 'space' or 'shard',
 --- * `data_cache` (optional) is accessor_shard_cache instance.
 ---
@@ -1647,16 +1644,6 @@ function accessor_general.new(opts, funcs)
     }
     validate_query_settings(query_settings_default)
 
-    -- Mutations are disabled for avro-schema-2*, because it can work
-    -- incorrectly for schemas with nullable types.
-    local enable_mutations
-    if opts.enable_mutations == nil then
-        enable_mutations = avro_helpers.major_avro_schema_version() == 3
-    else
-        enable_mutations = opts.enable_mutations
-    end
-    check(enable_mutations, 'enable_mutations', 'boolean')
-
     local name = opts.name
     local data_cache = opts.data_cache
     check(name, 'name', 'string')
@@ -1687,9 +1674,6 @@ function accessor_general.new(opts, funcs)
         collection_use_tomap = opts.collection_use_tomap or {},
         index_cache = index_cache,
         funcs = funcs,
-        settings = {
-            enable_mutations = enable_mutations,
-        },
         query_settings_default = query_settings_default,
         name = name,
         data_cache = data_cache,

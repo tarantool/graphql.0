@@ -266,7 +266,6 @@ local function create_default_accessor(cfg)
         resulting_object_cnt_max = cfg.resulting_object_cnt_max,
         fetched_object_cnt_max = cfg.fetched_object_cnt_max,
         timeout_ms = cfg.timeout_ms,
-        enable_mutations = cfg.enable_mutations,
     }
 
     if cfg.accessor == 'space' then
@@ -355,7 +354,6 @@ end
 ---     resulting_object_cnt_max = <number>,
 ---     fetched_object_cnt_max = <number>,
 ---     timeout_ms = <number>,
----     enable_mutations = <boolean>,
 ---     disable_dangling_check = <boolean>,
 ---     use_bfs_executor = 'never' | 'shard' (default) | 'always',
 ---     max_batch_size = <number>,
