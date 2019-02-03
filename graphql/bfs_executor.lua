@@ -575,6 +575,7 @@ local function filter_object(object, object_type, selections, context, opts)
                 qcontext = qcontext,
                 schema = context.schema,
                 parentObject = object_type,
+                fieldASTs = {selection},
             }
         end
 

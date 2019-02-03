@@ -254,9 +254,8 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
         local is_hidden = opts.is_hidden or false
         check(is_hidden, 'is_hidden', 'boolean')
 
-        -- If a parent object does not have all source fields (for any of
-        -- variants) non-null then we do not resolve variant and just return
-        -- box.NULL.
+        -- If a parent object has all source fields null (for all variants)
+        -- then we do not resolve variant and just return box.NULL.
         local is_source_fields_found = false
         for _, variant in ipairs(c.variants) do
             is_source_fields_found =
@@ -280,6 +279,29 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
         local v, variant_num, box_field_name = resolve_variant(parent)
         local destination_type = union_types[variant_num]
 
+        -- check whether destination type is in requested types
+        local is_variant_requested = false
+        for _, s in ipairs(info.fieldASTs[1].selectionSet.selections) do
+            local requested_type_name = s.typeCondition.name.value
+            if destination_type.name == requested_type_name then
+                is_variant_requested = true
+                break
+            end
+        end
+
+        -- If the variant the object match is not requested in a query, just
+        -- return box.NULL, w/o the wrapper.
+        if not is_variant_requested then
+            if gen_prepare then
+                return {
+                    is_calculated = true,
+                    objs = box.NULL,
+                }
+            else
+                return box.NULL, nil
+            end
+        end
+
         local quazi_connection = {
             type = c.type,
             parts = v.parts,
@@ -299,7 +321,8 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
             result.connection = quazi_connection
             result.invoke = function(prepared_resolve)
                 local result = invoke_resolve(prepared_resolve)
-                -- see comment below
+                -- see comments below
+                if result == nil then return box.NULL, nil end
                 return {[box_field_name] = result}, destination_type
             end
             return result
@@ -307,6 +330,11 @@ function resolve.gen_resolve_function_multihead(collection_name, connection,
             local result = resolve.gen_resolve_function(collection_name,
                 quazi_connection, destination_type, {}, accessor, gen_opts)(
                 parent, {}, info, opts)
+            -- If a connected object was not found, return just box.NULL w/o
+            -- wrapping. It is possible here when different source fields are
+            -- set for variants or when the disable_dangling_check options is
+            -- set.
+            if result == nil then return box.NULL, nil end
             -- This 'wrapping' is needed because we use 'select' on 'collection'
             -- GraphQL type and the result of the resolve function must be in
             -- {'collection_name': {result}} format to be avro-valid.
