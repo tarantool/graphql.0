@@ -313,6 +313,9 @@ local function execute_node(node, context)
         else
             error('Unknown binary operation: ' .. tostring(op))
         end
+    elseif node.kind == 'evaluated' then
+        -- evaluated node can occurs after optimizations
+        return node.value
     else
         error('Unknown node kind: ' .. tostring(node.kind))
     end
@@ -357,5 +360,7 @@ function expressions.new(str)
         }
     })
 end
+
+expressions.execute_node = execute_node
 
 return expressions

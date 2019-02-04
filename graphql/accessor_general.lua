@@ -14,6 +14,7 @@ local db_schema_helpers = require('graphql.db_schema_helpers')
 local error_codes = require('graphql.error_codes')
 local statistics = require('graphql.statistics')
 local expressions = require('graphql.expressions')
+local constant_propagation = require('graphql.expressions.constant_propagation')
 local find_index = require('graphql.find_index')
 
 local check = utils.check
@@ -498,6 +499,12 @@ local function prepare_select_internal(self, collection_name, from, filter,
     check(expr, 'expression', 'table', 'string', 'nil')
     if type(expr) == 'string' then
         expr = expressions.new(expr)
+    end
+
+    -- propagate constants in the expression
+    if expr ~= nil then
+        expr = constant_propagation.transform(expr,
+            {variables = qcontext.variables})
     end
 
     -- read only process_tuple options

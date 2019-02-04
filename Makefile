@@ -13,6 +13,7 @@ lint:
 		graphql/core/rules.lua \
 		graphql/core/validate_variables.lua \
 		graphql/convert_schema/*.lua \
+		graphql/expressions/*.lua \
 		graphql/server/*.lua \
 		test/bench/*.lua \
 		test/space/*.lua \
