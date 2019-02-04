@@ -81,7 +81,7 @@ coverage: lint
 	. ./.env-2.7/bin/activate && \
 		pip install -r ./test-run/requirements.txt && \
 		pip install tarantool && \
-		cd test && ./test-run.py --luacov
+		cd test && ./test-run.py --luacov --no-output-timeout 600
 	find test/var -name luacov.stats.out | xargs -I {} sed \
 		-e 's@/test/[^ /]\+/\.\./\.\./graphql@/graphql@' \
 		-e 's@/test/../graphql@/graphql@' \
