@@ -27,6 +27,7 @@ tarantoolctl rocks install shard ${SHARD_VERSION:-}
 tarantoolctl rocks install avro-schema ${AVRO_SCHEMA:-}
 
 sudo luarocks install luacheck
+sudo luarocks install ldoc
 sudo pip install virtualenv
 
 # luacov, cluacov, luacov-coveralls and dependencies

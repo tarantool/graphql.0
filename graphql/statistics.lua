@@ -1,3 +1,5 @@
+--- Count various statistics about a query.
+
 local utils = require('graphql.utils')
 local error_codes = require('graphql.error_codes')
 

@@ -1,3 +1,6 @@
+--- Convert an avro-schema union type to a GraphQL Union of InputUnion
+--- (non-standard) type.
+
 local yaml = require('yaml')
 local core_types = require('graphql.core.types')
 local avro_helpers = require('graphql.avro_helpers')

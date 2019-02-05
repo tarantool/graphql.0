@@ -1,3 +1,5 @@
+--- Extend GraphQL query AST with compiled expressions.
+
 local expressions = require('graphql.expressions')
 
 local extend_ast = {}

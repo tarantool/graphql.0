@@ -1,3 +1,5 @@
+--- Class representing a batch of similar requests.
+
 local utils = require('graphql.utils')
 
 local request_batch = {}

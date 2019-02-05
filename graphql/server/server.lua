@@ -1,3 +1,5 @@
+--- Serve GraphQL requests and the GraphiQL web interface via HTTP.
+
 local fio = require('fio')
 local graphql_utils = require('graphql.utils')
 local utils = require('graphql.server.utils')

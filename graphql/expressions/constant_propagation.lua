@@ -1,3 +1,5 @@
+--- Constant propagation optimization pass.
+
 local expressions = require('graphql.expressions')
 
 local constant_propagation = {}
@@ -19,7 +21,7 @@ end
 ---     value = <...> (of any type),
 --- }
 ---
---- @tparam table current AST node (e.g. root node)
+--- @tparam table node current AST node (e.g. root node)
 ---
 --- @tparam table context table of the following values:
 ---
@@ -140,7 +142,7 @@ end
 ---     value = <...> (of any type),
 --- }
 ---
---- @tparam table expression
+--- @tparam table expr expression
 ---
 --- @tparam table context table of the following values:
 ---

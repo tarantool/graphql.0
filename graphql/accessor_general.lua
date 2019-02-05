@@ -260,7 +260,7 @@ local function check_deadline_clock(qcontext)
 end
 
 --- Perform unflatten, skipping, filtering, limiting of objects. This is the
---- core of the `select_internal` function.
+--- core of the @{prepare_select_internal} function.
 ---
 --- @tparam table self accessor_general instance
 ---
@@ -680,12 +680,13 @@ end
 
 --- Insert an object.
 ---
---- Parameters are the same as for @{select_internal}.
+--- Parameters are the same as for @{prepare_select_internal}.
 ---
 --- @treturn table list of a single object we inserted
 ---
---- We can just return the object and omit select_internal() call, because we
---- forbid any filters/args that could affect the result.
+--- We can just return the object and omit prepare_select_internal() /
+--- invoke_select_internal() calls, because we forbid any filters/args that
+--- could affect the result.
 local function insert_internal(self, collection_name, from, filter, args, extra)
     local object = extra.extra_args.insert
     if object == nil then return nil end
@@ -720,7 +721,8 @@ end
 
 --- Update an object.
 ---
---- Same-named parameters meaning is the same as for @{select_internal}.
+--- Same-named parameters meaning is the same as for
+--- @{prepare_select_internal}.
 ---
 --- @tparam table self the data accessor instance
 ---
@@ -757,7 +759,7 @@ end
 
 --- Delete an object.
 ---
---- Corresponding parameters are the same as for @{select_internal}.
+--- Corresponding parameters are the same as for @{prepare_select_internal}.
 ---
 --- @tparam table self
 ---

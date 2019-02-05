@@ -1,3 +1,5 @@
+--- Auxiliary functions to work with extended avro-schemas (collections).
+
 local utils = require('graphql.utils')
 local check = utils.check
 
