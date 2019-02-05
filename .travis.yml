@@ -14,6 +14,9 @@ git:
 
 jobs:
   include:
+    - name: "Upload API documentation"
+      env: TARGET=doc
+      if: repo = "tarantool/graphql" AND branch = master AND type = push
     - name: "CentOS 6: test, deploy RPM"
       env: TARGET=pack OS=el DIST=6
     - name: "CentOS 7: test, deploy RPM"
@@ -47,6 +50,9 @@ script:
     elif [ "${TARGET}" = test ]; then
         ./tools/ubuntu.trusty.prepare.sh
         make test
+    elif [ "${TARGET}" = doc ]; then
+        ./tools/ubuntu.trusty.prepare.sh
+        ./tools/upload_apidoc.sh
     else
         exit 1
     fi
