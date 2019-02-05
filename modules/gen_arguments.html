@@ -1,0 +1,473 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><strong>gen_arguments</strong></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>gen_arguments</code></h1>
+<p>Generate avro-schema for arguments by given database schema.</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#object_args">object_args (db_schema, collection_name)</a></td>
+	<td class="summary">List of avro-schema fields to use as arguments of a collection field and a
+ connection field (with any connection type).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#list_args">list_args (db_schema, collection_name)</a></td>
+	<td class="summary">List of avro-schema fields to use as arguments of a collection field and
+ 1:N connection field.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#extra_args">extra_args (db_schema, collection_name)</a></td>
+	<td class="summary">List of avro-schema fields to use as extra arguments of a collection /
+ a connection field.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#get_primary_key_type">get_primary_key_type (db_schema, collection_name)</a></td>
+	<td class="summary">Get an avro-schema for a primary key by a collection name.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#recursive_nullable">recursive_nullable (e_schema[, skip_cond])</a></td>
+	<td class="summary">Make schema types deep nullable down to scalar, union, array or map
+ (matches xflatten input syntax) and remove default values (from fields of
+ record and record* types).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#recursive_replace_default_with_nullable">recursive_replace_default_with_nullable (e_schema)</a></td>
+	<td class="summary">Remove default values from passed avro-schema (from fields of record and
+ record* types) and make they nullable.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#is_comparable_scalar_type">is_comparable_scalar_type (avro_schema_type)</a></td>
+	<td class="summary">Whether we can compare the type for equallity.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_pcre_argument_type">get_pcre_argument_type (db_schema, collection_name)</a></td>
+	<td class="summary">Get an avro-schema for a pcre argument by a collection name.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_update_argument_type">get_update_argument_type (db_schema, collection_name)</a></td>
+	<td class="summary">Get avro-schema for update argument.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "object_args"></a>
+    <strong>object_args (db_schema, collection_name)</strong>
+    </dt>
+    <dd>
+    List of avro-schema fields to use as arguments of a collection field and a
+ connection field (with any connection type).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">db_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>e_schemas</code>, <code>schemas</code>, <code>collections</code>,
+ <code>service_fields</code>, <code>indexes</code>
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of collection to create the fields
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        list of avro-schema fields
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "list_args"></a>
+    <strong>list_args (db_schema, collection_name)</strong>
+    </dt>
+    <dd>
+    List of avro-schema fields to use as arguments of a collection field and
+ 1:N connection field.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">db_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>e_schemas</code>, <code>schemas</code>, <code>collections</code>,
+ <code>service_fields</code>, <code>indexes</code>
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of collection to create the fields
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        list of avro-schema fields
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "extra_args"></a>
+    <strong>extra_args (db_schema, collection_name)</strong>
+    </dt>
+    <dd>
+    List of avro-schema fields to use as extra arguments of a collection /
+ a connection field. </p>
+
+<p> Mutation arguments (insert, update, delete) are generated here.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">db_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>e_schemas</code>, <code>schemas</code>, <code>collections</code>,
+ <code>service_fields</code>, <code>indexes</code>
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of collection to create the fields
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        list of avro-schema fields</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> map with flags to describe where generated arguments should
+ be used; the format is the following:</p>
+
+<pre><code>{
+    &lt;field name&gt; = {
+        add_to_mutations_only = &lt;boolean&gt;,
+        add_to_top_fields_only = &lt;boolean&gt;,
+    },
+    ...
+}
+</code></pre>
+</li>
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "get_primary_key_type"></a>
+    <strong>get_primary_key_type (db_schema, collection_name)</strong>
+    </dt>
+    <dd>
+    Get an avro-schema for a primary key by a collection name.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">db_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>e_schemas</code>, <code>schemas</code>, <code>collections</code>,
+ <code>service_fields</code>, <code>indexes</code>
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of a collection
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         <code>offset_type</code> is a just string in case of scalar primary
+ key (and, then, offset) type</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>offset_type</code> is a record in case of compound (multi-part)
+ primary key (is not nil)</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "recursive_nullable"></a>
+    <strong>recursive_nullable (e_schema[, skip_cond])</strong>
+    </dt>
+    <dd>
+    Make schema types deep nullable down to scalar, union, array or map
+ (matches xflatten input syntax) and remove default values (from fields of
+ record and record* types).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">e_schema</span>
+         (table or string) avro-schema with expanded references
+        </li>
+        <li><span class="parameter">skip_cond</span>
+            <span class="types"><span class="type">function</span></span>
+
+
+
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        transformed avro-schema or nil (when the type or all its fields are
+ matched by skip_cond)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "recursive_replace_default_with_nullable"></a>
+    <strong>recursive_replace_default_with_nullable (e_schema)</strong>
+    </dt>
+    <dd>
+    Remove default values from passed avro-schema (from fields of record and
+ record* types) and make they nullable.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">e_schema</span>
+         (table or string) avro-schema with expanded references
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        transformed avro-schema or nil (empty fields case)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "is_comparable_scalar_type"></a>
+    <strong>is_comparable_scalar_type (avro_schema_type)</strong>
+    </dt>
+    <dd>
+    Whether we can compare the type for equallity.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">avro_schema_type</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">boolean</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_pcre_argument_type"></a>
+    <strong>get_pcre_argument_type (db_schema, collection_name)</strong>
+    </dt>
+    <dd>
+    Get an avro-schema for a pcre argument by a collection name. </p>
+
+<p> Note: it is called from <a href="../modules/gen_arguments.html#list_args">list_args</a>, so applicable only for lists:
+ top-level objects and 1:N connections.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">db_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>e_schemas</code>, <code>schemas</code>, <code>collections</code>,
+ <code>service_fields</code>, <code>indexes</code>
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of a collection
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        record with fields per string/string* field of an object
+ of the collection
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_update_argument_type"></a>
+    <strong>get_update_argument_type (db_schema, collection_name)</strong>
+    </dt>
+    <dd>
+    Get avro-schema for update argument.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">db_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>e_schemas</code>, <code>schemas</code>, <code>collections</code>,
+ <code>service_fields</code>, <code>indexes</code>
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of a collection
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        generated avro-schema
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

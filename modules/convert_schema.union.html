@@ -1,0 +1,389 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><strong>convert_schema.union</strong></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>convert_schema.union</code></h1>
+<p>Convert an avro-schema union type to a GraphQL Union of InputUnion
+ (non-standard) type.</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#convert">convert (avro_schema, opts)</a></td>
+	<td class="summary">The function creates GraphQL Union type from given avro-schema union type.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#box_type">box_type (type_to_box, box_field_name, opts)</a></td>
+	<td class="summary">The function 'boxes' given GraphQL type into GraphQL Object 'box' type.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#create_union_types">create_union_types (avro_schema, opts)</a></td>
+	<td class="summary">The functions creates table of GraphQL types from avro-schema union type.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "convert"></a>
+    <strong>convert (avro_schema, opts)</strong>
+    </dt>
+    <dd>
+    The function creates GraphQL Union type from given avro-schema union type.
+ There are two problems with GraphQL Union types, which we solve with specific
+ format of generated Unions. These problems are:</p>
+
+<p> 1) GraphQL Unions represent an object that could be one of a list of</p>
+<pre><code>GraphQL Object types. So Scalars and Lists can not be one of Union
+types.
+</code></pre>
+
+<p> 2) GraphQL responses, received from tarantool graphql, must be avro-valid.</p>
+<pre><code>On every incoming GraphQL query a corresponding avro-schema can be
+generated. Response to this query is 'avro-valid' if it can be
+successfully validated with this generated (from incoming query)
+avro-schema.
+</code></pre>
+
+<p> Specific format of generated Unions include the following:</p>
+
+<p> Avro scalar types (e.g. int, string) are converted into GraphQL Object or
+ InputObject types. Avro scalar converted to GraphQL Scalar (string ->
+ String) and then name of GraphQL type is concatenated with '<em>box'
+ ('String</em>box'). Resulting name is a name of created GraphQL Object /
+ InputObject. This object has only one field with GraphQL type
+ corresponding to avro scalar type (String type in our example). Avro type's
+ name is taken as a name for this single field.</p>
+
+<pre><code> [..., "string", ...]
+</code></pre>
+
+<p> turned into</p>
+<pre><code> MyUnion {
+     ...
+     ... on String_box {
+         string
+     ...
+ }
+</code></pre>
+
+<p> Avro arrays and maps are converted into GraphQL Object or InputObject
+ types. The name of the resulting GraphQL Object is 'List<em>box' or 'Map</em>box'
+ respectively. This object has only one field with GraphQL type
+ corresponding to 'items' / 'values' avro type. 'array' or 'map'
+ (respectively) is taken as a name of this single field.</p>
+
+<pre><code> [..., {"type": "array", "items": "int"}, ...]
+</code></pre>
+
+<p> turned into</p>
+<pre><code> MyUnion {
+     ...
+     ... on List_box {
+         array
+     ...
+ }
+</code></pre>
+
+<p> Avro records are converted into GraphQL Object or InputObject types. The
+ name of the resulting GraphQL Object is concatenation of record's name and
+ '_box'. This Object has only one field. The name of this field is record's
+ name. The type of this field is GraphQL Object / InputObject generated from
+ avro record schema in a usual way (see <a href="../modules/convert_schema.types.html#convert">types.convert</a> and
+ <a href="../modules/convert_schema.arguments.html#convert">arguments.convert</a>)</p>
+
+<pre><code> { "type": "record", "name": "Foo", "fields":[
+     { "name": "foo1", "type": "string" },
+     { "name": "foo2", "type": "string" }
+ ]}
+</code></pre>
+
+<p> turned into</p>
+<pre><code> MyUnion {
+     ...
+     ... on Foo_box {
+         Foo {
+             foo1
+             foo2
+         }
+     ...
+ }
+</code></pre>
+
+<p> Please consider full example below.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">avro_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         avro-schema union type
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li><p>convert (function) <a href="../modules/convert_schema.types.html#convert">types.convert</a> or <a href="../modules/convert_schema.arguments.html#convert">arguments.convert</a></p></li>
+    <li><p>gen_argument (boolean) whether resulting type will be used in result
+    types (false) or argument types (true)</p></li>
+    <li><p>context (table) as described in <a href="../modules/convert_schema.types.html#convert">types.convert</a> and
+    <a href="../modules/convert_schema.arguments.html#convert">arguments.convert</a>; only <code>context.field_name</code> is used here (as the name
+    of the generated GraphQL union); <code>path</code> is <em>updated</em> (with the field
+    name) and the <code>context</code> is passed deeper within the <a href="../modules/convert_schema.union.html#create_union_types">create_union_types</a>
+    call (which calls <a href="../modules/convert_schema.types.html#convert">types.convert</a> or <a href="../modules/convert_schema.arguments.html#convert">arguments.convert</a> inside)</p></li>
+</ul>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> GraphQL Union type. Consider the following example:</p>
+
+<p> Avro-schema (inside a record):</p>
+
+<pre><code> ...
+ "name": "MyUnion", "type": [
+     "null",
+     "string",
+     { "type": "array", "items": "int" },
+     { "type": "record", "name": "Foo", "fields":[
+         { "name": "foo1", "type": "string" },
+         { "name": "foo2", "type": "string" }
+     ]}
+ ]
+ ...
+</code></pre>
+
+<p> GraphQL Union type (It will be nullable as avro-schema has 'null' variant):</p>
+
+<pre><code> MyUnion {
+     ... on String_box {
+         string
+     }
+
+     ... on List_box {
+         array
+     }
+
+     ... on Foo_box {
+         Foo {
+             foo1
+             foo2
+         }
+ }
+</code></pre>
+
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "box_type"></a>
+    <strong>box_type (type_to_box, box_field_name, opts)</strong>
+    </dt>
+    <dd>
+    The function 'boxes' given GraphQL type into GraphQL Object 'box' type.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">type_to_box</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         GraphQL type to be boxed
+        </li>
+        <li><span class="parameter">box_field_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of the single box field
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li><p>gen_argument (boolean) whether resulting type will be used in result
+    types (false) or argument types (true)</p></li>
+    <li><p>context (table) avro-schema parsing context as described in
+    <a href="../modules/convert_schema.types.html#convert">types.convert</a> and <a href="../modules/convert_schema.arguments.html#convert">arguments.convert</a></p></li>
+</ul>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        GraphQL Object
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "create_union_types"></a>
+    <strong>create_union_types (avro_schema, opts)</strong>
+    </dt>
+    <dd>
+    The functions creates table of GraphQL types from avro-schema union type.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">avro_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li><p>convert (function) <a href="../modules/convert_schema.types.html#convert">types.convert</a> or <a href="../modules/convert_schema.arguments.html#convert">arguments.convert</a></p></li>
+    <li><p>gen_argument (boolean) whether resulting type will be used in result
+    types (false) or argument types (true)</p></li>
+    <li><p>context (table) as described in <a href="../modules/convert_schema.types.html#convert">types.convert</a> and
+    <a href="../modules/convert_schema.arguments.html#convert">arguments.convert</a>; not used here explicitly, but passed deeper within
+    the <a href="../modules/convert_schema.types.html#convert">types.convert</a> or <a href="../modules/convert_schema.arguments.html#convert">arguments.convert</a> call</p></li>
+</ul>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        union_types</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        determinant<em>to</em>type</li>
+        <li>
+           <span class="types"><span class="type">boolean</span></span>
+        is_nullable</li>
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

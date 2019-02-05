@@ -1,0 +1,677 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><strong>bfs_executor</strong></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>bfs_executor</code></h1>
+<p>Breadth-first executor with support of batching of similar requests.</p>
+<p>
+
+
+<p> ## The execution loop</p>
+
+<p> The execution loop comprises the series of two main steps: preparing
+ get/select requests for a data accessor and actual performing of this
+ requests. The executor traverses the query tree in the breadth-first order,
+ so it keeps the list of requests prepared on the previous iteration called
+ <code>open_set</code>.</p>
+
+<p> The iteration starts with extracting a prepared request (this data
+ structure called <code>prepared_object</code>) from <code>open_set</code>, then the executor
+ resolves it (performs the actual data access request using
+ <code>prepared_resolve:invoke()</code>), filters needed fields (inside
+ <code>filter_object()</code>) and 'opens' child nodes with preparing of further
+ requests (forming <code>fields_info</code> structure in <code>filter_object()</code>). The
+ prepared requests then added to the end of <code>open_set</code> to be processed on
+ the next iterations.</p>
+
+<p> The filtering of an object (<code>filter_object()</code>) performs deep filtering of
+ inner fields which are requested by a user in a query (see
+ <code>filter_value()</code>). This auxiliary traversal does not involves a data
+ accessor calls and made in depth-first order.</p>
+
+<p> Additional steps are made to minimize actual count of network requests,
+ they are described in the following sections.</p>
+
+<p> ## Batching similar requests</p>
+
+<p> The executor performs analyzing of prepared requests (<code>open_set</code>) and forms
+ so called 'batches' to pull the results of similar data accessor requests
+ within one network request. This is why the prepared request stage is
+ needed. The similar requests are ones which have the same collection, the
+ same index and the same iterator options (say, 'GT'), but different keys.
+ The analysing is performed for each level of the traversed tree, so
+ <code>squash_marker</code> item is added to the <code>open_set</code> to distinguish one level of
+ the following one.</p>
+
+<p> The analyzing generates 'batches' (in <code>fetch_first_same()</code>) and passes it
+ to the <code>fetch()</code> function of <a href="../modules/accessor_shard_cache.html#">accessor_shard_cache</a> instance, which
+ performs the requests using a stored procedure on storage servers and saves
+ the results into the cache. Then the executor continue the loop as usual.
+ Data access requests which will be performed inside
+ <code>prepared_resolve:invoke()</code> will use the cached data (when <a href="../modules/accessor_shard.html#">accessor_shard</a>
+ is used). The cached data are cleared at the end of the query execution
+ (because of cache only requests described later).</p>
+
+<p> This approach reduces overall count of network requests (but makes they
+ heavier), so the time of stalls on awaiting of network requests is reduced
+ too. The economy is more when round trip time (delay to the first byte of a
+ request result) is larger.</p>
+
+<p> The analyzing and the prefetching are performed separately for so called
+ <code>prepared_object_list</code> structure (in <code>fetch_resolve_list()</code>), because
+ <code>prepared_object</code>s from one 'list' request are processed inside one
+ iteration of the execution loop (in <code>invoke_resolve_list()</code>). This is the
+ tech debt and hopefully will be changed in the future.</p>
+
+<p> ## Filtering over a connection</p>
+
+<p> Normally a request fetches objects from one collection and the prefetching
+ effectively reduces count of network requests. But there is the special
+ kind of requests that involves fetching of objects from another
+ collections. They are requests with an argument named as a connection with
+ semantic 'select such objects from the current collection for which the
+ connected object matches the argument'.</p>
+
+<p> The resolving function (<code>prepared_resolve:invoke()</code>) of a prepared request
+ performs such auxiliary requests itself, but we need to prefetch the
+ connected objects to still effectively use the network.</p>
+
+<p> The executor generates so called cache only prepared requests which are
+ needed only to analyze and prefetch needed objects from connected
+ collections using <code>fetch_first_same()</code> function. Such requests are added to
+ the separate queue <code>cache_only_open_set</code> which have precedence over
+ the <code>open_set</code> one. So needed objects will be prefetched in a batch and
+ cached before the 'real' request will try to access it.</p>
+
+<p> The important detail here is that we need an actual object to fetch its
+ connected object. So the executor generates a request without
+ 'connection arguments' for the current object and place it to
+ <code>cache_only_open_set</code>. The request is formed in such way that leads to deep
+ fetching of its connected objects on further iterations of the execution
+ loop (see <code>generate_cache_only_request()</code>). The child requests of a cache
+ only request are added to the end of the <code>cache_only_open_set</code> queue.</p>
+
+<p> The cache only requests are the reason why we cannot clear the data cache
+ at end of the processing of the current tree level: the executor going down
+ by the tree with cache only requests and then continue processing the
+ current level with 'real' requests. This is why the cached data are cleared
+ at end of the query execution.</p>
+
+<p> ## Data structures</p>
+
+<p> The main data structure of this module is the list of requests to be
+ processed:</p>
+
+
+<pre>
+open_set = {
+    prepared_object_list = &lt;list of prepared_object&gt;,
+    ... <span class="keyword">or</span> ...
+    prepared_object = {
+        filtered_object = &lt;...&gt;,
+        fields_info = {
+            [field_name] = {
+                is_list = &lt;boolean&gt;
+                kind = &lt;...&gt;,
+                prepared_resolve = {
+                    is_calculated = <span class="keyword">true</span>,
+                    objs = &lt;...&gt;,
+                    ... <span class="keyword">or</span> ...
+                    is_calculated = <span class="keyword">false</span>,
+                    prepared_select = {
+                        request_opts = {
+                            index = &lt;iterator&gt;,
+                            index_name = &lt;<span class="global">string</span> <span class="keyword">or</span> <span class="keyword">nil</span>&gt;,
+                            index_value = &lt;key&gt;,
+                            iterator_opts = &lt;...&gt;,
+                            is_full_scan = &lt;boolean&gt;,
+                        }
+                        select_state = {
+                            count = &lt;number&gt;,
+                            objs = &lt;list of objects&gt;,
+                            pivot_found = &lt;boolean&gt;,
+                            qcontext = &lt;<span class="global">table</span>&gt;,
+                        },
+                        select_opts = {
+                            model = &lt;compiled avro schema&gt;,
+                            limit = &lt;number&gt;,
+                            filter = &lt;<span class="global">table</span>&gt;,
+                            do_filter = &lt;boolean&gt;,
+                            pivot_filter = &lt;<span class="global">table</span>&gt;,
+                            resolveField = &lt;<span class="keyword">function</span>&gt;,
+                            is_hidden = &lt;boolean&gt;,
+                        },
+                        collection_name = &lt;<span class="global">string</span>&gt;,
+                        from = &lt;...&gt;,
+                        filter = &lt;...&gt;,
+                        args = &lt;...&gt;,
+                        extra = {
+                            qcontext = &lt;<span class="global">table</span>&gt;,
+                            resolveField = &lt;<span class="keyword">function</span>&gt;, <span class="comment">-- for
+</span>                                                       <span class="comment">-- subrequests
+</span>                            extra_args = &lt;<span class="global">table</span>&gt;,
+                            exp_tuple_count = &lt;number <span class="keyword">or</span> <span class="keyword">nil</span>&gt;,
+                        },
+                    },
+                    accessor = &lt;...&gt;,
+                    connection = &lt;...&gt;,
+                    invoke = &lt;<span class="keyword">function</span>&gt;,
+                },
+                selections = {
+                    {
+                        name = {
+                            value = &lt;<span class="global">string</span>&gt;, <span class="comment">-- field name
+</span>                        },
+                        kind = <span class="string">'field'</span>,
+                        selectionSet = {
+                            selections = &lt;...&gt;,
+                        },
+                        arguments = {
+                            {
+                                name = {
+                                    value = &lt;<span class="global">string</span>&gt;, <span class="comment">-- argument name
+</span>                                },
+                                value = &lt;...&gt;,
+                            },
+                            ...
+                        },
+                        coerced_arguments = &lt;...&gt;,
+                    },
+                    ...
+                }
+            },
+            ...
+        }
+    }
+}
+</pre>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#filter_object_list">filter_object_list (object_list, object_type, selections, context, opts)</a></td>
+	<td class="summary">Select fields from objects in a list, create prepared resolve functions.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#execute">execute (schema, query_ast, variables, operation_name, opts)</a></td>
+	<td class="summary">Execute a GraphQL query.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#filters_to_selections">filters_to_selections (bare_object_type, filters)</a></td>
+	<td class="summary">Convert per-connection filters to selections (recursively).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#generate_cache_only_request">generate_cache_only_request (prepared_resolve, field_type, object, is_list, args, info)</a></td>
+	<td class="summary">Generate a cache only request for a filter over a connection.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#filter_value">filter_value (value, value_type, selections, context)</a></td>
+	<td class="summary">Select fields from an object value, preprocess an other value
+ appropriately.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#filter_object">filter_object (object, object_type, selections, context, opts)</a></td>
+	<td class="summary">Select fields from fetched object and create prepared resolve functions for
+ connection fields.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "filter_object_list"></a>
+    <strong>filter_object_list (object_list, object_type, selections, context, opts)</strong>
+    </dt>
+    <dd>
+    Select fields from objects in a list, create prepared resolve functions. </p>
+
+<p> See <a href="../modules/bfs_executor.html#filter_object">filter_object</a> for the API and a description.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">object_list</span>
+
+
+
+        </li>
+        <li><span class="parameter">object_type</span>
+
+
+
+        </li>
+        <li><span class="parameter">selections</span>
+
+
+
+        </li>
+        <li><span class="parameter">context</span>
+
+
+
+        </li>
+        <li><span class="parameter">opts</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "execute"></a>
+    <strong>execute (schema, query_ast, variables, operation_name, opts)</strong>
+    </dt>
+    <dd>
+    Execute a GraphQL query.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">query_ast</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">variables</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">operation_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li>qcontext</li>
+    <li>accessor</li>
+    <li>max<em>batch</em>size</li>
+</ul>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        result of the query
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "filters_to_selections"></a>
+    <strong>filters_to_selections (bare_object_type, filters)</strong>
+    </dt>
+    <dd>
+    Convert per-connection filters to selections (recursively).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">bare_object_type</span>
+
+
+
+        </li>
+        <li><span class="parameter">filters</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "generate_cache_only_request"></a>
+    <strong>generate_cache_only_request (prepared_resolve, field_type, object, is_list, args, info)</strong>
+    </dt>
+    <dd>
+    Generate a cache only request for a filter over a connection.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">prepared_resolve</span>
+
+
+
+        </li>
+        <li><span class="parameter">field_type</span>
+
+
+
+        </li>
+        <li><span class="parameter">object</span>
+
+
+
+        </li>
+        <li><span class="parameter">is_list</span>
+
+
+
+        </li>
+        <li><span class="parameter">args</span>
+
+
+
+        </li>
+        <li><span class="parameter">info</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "filter_value"></a>
+    <strong>filter_value (value, value_type, selections, context)</strong>
+    </dt>
+    <dd>
+    Select fields from an object value, preprocess an other value
+ appropriately.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">value</span>
+
+
+
+        </li>
+        <li><span class="parameter">value_type</span>
+
+
+
+        </li>
+        <li><span class="parameter">selections</span>
+
+
+
+        </li>
+        <li><span class="parameter">context</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "filter_object"></a>
+    <strong>filter_object (object, object_type, selections, context, opts)</strong>
+    </dt>
+    <dd>
+
+<p>Select fields from fetched object and create prepared resolve functions for
+ connection fields. </p>
+
+<h1> Special handling of multihead connections</h1>
+
+<p> A schema of a regular 1:1 connection is the following:</p>
+
+<pre><code> &lt;source collection name&gt; = {          // type: source collection
+     ...fields of source collection...
+     &lt;connection name&gt; = {             // type: dest collection
+         ...fields of destination collection...
+     }
+ }
+</code></pre>
+
+<p> A schema of a multihead 1:1 connection is slightly different:</p>
+
+<pre><code> &lt;source collection name&gt; = {              // type: source collection
+     ...fields of source collection...
+     &lt;connection name&gt; = {
+         &lt;destination collection name&gt; = { // type: dest collection
+             ...fields of destination collection...
+         }
+     }
+ }
+</code></pre>
+
+<p> The idea of this function is to select requested fields from an object
+ and generate prepared resolve structures for unresolved fields. Such
+ fields has a collection type and has 'prepare_resolve' function for this
+ purpose.</p>
+
+<p> The difference between a regular and a multihead connection is that a
+ field of a collection type is always nested directly inside other
+ collection type field for regular connections. It is not so in case of a
+ multihead connection, because of the wrapper (we refer it as 'box'
+ across the sources) around the nested collection type.</p>
+
+<p> This is why a multihead connection need the special handling here and
+ then during construction in 'invoke_resolve' function.</p>
+
+<p> Things are quite similar for 1:N regular/multihead connections, except
+ that a list of objects is connected, but not a single object.</p>
+
+<hr/>
+
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">object</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         (can be nil)
+        </li>
+        <li><span class="parameter">object_type</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         GraphQL type
+        </li>
+        <li><span class="parameter">selections</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         structure describing fields should be shown in the
+ query result and arguments to pass to these fields
+        </li>
+        <li><span class="parameter">context</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following structure:</p>
+
+<pre><code> {
+     schema = schema,
+     variables = variables,
+     fragmentMap = fragmentMap,
+ }
+</code></pre>
+
+
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li>is<em>item</em>cache_only</li>
+    <li>qcontext: query-local storage for various purposes</li>
+</ul>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>prepared</code> of the following format:</p>
+
+<pre><code> prepared = {
+      cache_only_prepared_object = &lt;...&gt;,
+      prepared_object = &lt;...&gt;,
+      insert_into = &lt;string&gt; or &lt;nil&gt;,
+ }
+</code></pre>
+
+<p> <code>cache_only_prepared_object</code> and <code>prepared_object</code> has the following
+ structure:</p>
+
+<pre><code>[cache_only_]prepared_object = {
+    filtered_object = &lt;...fields from &lt;object&gt;...&gt;,
+    fields_info =
+        [field_name] = {
+            is_list = &lt;boolean&gt;,
+            kind = &lt;...&gt;,
+            prepared_resolve = &lt;...&gt;,
+            selections = &lt;...&gt;,
+        },
+        ...
+    }
+}
+</code></pre>
+
+<p> In case of multihead connection this function can return a value in
+ <a href="../modules/bfs_executor.html#filter_object_list">filter_object_list</a> return format with additional <code>insert_into</code> string
+ field.
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

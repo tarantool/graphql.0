@@ -1,0 +1,340 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><strong>simple_config</strong></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>simple_config</code></h1>
+<p>The simple config module provides an ability to generate config (cfg) for
+ tarantool_graphql using tarantool meta-information.</p>
+<p> Explanation:</p>
+
+<p> To make use of it you must specify tarantool tuples' format during space
+ creation passing or after it using space_object:format(). Spaces with no
+ formats (both 'name and 'type' fields must be filled) will be ignored.
+ Resulting schemas lack fields of the following types: 'record', 'array'
+ and 'map'. Resulting collections have no connections. Schemas and
+ collections may be complemented.</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#get_spaces_formats">get_spaces_formats ()</a></td>
+	<td class="summary">The function returns formats of all fully defined spaces.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#graphql_cfg_from_tarantool">graphql_cfg_from_tarantool ()</a></td>
+	<td class="summary">The function creates a tarantool graphql config using tarantool metainfo
+ from space:format() and space.index:format().</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#space_is_system">space_is_system (space)</a></td>
+	<td class="summary">The functions tells wheter given space is a tarantool system space.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#convert_index_type_to_avro">convert_index_type_to_avro (index_type, is_nullable)</a></td>
+	<td class="summary">The functions converts given tarantool tuple's (received from space:format())
+ field type into avro-schema type.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#generate_avro_schema">generate_avro_schema (space_format, schema_name)</a></td>
+	<td class="summary">The function generates avro schema using given space format.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#convert_index_type">convert_index_type (index_type)</a></td>
+	<td class="summary">XXX currently only TREE and HASH tarantool index types are supported</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#unify_format">unify_format (space_format)</a></td>
+	<td class="summary">Tarantool space's format may be defined in different ways:
+ {{'x', 'unsigned', true}, ...}
+ {{name = 'x', type = 'unsigned', is_nullable = true}, ...}
+ {{'x', type = 'unsigned'}, ...}
+ All these ways have the same meaning.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "get_spaces_formats"></a>
+    <strong>get_spaces_formats ()</strong>
+    </dt>
+    <dd>
+    The function returns formats of all fully defined spaces.
+ Spaces are taken from the tarantool instance in which
+ tarantool graphql is launched. For definition of fully
+ defined spaces see <code>is_fully_defined</code>.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         spaces<em>formats {[space</em>name] = {space<em>format}, ...}
+ where space</em>format is {{first<em>field</em>format}, {second<em>field</em>format}, ...}
+ and field<em>format is {[name] = name</em>string, [type] = type<em>string,
+ [is</em>nullable] = boolean_flag}'
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "graphql_cfg_from_tarantool"></a>
+    <strong>graphql_cfg_from_tarantool ()</strong>
+    </dt>
+    <dd>
+    The function creates a tarantool graphql config using tarantool metainfo
+ from space:format() and space.index:format().  Notice that this function
+ does not set accessor.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        cfg with <code>schemas</code>, <code>collections</code>, <code>has_space_format</code>,
+ <code>service_fields</code> (empty table), <code>indexes</code>
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "space_is_system"></a>
+    <strong>space_is_system (space)</strong>
+    </dt>
+    <dd>
+    The functions tells wheter given space is a tarantool system space. </p>
+
+<p> Based on space<em>is</em>system() from ${TARANTOOL_REPO}/src/box/schema.cc.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">space</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "convert_index_type_to_avro"></a>
+    <strong>convert_index_type_to_avro (index_type, is_nullable)</strong>
+    </dt>
+    <dd>
+    The functions converts given tarantool tuple's (received from space:format())
+ field type into avro-schema type.  Notes on tarantool tuple's field type can
+ be found at https://tarantool.org/en/doc/2.0/book/box/data_model.html#indexed-field-types</p>
+
+<p> XXX scalar type conversion is not implemented yet. Consider using
+ avro unions to implement it.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index_type</span>
+
+
+
+        </li>
+        <li><span class="parameter">is_nullable</span>
+        unsigned | string | integer | number | boolean | array | scalar
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "generate_avro_schema"></a>
+    <strong>generate_avro_schema (space_format, schema_name)</strong>
+    </dt>
+    <dd>
+    The function generates avro schema using given space format.  Note that
+ space format is a flat format so no nested schemas (e.g record inside record)
+ can be generated.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">space_format</span>
+
+
+
+        </li>
+        <li><span class="parameter">schema_name</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "convert_index_type"></a>
+    <strong>convert_index_type (index_type)</strong>
+    </dt>
+    <dd>
+    XXX currently only TREE and HASH tarantool index types are supported
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index_type</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "unify_format"></a>
+    <strong>unify_format (space_format)</strong>
+    </dt>
+    <dd>
+    Tarantool space's format may be defined in different ways:
+ {{'x', 'unsigned', true}, ...}
+ {{name = 'x', type = 'unsigned', is<em>nullable = true}, ...}
+ {{'x', type = 'unsigned'}, ...}
+ All these ways have the same meaning.  The function converts all these
+ formats into the single one:
+ {{name = 'x', type = 'unsigned', is</em>nullable = true}, ...}
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">space_format</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

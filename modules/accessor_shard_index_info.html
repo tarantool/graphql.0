@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><strong>accessor_shard_index_info</strong></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>accessor_shard_index_info</code></h1>
+<p>Implements cache of index information (parts and its properties).</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#get_index_info">get_index_info (collection_name, index_name)</a></td>
+	<td class="summary">Get index object from net_box under the shard module.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#compare_table_by_fields">compare_table_by_fields (t1, t2, fields)</a></td>
+	<td class="summary">Determines whether certain fields of two tables are the same.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "get_index_info"></a>
+    <strong>get_index_info (collection_name, index_name)</strong>
+    </dt>
+    <dd>
+    Get index object from net_box under the shard module. </p>
+
+<p> The function performs some optimistic consistency checks and raises an
+ error in the case. It caches results and returns a result from the cache
+ for succeeding calls.</p>
+
+<p> XXX: Implement some cache clean up strategy and a way to manual cache
+ purge.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">index_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        index object
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "compare_table_by_fields"></a>
+    <strong>compare_table_by_fields (t1, t2, fields)</strong>
+    </dt>
+    <dd>
+    Determines whether certain fields of two tables are the same. </p>
+
+<p> Table fields of t1 and t2 are compared recursively by all its fields.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">t1</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">t2</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">fields</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         list of fields like {'a', 'b', 'c'}
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">boolean</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

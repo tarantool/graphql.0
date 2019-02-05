@@ -1,0 +1,467 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><strong>convert_schema.types</strong></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>convert_schema.types</code></h1>
+<p>Convert avro-schema types to GraphQL types and set resolve functions.</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#convert">convert (state, avro_schema[, opts])</a></td>
+	<td class="summary">The function converts passed avro-schema to a GraphQL type.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#convert_record_fields">convert_record_fields (state, fields, context)</a></td>
+	<td class="summary">Convert each field of an avro-schema to a graphql type.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#box_collection_type">box_collection_type (type_to_box, connection_type, type_to_box_name)</a></td>
+	<td class="summary">The function 'boxes' given collection type.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#convert_simple_connection">convert_simple_connection (state, connection, collection_name)</a></td>
+	<td class="summary">The function converts passed simple connection to a field of GraphQL type.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#convert_multihead_connection">convert_multihead_connection (state, connection, collection_name, context)</a></td>
+	<td class="summary">The function converts passed multi-head connection to GraphQL Union type.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#convert_connection_to_field">convert_connection_to_field (state, connection, collection_name, context)</a></td>
+	<td class="summary">The function converts passed connection to a field of GraphQL type.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "convert"></a>
+    <strong>convert (state, avro_schema[, opts])</strong>
+    </dt>
+    <dd>
+    The function converts passed avro-schema to a GraphQL type.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         for read state.accessor and previously filled
+ state.nullable<em>collection</em>types (those are gql types)
+        </li>
+        <li><span class="parameter">avro_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         input avro-schema
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         the following options:</p>
+
+<ul>
+    <li><p><code>collection</code> (table; optional) when passed it will be used to generate
+    fields for connections</p></li>
+    <li><p><code>type_name</code> (string; optional) when passed it will be used to generate
+    name of the GraphQL type instead of one from avro_schema (considered
+    only for record / record*)</p></li>
+    <li><p>context (table; optional) current context of parsing the avro_schema,
+    consists the following fields:</p></li>
+    <li><p><code>field_name</code> (string; optional) it is only for an union generation,
+     because avro-schema union has no name in it and specific name is
+     necessary for GraphQL union</p></li>
+    <li><p><code>path</code> (table) path to our position in avro-schema tree; used in
+      GraphQL types names generation</p></li>
+</ul>
+
+<p> Note: map is considered scalar. This means that particular fields cannot be
+ requested using GraphQL, only the entire map or nothing.
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "convert_record_fields"></a>
+    <strong>convert_record_fields (state, fields, context)</strong>
+    </dt>
+    <dd>
+    Convert each field of an avro-schema to a graphql type.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         for read state.accessor and previously filled
+ state.nullable<em>collection</em>types
+        </li>
+        <li><span class="parameter">fields</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         fields part from an avro-schema
+        </li>
+        <li><span class="parameter">context</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         as described in <a href="../modules/convert_schema.types.html#convert">types.convert</a>; not used here
+ explicitly, but <code>path</code> and <code>field_name</code> are <em>updated</em> and the <code>context</code> is
+ passed deeper within the <a href="../modules/convert_schema.types.html#convert">types.convert</a> call
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>res</code> -- map with type names as keys and graphql types as
+ values
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "box_collection_type"></a>
+    <strong>box_collection_type (type_to_box, connection_type, type_to_box_name)</strong>
+    </dt>
+    <dd>
+    The function 'boxes' given collection type. </p>
+
+<p> Why the 'boxing' of collection types is needed and how it is done is
+ described in comments to <a href="../modules/convert_schema.types.html#convert_multihead_connection">convert_multihead_connection</a>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">type_to_box</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         GraphQL Object type (which represents a collection)
+        </li>
+        <li><span class="parameter">connection_type</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         of given collection (1:1, 1:N)
+        </li>
+        <li><span class="parameter">type_to_box_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of given 'type<em>to</em>box' (It can not
+ be taken from 'type<em>to</em>box' because at the time of function execution
+ 'type<em>to</em>box' refers to an empty table, which later will be filled with
+ actual type table)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        GraphQL Object type representing 'boxed' collection</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        name of the single field in the box GraphQL Object</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "convert_simple_connection"></a>
+    <strong>convert_simple_connection (state, connection, collection_name)</strong>
+    </dt>
+    <dd>
+    The function converts passed simple connection to a field of GraphQL type.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         for read state.accessor and previously filled
+ state.nullable<em>collection</em>types (those are gql types)
+        </li>
+        <li><span class="parameter">connection</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         simple connection to create field
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         name of the collection which has given
+ connection
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        generated field
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "convert_multihead_connection"></a>
+    <strong>convert_multihead_connection (state, connection, collection_name, context)</strong>
+    </dt>
+    <dd>
+    The function converts passed multi-head connection to GraphQL Union type. </p>
+
+<p> Destination collections of passed multi-head connection are turned into
+ variants of resulting GraphQL Union type. Note that GraphQL types which
+ represent destination collections are wrapped with 'box' types. Here is 'how'
+ and 'why' it is done.</p>
+
+<p> How:
+ Let's consider multi-head connection with two destination collections:</p>
+<pre><code> "human": {
+     "name": "human",
+     "type": "record",
+     "fields": [
+         { "name": "hero_id", "type": "string" },
+         { "name": "name", "type": "string" }
+     ]
+ }
+
+ "starship": {
+     "name": "starship",
+     "type": "record",
+     "fields": [
+         { "name": "hero_id", "type": "string" },
+         { "name": "model", "type": "string" }
+     ]
+ }
+</code></pre>
+
+<p> In case of 1:1 multi-head connection the resulting field can be accessed as
+ follows:</p>
+<pre><code> hero_connection {
+     ... on box_human_collection {
+         human_collection {
+             name
+         }
+     }
+     ... on box_starship_collection {
+         starship_collection {
+             model
+         }
+     }
+ }
+</code></pre>
+
+<p> In case of 1:N multi-head connection:</p>
+<pre><code> hero_connection {
+     ... on box_array_human_collection {
+         human_collection {
+             name
+         }
+     }
+     ... on box_array_starship_collection {
+         starship_collection {
+             model
+         }
+     }
+ }
+</code></pre>
+
+<p> Why:
+ There are two reasons for 'boxing'.
+ 1) In case of 1:N connections, destination collections are represented by
+ GraphQL Lists (of Objects). But according to the GraphQL specification only
+ Objects can be variants of Union. So we need to 'box' Lists (into Objects
+ with single field) to use them as Union variants.
+ 2) GraphQL responses, received from tarantool graphql, must be avro-valid.
+ On every incoming GraphQL query a corresponding avro-schema can be generated.
+ Response to this query is 'avro-valid' if it can be successfully validated with
+ this generated (from incoming query) avro-schema. In case of multi-head
+ connections it means that value of multi-head connection field must have
+ the following format: SomeDestinationCollectionType: {...} where {...}
+ indicates the YAML encoding of a SomeDestinationCollectionType instance.
+ In case of 1:N {...} indicates a list of instances. Using of 'boxing'
+ provides the needed format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         for collection types
+        </li>
+        <li><span class="parameter">connection</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         multi-head connection to create field
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         name of the collection which has given
+ connection
+        </li>
+        <li><span class="parameter">context</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         avro-schema parsing context as described in
+ <a href="../modules/convert_schema.types.html#convert">types.convert</a>
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        generated field
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "convert_connection_to_field"></a>
+    <strong>convert_connection_to_field (state, connection, collection_name, context)</strong>
+    </dt>
+    <dd>
+    The function converts passed connection to a field of GraphQL type.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         for read state.accessor and previously filled
+ state.types (state.types are gql types)
+        </li>
+        <li><span class="parameter">connection</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         connection to create field
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         name of the collection which have given
+ connection
+        </li>
+        <li><span class="parameter">context</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         avro-schema parsing context as described in
+ <a href="../modules/convert_schema.types.html#convert">types.convert</a>
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        generated field
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

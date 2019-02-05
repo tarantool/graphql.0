@@ -1,0 +1,302 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><strong>config_complement</strong></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>config_complement</code></h1>
+<p>Config complement module provides an ability to complement user-defined config
+ (in a simplified format) to a fully specified format.</p>
+<p>
+
+
+<p> Notes:</p>
+
+<ul>
+    <li>Currently the module complements only connections (cfg.connections),
+    see <a href="../modules/config_complement.html#complement_connections">complement_connections</a>.</li>
+</ul>
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#complement_cfg">complement_cfg (cfg)</a></td>
+	<td class="summary">The function complements cfg.collection.connections using given
+ cfg.connections.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#determine_connection_type">determine_connection_type (connection_parts, index)</a></td>
+	<td class="summary">Determine connection type by connection.parts and index uniqueness.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#determine_connection_parts">determine_connection_parts (parts, index)</a></td>
+	<td class="summary">The function complements partially defined (nil/number) connection parts
+ or check and sort fully defined (table) connection parts.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#complement_connections">complement_connections (collections, connections, indexes)</a></td>
+	<td class="summary">The function complements collections' connections, described in simplified
+ format, to connections in a fully specified format.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "complement_cfg"></a>
+    <strong>complement_cfg (cfg)</strong>
+    </dt>
+    <dd>
+    The function complements cfg.collection.connections using given
+ cfg.connections.  See <a href="../modules/config_complement.html#complement_connections">complement_connections</a> for details.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">cfg</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "determine_connection_type"></a>
+    <strong>determine_connection_type (connection_parts, index)</strong>
+    </dt>
+    <dd>
+    Determine connection type by connection.parts and index uniqueness.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">connection_parts</span>
+
+
+
+        </li>
+        <li><span class="parameter">index</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "determine_connection_parts"></a>
+    <strong>determine_connection_parts (parts, index)</strong>
+    </dt>
+    <dd>
+    The function complements partially defined (nil/number) connection parts
+ or check and sort fully defined (table) connection parts.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">parts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         partially defined connection's part given by user
+        </li>
+        <li><span class="parameter">index</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         connection index (cfg.indexes[collection][index_name])
+ index.fields will be used as the source of information about the index parts order.
+ An error will be raised in cases when parts is a table and cannot form a
+ prefix of index.fields. When parts can be resorted to fit right order, they
+ will be resorted.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "complement_connections"></a>
+    <strong>complement_connections (collections, connections, indexes)</strong>
+    </dt>
+    <dd>
+
+<p>The function complements collections' connections, described in simplified
+ format, to connections in a fully specified format.  Type determined on index type.
+ Each connection will be added to a `source_collection' collection,
+ because the format of a collection assumes inclusion of all outcoming connections.
+ Notice an example:</p>
+
+<pre><code> "connections" : [
+     {
+         "name": "order_connection",
+         "source_collection": "user_collection",
+         "destination_collection": "order_collection"
+         "index_name": "user_id_index",
+         "parts" : nil | number | table (destination fields can be omitted)
+             in case of 'table' expected format is:
+             "parts": [
+                 {"source_field": "user_id", "destination_field": "user_id"},
+                 ...
+             ]
+     },
+     ...
+ ]
+</code></pre>
+
+<p> will produce following complement in 'user_collection' :</p>
+
+<pre><code> "user_collection": {
+     "schema_name": "user",
+     "connections": [
+         {
+             "type": "1:N",
+             "name": "order_connection",
+             "destination_collection":  "order_collection",
+             "parts": [
+                 { "source_field": "user_id", "destination_field": "user_id" }
+             ],
+             "index_name": "user_id_index"
+         },
+     ]
+ }
+</code></pre>
+
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">collections</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         cfg.collections (will be changed in place)
+        </li>
+        <li><span class="parameter">connections</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         cfg.connections - user-defined collections
+        </li>
+        <li><span class="parameter">indexes</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         cfg.indexes - {[collection<em>name] = collection</em>indexes, ...}
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>collections</code> is complemented collections
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

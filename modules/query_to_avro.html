@@ -1,0 +1,366 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><strong>query_to_avro</strong></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>query_to_avro</code></h1>
+<p>Module for convertion GraphQL query to Avro schema.</p>
+<p>
+
+
+<p> Random notes:</p>
+
+<ul>
+    <li>The best way to use this module is to just call <code>avro_schema</code> method on
+    compiled query object.</li>
+</ul>
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#map_to_avro">map_to_avro (mapType)</a></td>
+	<td class="summary">The function converts a GraphQL Map type to avro-schema map type.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#union_to_avro">union_to_avro (fieldType, subSelections, context)</a></td>
+	<td class="summary">Converts a GraphQL Union type to avro-schema type.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#object_to_avro">object_to_avro (object_type, selections, context)</a></td>
+	<td class="summary">Convert GraphQL object to avro record.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#convert">convert (qstate[, operation_name])</a></td>
+	<td class="summary">Create an Avro schema for a given query / operation.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#gql_type_to_avro">gql_type_to_avro (fieldType, subSelections, context)</a></td>
+	<td class="summary">Convert GraphQL type to avro-schema with selecting fields.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#field_to_avro">field_to_avro (object_type, fields, context)</a></td>
+	<td class="summary">The function converts a single Object field to avro format.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "map_to_avro"></a>
+    <strong>map_to_avro (mapType)</strong>
+    </dt>
+    <dd>
+    The function converts a GraphQL Map type to avro-schema map type.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mapType</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "union_to_avro"></a>
+    <strong>union_to_avro (fieldType, subSelections, context)</strong>
+    </dt>
+    <dd>
+    Converts a GraphQL Union type to avro-schema type. </p>
+
+<p> Currently we use GraphQL Unions to implement both multi-head connections
+ and avro-schema unions. The function distinguishes between them relying on
+ 'fieldType.resolveType'. GraphQL Union implementing multi-head
+ connection does not have such field, as it has another mechanism of union
+ type resolving.</p>
+
+<p> We have to distinguish between these two types of GraphQL Unions because
+ we want to create different avro-schemas for them.</p>
+
+<p> GraphQL Unions implementing avro-schema unions are to be converted back
+ to avro-schema unions.</p>
+
+<p> GraphQL Unions implementing multi-head connections are to be converted to
+ avro-schema records. Each field represents one union variant. Variant type
+ name is taken as a field name. Such records must have all fields nullable.</p>
+
+<p> We convert Unions implementing multi-head connections to records instead of
+ unions because in case of 1:N connections we would not have valid
+ avro-schema (if use unions). Avro-schema unions may not contain more than
+ one schema with the same non-named type (in case of 1:N multi-head
+ connections we would have more than one 'array' in union).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">fieldType</span>
+
+
+
+        </li>
+        <li><span class="parameter">subSelections</span>
+
+
+
+        </li>
+        <li><span class="parameter">context</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "object_to_avro"></a>
+    <strong>object_to_avro (object_type, selections, context)</strong>
+    </dt>
+    <dd>
+    Convert GraphQL object to avro record.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">object_type</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         GraphQL type object to be converted to Avro schema
+        </li>
+        <li><span class="parameter">selections</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         GraphQL representations of fields which should be
+ in the output of the query
+        </li>
+        <li><span class="parameter">context</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         additional information for Avro schema generation; one
+ of the fields is <code>namespace_parts</code> -- table of names of records from the
+ root to the current object
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>result</code> is the corresponding Avro schema
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "convert"></a>
+    <strong>convert (qstate[, operation_name])</strong>
+    </dt>
+    <dd>
+    Create an Avro schema for a given query / operation.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">qstate</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         compiled query for which the avro schema should be
+ created
+        </li>
+        <li><span class="parameter">operation_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         optional operation name
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>avro_schema</code> avro schema for any
+ <code>qstate:execute(..., operation_name)</code> result
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "gql_type_to_avro"></a>
+    <strong>gql_type_to_avro (fieldType, subSelections, context)</strong>
+    </dt>
+    <dd>
+    Convert GraphQL type to avro-schema with selecting fields.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">fieldType</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         GraphQL type
+        </li>
+        <li><span class="parameter">subSelections</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         fields to select from resulting avro-schema
+ (internal graphql-lua format)
+        </li>
+        <li><span class="parameter">context</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         current traversal context, here it just falls to the
+ called functions (internal graphql-lua format)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>result</code> is the resulting avro-schema
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "field_to_avro"></a>
+    <strong>field_to_avro (object_type, fields, context)</strong>
+    </dt>
+    <dd>
+    The function converts a single Object field to avro format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">object_type</span>
+
+
+
+        </li>
+        <li><span class="parameter">fields</span>
+
+
+
+        </li>
+        <li><span class="parameter">context</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

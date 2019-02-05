@@ -1,0 +1,276 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><strong>avro_helpers</strong></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>avro_helpers</code></h1>
+<p>The module is collection of helpers to simplify avro-schema related tasks.</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#make_avro_type_nullable">make_avro_type_nullable (avro[, opts])</a></td>
+	<td class="summary">The function converts avro type to the corresponding nullable type in
+ place and returns the result.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#major_avro_schema_version">major_avro_schema_version ()</a></td>
+	<td class="summary">Determines major version of the avro-schema module in use.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#avro_type">avro_type (avro_schema[, opts])</a></td>
+	<td class="summary">Get type of an avro-schema.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#expand_references">expand_references (avro_schema[, opts])</a></td>
+	<td class="summary">Expand avro-schema references.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "make_avro_type_nullable"></a>
+    <strong>make_avro_type_nullable (avro[, opts])</strong>
+    </dt>
+    <dd>
+    The function converts avro type to the corresponding nullable type in
+ place and returns the result. </p>
+
+<p> We make changes in place in case of table input (<code>avro</code>) because of
+ performance reasons, but we returns the result because an input (<code>avro</code>)
+ can be a string. Strings in Lua are immutable.</p>
+
+<p> In the current tarantool/avro-schema implementation we simply add '*' to
+ the end of a type name or, in case of union, add 'null' branch.</p>
+
+<p> If the type is already nullable the function leaves it as is if
+ <code>opts.raise_on_nullable</code> is false or omitted. If <code>opts.raise_on_nullable</code>
+ is true the function will raise an error.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">avro</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         avro schema node to be converted to nullable one
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li><code>raise_on_nullable</code> (boolean) raise an error on nullable type</li>
+</ul>
+
+
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        <code>result</code> (string or table) nullable avro type
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "major_avro_schema_version"></a>
+    <strong>major_avro_schema_version ()</strong>
+    </dt>
+    <dd>
+    Determines major version of the avro-schema module in use.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">number</span></span>
+        2 or 3
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "avro_type"></a>
+    <strong>avro_type (avro_schema[, opts])</strong>
+    </dt>
+    <dd>
+    Get type of an avro-schema.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">avro_schema</span>
+         (table or string) input avro-schema
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li>allow_references (boolean)</li>
+</ul>
+
+
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        <code>avro_t</code> type of the avro-schema</li>
+        <li>
+           <span class="types"><span class="type">boolean</span></span>
+        <code>is_ref</code> whether the avro-schema is reference to another
+ avro-schema type</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "expand_references"></a>
+    <strong>expand_references (avro_schema[, opts])</strong>
+    </dt>
+    <dd>
+    Expand avro-schema references.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">avro_schema</span>
+         (table or string) input avro-schema
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li>definitions (table) processed avro-schemas to expand further references</li>
+</ul>
+
+
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        generated expanded avro-schema
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

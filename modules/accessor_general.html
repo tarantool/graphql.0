@@ -1,0 +1,963 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><strong>accessor_general</strong></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>accessor_general</code></h1>
+<p>Data accessor module that is base for <a href="../modules/accessor_space.html#">accessor_space</a> and
+ <a href="../modules/accessor_shard.html#">accessor_shard</a> ones.</p>
+<p> It provides basic logic for such space-like data storages and abstracted
+ away from details from where tuples are arrived into the application.</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#new">new (opts, funcs)</a></td>
+	<td class="summary">Create a new data accessor.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#compile_schemas">compile_schemas (schemas, service_fields)</a></td>
+	<td class="summary">Validate and compile set of avro schemas (with respect to service fields).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#validate_from_parameter">validate_from_parameter (from)</a></td>
+	<td class="summary">Validate <code>from</code> parameter of accessor_instance:select().</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#validate_collections">validate_collections (collections, schemas)</a></td>
+	<td class="summary">Set of asserts to check the <code>opts.collections</code> argument of the
+ <a href="../modules/accessor_general.html#new">accessor_general.new</a> function.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#match_using_re">match_using_re (pcre, obj)</a></td>
+	<td class="summary">Whether an object match set of PCREs.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#match_using_expr">match_using_expr (expr, obj[, variables])</a></td>
+	<td class="summary">Whether an object match an expression.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#check_deadline_clock">check_deadline_clock (qcontext)</a></td>
+	<td class="summary">Check whether we meet deadline time.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#process_tuple">process_tuple (self, state, tuple, opts)</a></td>
+	<td class="summary">Perform unflatten, skipping, filtering, limiting of objects.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#perform_primary_key_operation">perform_primary_key_operation (self, collection_name, schema_name, selected, operation[, ...])</a></td>
+	<td class="summary">Call one of accessor function: <code>update_tuple</code> or <code>delete_tuple</code> for each
+ selected object.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#prepare_select_internal">prepare_select_internal (self, collection_name, from, filter, args, extra)</a></td>
+	<td class="summary">The function prepares context for tuples selection, postprocessing and
+ filtering.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#invoke_select_internal">invoke_select_internal (self, prepared_select)</a></td>
+	<td class="summary">XXX</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#insert_internal">insert_internal (self, collection_name, from, filter, args, extra)</a></td>
+	<td class="summary">Insert an object.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#update_internal">update_internal (self, collection_name, extra, selected)</a></td>
+	<td class="summary">Update an object.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#delete_internal">delete_internal (self, collection_name, extra, selected)</a></td>
+	<td class="summary">Delete an object.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#validate_funcs">validate_funcs (funcs)</a></td>
+	<td class="summary">Set of asserts to check the <code>funcs</code> argument of the <a href="../modules/accessor_general.html#new">accessor_general.new</a>
+ function.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#init_qcontext">init_qcontext (accessor, qcontext)</a></td>
+	<td class="summary">This function is called on first select related to a query.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#gen_default_object_tuple_map_funcs">gen_default_object_tuple_map_funcs (models)</a></td>
+	<td class="summary">Create default unflatten/flatten/xflatten functions, that can be called
+ from funcs.unflatten<em>tuple/funcs.flatten</em>object/funcs.xflatten when an
+ additional pre/postprocessing is not needed.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "new"></a>
+    <strong>new (opts, funcs)</strong>
+    </dt>
+    <dd>
+    Create a new data accessor. </p>
+
+<p> Provided <code>funcs</code> argument determines certain functions for retrieving
+ tuples.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> set of options:</p>
+
+<ul>
+    <li><code>schemas</code>,</li>
+    <li><code>collections</code>,</li>
+    <li><code>service_fields</code>,</li>
+    <li><code>indexes</code>,</li>
+    <li><code>collection_use_tomap</code>: ({[collection_name] = whether objects in
+    collection <code>collection_name</code> intended to be unflattened using
+    <code>tuple:tomap({names_only = true}</code> method instead of
+    <code>compiled_avro_schema.unflatten(tuple), ...}</code>),</li>
+    <li><code>resulting_object_cnt_max</code> and <code>fetched_object_cnt_max</code> are optional
+    positive numbers which help to control query behaviour in case it
+    requires more resources than expected <em>(default value is 10,000 for
+    both)</em>,</li>
+    <li><code>timeout_ms</code> <em>(default is 1000)</em>,</li>
+    <li><code>name</code> is 'space' or 'shard',</li>
+    <li><code>data_cache</code> (optional) is accessor<em>shard</em>cache instance.</li>
+</ul>
+
+<p> For examples of <code>opts.schemas</code> and <code>opts.collections</code> consider the
+ <a href="../modules/impl.html#new">impl.new</a> function description.</p>
+
+<p> Example of <code>opts.service_fields</code> item:</p>
+
+<pre><code> service_fields['schema_name'] = {
+     {name = 'expires_on', type = 'long', default = 0},
+ }
+</code></pre>
+
+<p> Example of <code>opts.indexes</code> item:</p>
+
+<pre><code> indexes['collection_name'] = {
+     foo_bar = {
+         service_fields = {},
+         fields = {'foo', 'bar'},
+         unique = true | false, -- optional; used to validate connection
+                                -- type if provided
+         primary = true | false, -- for now it is used only for 'offset'
+                                 -- argument processing, so it is more
+                                 -- or less optional; we do not validate
+                                 -- that there is an one primary index
+     },
+     ...
+ }
+</code></pre>
+
+
+        </li>
+        <li><span class="parameter">funcs</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         set of functions:</p>
+
+<ul>
+    <li><code>is_collection_exists</code>,</li>
+    <li><code>get_index</code>,</li>
+    <li><code>get_primary_index</code>,</li>
+    <li><code>unflatten_tuple</code>,</li>
+    <li><code>flatten_object</code>,</li>
+    <li><code>insert_tuple</code>,</li>
+    <li><code>cache_fetch</code> (optional),
+    -- * <code>cache_delete</code> (optional),</li>
+    <li><code>cache_truncate</code> (optional),</li>
+    <li><code>cache_lookup</code> (optional).</li>
+</ul>
+
+<p> They allows this abstract data accessor behaves in the certain way (say,
+ like space data accessor or shard data accessor); consider the
+ <a href="../modules/accessor_space.html#">accessor_space</a> and the <a href="../modules/accessor_shard.html#">accessor_shard</a> modules documentation for these
+ functions description.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> data accessor instance, a table with the methods as
+ described in the <a href="../modules/impl.html#new">impl.new</a> function description.</p>
+
+<p> Brief explanation of some select function parameters:</p>
+
+<ul>
+    <li><p><code>from</code> (table or nil) is nil for a top-level collection or a table with
+    the following fields:</p></li>
+    <li><p>collection_name</p></li>
+    <li><p>connection_name</p></li>
+    <li><p>destination<em>args</em>names</p></li>
+    <li><p>destination<em>args</em>values</p></li>
+    <li><p><code>extra</code> (table) is a table which contains additional data for the query:</p></li>
+    <li><p><code>qcontext</code> (table) can be used by an accessor to store any
+     query-related data;</p></li>
+    <li><p><code>resolveField(field_name, object, filter, opts)</code> (function) for
+     performing a subrequest on a fields connected using a connection.</p></li>
+    <li><p>extra_args</p></li>
+    <li><p>exp<em>tuple</em>count</p></li>
+</ul>
+
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "compile_schemas"></a>
+    <strong>compile_schemas (schemas, service_fields)</strong>
+    </dt>
+    <dd>
+    Validate and compile set of avro schemas (with respect to service fields).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">schemas</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> map where keys are string names and values are</p>
+<pre><code>           avro schemas; consider an example in &lt;a href="../modules/impl.html#new"&gt;impl.new&lt;/a&gt;
+           function description.
+</code></pre>
+
+        </li>
+        <li><span class="parameter">service_fields</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> map where keys are string names of avro</p>
+<pre><code>           schemas (from &lt;code&gt;schemas&lt;/code&gt; argument) and values are service
+           fields descriptions; consider the example in the &lt;a href="../modules/accessor_general.html#new"&gt;new&lt;/a&gt;
+           function description.
+</code></pre>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>models</code> list of compiled schemas</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p><code>service_fields_defaults</code> list of default values of service</p>
+<pre><code>            fields
+</code></pre>
+</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "validate_from_parameter"></a>
+    <strong>validate_from_parameter (from)</strong>
+    </dt>
+    <dd>
+    Validate <code>from</code> parameter of accessor_instance:select().
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">from</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         see <a href="../modules/impl.html#new">impl.new</a></p>
+
+<p> Raises an error when the validation fails.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nothing
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "validate_collections"></a>
+    <strong>validate_collections (collections, schemas)</strong>
+    </dt>
+    <dd>
+    Set of asserts to check the <code>opts.collections</code> argument of the
+ <a href="../modules/accessor_general.html#new">accessor_general.new</a> function.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">collections</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         map from collection names to collections as
+ defined in the <a href="../modules/accessor_general.html#new">accessor_general.new</a> function decription; this is subject
+ to validate
+        </li>
+        <li><span class="parameter">schemas</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         map from schema names to schemas as defined in the
+ <a href="../modules/impl.html#new">impl.new</a> function; this is for validate collection against certain set
+ of schemas (no 'dangling' schema names in collections)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nil
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "match_using_re"></a>
+    <strong>match_using_re (pcre, obj)</strong>
+    </dt>
+    <dd>
+    Whether an object match set of PCREs.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pcre</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         map with PCRE as values; names are correspond to field
+ names of the <code>obj</code> to match
+        </li>
+        <li><span class="parameter">obj</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         an object to check
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">boolean</span></span>
+        <code>res</code> whether the <code>obj</code> object match <code>pcre</code> set of
+ regexps.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "match_using_expr"></a>
+    <strong>match_using_expr (expr, obj[, variables])</strong>
+    </dt>
+    <dd>
+    Whether an object match an expression.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">expr</span>
+         (table or string) compiled or raw expression
+        </li>
+        <li><span class="parameter">obj</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         an object to check
+        </li>
+        <li><span class="parameter">variables</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         variables values from the request
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">boolean</span></span>
+        <code>res</code> whether the <code>obj</code> object match <code>expr</code> expression
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "check_deadline_clock"></a>
+    <strong>check_deadline_clock (qcontext)</strong>
+    </dt>
+    <dd>
+    Check whether we meet deadline time. </p>
+
+<p> The functions raises an exception in the case.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">qcontext</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nothing
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "process_tuple"></a>
+    <strong>process_tuple (self, state, tuple, opts)</strong>
+    </dt>
+    <dd>
+    Perform unflatten, skipping, filtering, limiting of objects.  This is the
+ core of the <a href="../modules/accessor_general.html#prepare_select_internal">prepare_select_internal</a> function.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> table variable where the function holds state accross
+ invokes; fields:</p>
+
+<ul>
+    <li><code>count</code> (number),</li>
+    <li><code>objs</code> (table, list of objects),</li>
+    <li><code>pivot_found</code> (boolean),</li>
+    <li><code>qcontext</code> (table, per-query local storage).</li>
+</ul>
+
+
+        </li>
+        <li><span class="parameter">tuple</span>
+            <span class="types"><span class="type">cdata</span></span>
+         flatten representation of an object to process
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> read only options:</p>
+
+<ul>
+    <li><code>model</code> (compiled avro schema),</li>
+    <li><code>limit</code> (number, max count of objects in result),</li>
+    <li><code>filter</code> (table, set of fields to match objects by equality),</li>
+    <li><code>do_filter</code> (boolean, whether we need to filter out non-matching
+    objects),</li>
+    <li><code>pivot_filter</code> (table, set of fields to match the objected pointed by
+    <code>offset</code> arqument of the GraphQL query),</li>
+    <li><code>resolveField</code> (function) for subrequests, see <a href="../modules/impl.html#new">impl.new</a>.</li>
+    <li>XXX: describe other fields.</li>
+</ul>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+         nil</p>
+
+<p> Nothing returned, but after necessary count of invokes <code>state.objs</code> will
+ hold list of resulting objects.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "perform_primary_key_operation"></a>
+    <strong>perform_primary_key_operation (self, collection_name, schema_name, selected, operation[, ...])</strong>
+    </dt>
+    <dd>
+    Call one of accessor function: <code>update_tuple</code> or <code>delete_tuple</code> for each
+ selected object.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         data accessor instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">schema_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">selected</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         objects to perform the operation
+        </li>
+        <li><span class="parameter">operation</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         'update<em>tuple' or 'delete</em>tuple'
+        </li>
+        <li><span class="parameter">...</span>
+         parameters to pass to the function
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>new_objects</code> list of returned objects (in the order of the
+ <code>selected</code> parameter)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "prepare_select_internal"></a>
+    <strong>prepare_select_internal (self, collection_name, from, filter, args, extra)</strong>
+    </dt>
+    <dd>
+    The function prepares context for tuples selection, postprocessing and
+ filtering.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         the data accessor created by the <a href="../modules/accessor_general.html#new">new</a> function
+ (directly or indirectly using the <a href="../modules/accessor_space.html#new">accessor_space.new</a> or the
+ <a href="../modules/accessor_shard.html#new">accessor_shard.new</a> function)
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of collection to perform select
+        </li>
+        <li><span class="parameter">from</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         collection and connection names we arrive from/by as
+ defined in the <a href="../modules/impl.html#new">impl.new</a> function description
+        </li>
+        <li><span class="parameter">filter</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         subset of object fields with values by which we want
+ to find full object(s)
+        </li>
+        <li><span class="parameter">args</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         table of arguments passed within the query except ones
+ that forms the <code>filter</code> parameter
+        </li>
+        <li><span class="parameter">extra</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         table which contains extra information related to
+ current select and the whole query
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>res</code> with <code>request_opts</code>, <code>select_state</code>, <code>select_opts</code> and
+ <code>args</code> fields
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "invoke_select_internal"></a>
+    <strong>invoke_select_internal (self, prepared_select)</strong>
+    </dt>
+    <dd>
+    XXX
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+
+
+
+        </li>
+        <li><span class="parameter">prepared_select</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "insert_internal"></a>
+    <strong>insert_internal (self, collection_name, from, filter, args, extra)</strong>
+    </dt>
+    <dd>
+    Insert an object. </p>
+
+<p> Parameters are the same as for <a href="../modules/accessor_general.html#prepare_select_internal">prepare_select_internal</a>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+
+
+
+        </li>
+        <li><span class="parameter">collection_name</span>
+
+
+
+        </li>
+        <li><span class="parameter">from</span>
+
+
+
+        </li>
+        <li><span class="parameter">filter</span>
+
+
+
+        </li>
+        <li><span class="parameter">args</span>
+
+
+
+        </li>
+        <li><span class="parameter">extra</span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         list of a single object we inserted</p>
+
+<p> We can just return the object and omit prepare<em>select</em>internal() /
+ invoke<em>select</em>internal() calls, because we forbid any filters/args that
+ could affect the result.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "update_internal"></a>
+    <strong>update_internal (self, collection_name, extra, selected)</strong>
+    </dt>
+    <dd>
+    Update an object. </p>
+
+<p> Same-named parameters meaning is the same as for
+ <a href="../modules/accessor_general.html#prepare_select_internal">prepare_select_internal</a>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         the data accessor instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of collection to perform update
+        </li>
+        <li><span class="parameter">extra</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>extra.extra_args.update</code> is used
+        </li>
+        <li><span class="parameter">selected</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         objects to perform update
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>new_objects</code> list of updated objects (in the order of the
+ <code>selected</code> parameter)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "delete_internal"></a>
+    <strong>delete_internal (self, collection_name, extra, selected)</strong>
+    </dt>
+    <dd>
+    Delete an object. </p>
+
+<p> Corresponding parameters are the same as for <a href="../modules/accessor_general.html#prepare_select_internal">prepare_select_internal</a>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">extra</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>extra.extra_args.delete</code> is used
+        </li>
+        <li><span class="parameter">selected</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         objects to delete
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>new_objects</code> list of deleted objects (in the order of the
+ <code>selected</code> parameter)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "validate_funcs"></a>
+    <strong>validate_funcs (funcs)</strong>
+    </dt>
+    <dd>
+    Set of asserts to check the <code>funcs</code> argument of the <a href="../modules/accessor_general.html#new">accessor_general.new</a>
+ function.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">funcs</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         set of function as defined in the
+ <a href="../modules/accessor_general.html#new">accessor_general.new</a> function decription
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nil
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "init_qcontext"></a>
+    <strong>init_qcontext (accessor, qcontext)</strong>
+    </dt>
+    <dd>
+    This function is called on first select related to a query.  Its purpose is
+ to initialize qcontext table.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">accessor</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">qcontext</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         per-query table which stores query internal state;
+ all neccessary initialization of this parameter should be performed by this
+  function
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "gen_default_object_tuple_map_funcs"></a>
+    <strong>gen_default_object_tuple_map_funcs (models)</strong>
+    </dt>
+    <dd>
+    Create default unflatten/flatten/xflatten functions, that can be called
+ from funcs.unflatten<em>tuple/funcs.flatten</em>object/funcs.xflatten when an
+ additional pre/postprocessing is not needed.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">models</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         list of compiled schemas
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        table with default_* fields with maps from schema name to
+ the corresponding default *flatten function
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

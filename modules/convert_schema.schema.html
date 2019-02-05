@@ -1,0 +1,297 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><strong>convert_schema.schema</strong></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>convert_schema.schema</code></h1>
+<p>Convert an extended avro-schema (collections) to a GraphQL schema.</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#add_extra_arguments">add_extra_arguments (state, root_types)</a></td>
+	<td class="summary">Add extra arguments for collection / connection fields.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#create_root_collection">create_root_collection (state)</a></td>
+	<td class="summary">Create virtual root collections <code>query</code> and <code>mutation</code>, which has
+ connections to any collection.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#for_each_connection">for_each_connection (state, connection_types, func)</a></td>
+	<td class="summary">Execute a function for each connection of one of specified types in each
+ collection.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#add_connection_arguments">add_connection_arguments (state)</a></td>
+	<td class="summary">Add arguments corresponding to connections (nested filters).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#check_connection_names">check_connection_names (schema, collection)</a></td>
+	<td class="summary">Check there are no connections named as uppermost fields of a schema and
+ there are no connections with the same name.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "add_extra_arguments"></a>
+    <strong>add_extra_arguments (state, root_types)</strong>
+    </dt>
+    <dd>
+
+<p>Add extra arguments for collection / connection fields. </p>
+
+<p> XXX: This function is written in the hacky way. The function should gone
+ when we'll rewrite argument / InputObject generation in the right way. The
+ plan is the following:</p>
+
+<ul>
+    <li>DONE: Move object<em>args to accessor</em>general (or move all *_args function
+    into a separate module); skipping float / double / ... arguments should
+    be done here.</li>
+    <li>TBD: generate per-connection arguments in avro-schema in some way?</li>
+    <li>DONE: Move avro-schema -> GraphQL arguments translating into its own
+    module.</li>
+    <li>DONE: Support a sub-record arguments and others (union, array, ...).</li>
+    <li>TBD: Generate arguments for cartesian product of {1:1, 1:N, all} x
+    {query, mutation, all} x {top-level, nested, all} x {collections}.</li>
+    <li>TBD: Use generated arguments in GraphQL types (schema) generation.</li>
+</ul>
+
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         tarantool_graphql instance
+        </li>
+        <li><span class="parameter">root_types</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         generated by <a href="../modules/convert_schema.schema.html#create_root_collection">create_root_collection</a>
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nothing
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "create_root_collection"></a>
+    <strong>create_root_collection (state)</strong>
+    </dt>
+    <dd>
+    Create virtual root collections <code>query</code> and <code>mutation</code>, which has
+ connections to any collection. </p>
+
+<p> Actually, each GQL query starts its execution from the <code>query</code> or
+ <code>mutation</code> collection. That is why it shoult contain connections to any
+ collection.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         dictionary which contains all information about the
+ schema, arguments, types...
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "for_each_connection"></a>
+    <strong>for_each_connection (state, connection_types, func)</strong>
+    </dt>
+    <dd>
+    Execute a function for each connection of one of specified types in each
+ collection.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         tarantool_graphql instance
+        </li>
+        <li><span class="parameter">connection_types</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table[opt]</a></span>
+         list of connection types to call <code>func</code>
+ on it; nil/box.NULL means all connections w/o filtering
+        </li>
+        <li><span class="parameter">func</span>
+            <span class="types"><span class="type">function</span></span>
+
+<p> a function with the following parameters:</p>
+
+<ul>
+    <li>source collection name (string);</li>
+    <li>connection (table).</li>
+</ul>
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "add_connection_arguments"></a>
+    <strong>add_connection_arguments (state)</strong>
+    </dt>
+    <dd>
+    Add arguments corresponding to connections (nested filters).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         graphql_tarantool instance
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "check_connection_names"></a>
+    <strong>check_connection_names (schema, collection)</strong>
+    </dt>
+    <dd>
+    Check there are no connections named as uppermost fields of a schema and
+ there are no connections with the same name.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">schema</span>
+
+
+
+        </li>
+        <li><span class="parameter">collection</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

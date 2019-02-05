@@ -1,0 +1,544 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><strong>utils</strong></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>utils</code></h1>
+<p>Various utility function used across the graphql module sources and tests.</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#strip_error">strip_error (err)</a></td>
+	<td class="summary">Return an error w/o file name and line number.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#is_subtable">is_subtable (t, sub)</a></td>
+	<td class="summary">Recursively checks whether <code>sub</code> fields values are match <code>t</code> ones.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#is_array">is_array (table)</a></td>
+	<td class="summary">Check whether table is an array.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#merge_tables">merge_tables (...)</a></td>
+	<td class="summary">Creates a table containing fields from all passed tables.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#pairs">pairs (table)</a></td>
+	<td class="summary">Replacement for global pairs function to call __pairs() if it exists.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#gen_booking_table">gen_booking_table (data)</a></td>
+	<td class="summary">Generate an object that behaves like a table stores another tables as
+ values and always returns the same table (the same reference) as a value.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#optional_require">optional_require (module_name)</a></td>
+	<td class="summary">Catch error at module require and return nil in the case.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_keys">get_keys (table)</a></td>
+	<td class="summary">
+
+</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#do_have_keys">do_have_keys (table, keys)</a></td>
+	<td class="summary">Check if passed table has passed keys with non-nil values.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#check">check (obj, obj_name, type_1[, type_2[, type_3]])</a></td>
+	<td class="summary">Check whether passed value has one of listed types.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#expand_list">expand_list (list, tail)</a></td>
+	<td class="summary">Append all elements of the list <code>tail</code> to the end of list <code>list</code>.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#debug">debug (data_or_func, ...)</a></td>
+	<td class="summary">Add a debug print to the log enabled by an environment variable.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#regexp">regexp (pattern, string)</a></td>
+	<td class="summary">Compare pattern with a string using pcre.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "strip_error"></a>
+    <strong>strip_error (err)</strong>
+    </dt>
+    <dd>
+    Return an error w/o file name and line number.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">err</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "is_subtable"></a>
+    <strong>is_subtable (t, sub)</strong>
+    </dt>
+    <dd>
+    Recursively checks whether <code>sub</code> fields values are match <code>t</code> ones.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">t</span>
+
+
+
+        </li>
+        <li><span class="parameter">sub</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "is_array"></a>
+    <strong>is_array (table)</strong>
+    </dt>
+    <dd>
+    Check whether table is an array. </p>
+
+<p> Based on <a href="https://github.com/mpx/lua-cjson/blob/db122676/lua/cjson/util.lua">that</a> implementation.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">table</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         to check
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        <code>true</code> if passed table is an array (includes the empty table
+ case)
+    </ol>
+     <h3>Or</h3>
+    <ol>
+
+        <code>false</code> otherwise
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "merge_tables"></a>
+    <strong>merge_tables (...)</strong>
+    </dt>
+    <dd>
+    Creates a table containing fields from all passed tables. </p>
+
+<p> When the field names intersects between passed tables a value from a latter
+ table have precedence.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">...</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "pairs"></a>
+    <strong>pairs (table)</strong>
+    </dt>
+    <dd>
+    Replacement for global pairs function to call __pairs() if it exists.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">table</span>
+            <span class="types"><span class="type">luacheck</span></span>
+         ignore
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "gen_booking_table"></a>
+    <strong>gen_booking_table (data)</strong>
+    </dt>
+    <dd>
+    Generate an object that behaves like a table stores another tables as
+ values and always returns the same table (the same reference) as a value.
+ It performs copying of a value fields instead of assigning and returns an
+ empty table for fields that not yet exists. Such approach helps with
+ referencing a table that will be filled later.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">data</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         the initial values
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "optional_require"></a>
+    <strong>optional_require (module_name)</strong>
+    </dt>
+    <dd>
+    Catch error at module require and return nil in the case.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">module_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         mane of a module to require
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        <a href="https://www.lua.org/manual/5.1/manual.html#pdf-module">module</a> or <code>nil</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_keys"></a>
+    <strong>get_keys (table)</strong>
+    </dt>
+    <dd>
+
+
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">table</span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        <a href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a> with all keys of the given table
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "do_have_keys"></a>
+    <strong>do_have_keys (table, keys)</strong>
+    </dt>
+    <dd>
+    Check if passed table has passed keys with non-nil values.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">table</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         to check
+        </li>
+        <li><span class="parameter">keys</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         array of keys to check
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        <code>true</code> if passed table has passed keys
+    </ol>
+     <h3>Or</h3>
+    <ol>
+
+        <code>false</code> otherwise
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "check"></a>
+    <strong>check (obj, obj_name, type_1[, type_2[, type_3]])</strong>
+    </dt>
+    <dd>
+    Check whether passed value has one of listed types.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">obj</span>
+         value to check
+        </li>
+        <li><span class="parameter">obj_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of the value to form an error
+        </li>
+        <li><span class="parameter">type_1</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">type_2</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+         (<em>optional</em>)
+        </li>
+        <li><span class="parameter">type_3</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nothing
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "expand_list"></a>
+    <strong>expand_list (list, tail)</strong>
+    </dt>
+    <dd>
+    Append all elements of the list <code>tail</code> to the end of list <code>list</code>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">list</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         list to add elements to
+        </li>
+        <li><span class="parameter">tail</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         list to add elements from
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "debug"></a>
+    <strong>debug (data_or_func, ...)</strong>
+    </dt>
+    <dd>
+    Add a debug print to the log enabled by an environment variable.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">data_or_func</span>
+         (string or function) data to print or a function that
+ will be return the data to print; the function called only if the
+ environment variable toogle is enabled
+        </li>
+        <li><span class="parameter">...</span>
+         parameters of the function <code>data_or_func</code>
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        nothing
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "regexp"></a>
+    <strong>regexp (pattern, string)</strong>
+    </dt>
+    <dd>
+    Compare pattern with a string using pcre.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pattern</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         matching pattern
+        </li>
+        <li><span class="parameter">string</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         to match
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">boolean</span></span>
+        true or false
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

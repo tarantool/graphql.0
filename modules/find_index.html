@@ -1,0 +1,695 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><a href="../modules/accessor_space.html">accessor_space</a></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><strong>find_index</strong></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>find_index</code></h1>
+<p>Find suitable index.</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#new">new (db_schema)</a></td>
+	<td class="summary">Create new index finder instance.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#validate_connection_vs_index">validate_connection_vs_index (connection, collection_name, indexes)</a></td>
+	<td class="summary">Validate a connection against index set as underlying.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#are_list_args_can_reduce_result">are_list_args_can_reduce_result (args)</a></td>
+	<td class="summary">Whether list arguments can reduce resulting objects set.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#flatten_filter">flatten_filter (db_schema, filter, collection_name, index_name)</a></td>
+	<td class="summary">Flatten filter values (transform to a list) against specific index to
+ passing it to index:pairs().</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#filter_names_fingerprint">filter_names_fingerprint (filter)</a></td>
+	<td class="summary">Get a key to lookup index by <code>lookup_index_name</code> (part of
+ <code>index_cache_data</code>).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#build_lookup_index_name">build_lookup_index_name (indexes)</a></td>
+	<td class="summary">Build <code>lookup_index_name</code> table (part of <code>index_cache_data</code>) to use in the
+ <a href="../modules/find_index.html#get_index_name">get_index_name</a> function.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#build_index_parts_tree">build_index_parts_tree (indexes)</a></td>
+	<td class="summary">Build <code>parts_tree</code> to use in <a href="../modules/find_index.html#get_index_name">get_index_name</a> for lookup best matching
+ index.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#build_connection_indexes">build_connection_indexes (indexes, collections)</a></td>
+	<td class="summary">Build <code>connection_indexes</code> table (part of <code>index_cache_data</code>) to use in the
+ <a href="../modules/find_index.html#get_index_name">get_index_name</a> function.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#build_index_cache">build_index_cache (indexes, collections)</a></td>
+	<td class="summary">General function that build connection and index information to use in the
+ <a href="../modules/find_index.html#get_index_name">get_index_name</a> function.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_best_matched_index">get_best_matched_index (node, filter)</a></td>
+	<td class="summary">Get an index using parts tree built by <a href="../modules/find_index.html#build_index_parts_tree">build_index_parts_tree</a>.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_index_name">get_index_name (self, collection_name, from, filter, args)</a></td>
+	<td class="summary">Choose an index for lookup tuple(s) by a 'filter'.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "new"></a>
+    <strong>new (db_schema)</strong>
+    </dt>
+    <dd>
+    Create new index finder instance.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">db_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>schemas</code>, <code>collections</code>, <code>service_fields</code>,
+ <code>indexes</code>
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        new instance
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "validate_connection_vs_index"></a>
+    <strong>validate_connection_vs_index (connection, collection_name, indexes)</strong>
+    </dt>
+    <dd>
+    Validate a connection against index set as underlying.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">connection</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">indexes</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">nothing</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "are_list_args_can_reduce_result"></a>
+    <strong>are_list_args_can_reduce_result (args)</strong>
+    </dt>
+    <dd>
+    Whether list arguments can reduce resulting objects set. </p>
+
+<p> The idea is the following: 'limit', empty 'pcre' and indexed 'offset'
+ arguments don't reduce the set of resulting objects, so should not prevent
+ us from setting full<em>match variable. Hovewer if other arguments are present
+ we should set full</em>match to false.</p>
+
+<p> Note: we don't distinguish indexed (fast) and non-indexed (slow) offset
+ cases here, so a caller should handle that itself.</p>
+
+<p> Note: extra<em>args now have mutation related arguments and nothing related to
+ selecting objects, so here we don't pay attention whether any extra
+ arguments provided or not. If this will be changed in the future, this
+ function should get extra</em>args as the argument and analyze it too.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">args</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         list arguments
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">boolean</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "flatten_filter"></a>
+    <strong>flatten_filter (db_schema, filter, collection_name, index_name)</strong>
+    </dt>
+    <dd>
+    Flatten filter values (transform to a list) against specific index to
+ passing it to index:pairs().
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">db_schema</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>schemas</code>, <code>collections</code>, <code>service_fields</code>,
+ <code>indexes</code>
+        </li>
+        <li><span class="parameter">filter</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         filter for objects, its values will ordered to form
+ the result
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of collection contains the index with
+ a name <code>index_name</code>
+        </li>
+        <li><span class="parameter">index_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of index against which <code>filter</code> values will
+ be ordered
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">boolean</span></span>
+         <code>full_match</code> whether the passed filter forms full key for
+ passed index</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>value_list</code> the value to pass to index:pairs()</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>new_filter</code> the <code>filter</code> value w/o values extracted to
+ <code>value_list</code></li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "filter_names_fingerprint"></a>
+    <strong>filter_names_fingerprint (filter)</strong>
+    </dt>
+    <dd>
+    Get a key to lookup index by <code>lookup_index_name</code> (part of
+ <code>index_cache_data</code>).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">filter</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         filter for objects, its keys (names of fields) will
+ form the result of the function
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        <code>name_list_str</code> (key for lookup by <code>lookup_index_name</code>)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "build_lookup_index_name"></a>
+    <strong>build_lookup_index_name (indexes)</strong>
+    </dt>
+    <dd>
+    Build <code>lookup_index_name</code> table (part of <code>index_cache_data</code>) to use in the
+ <a href="../modules/find_index.html#get_index_name">get_index_name</a> function.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">indexes</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         map from collection names to indexes as defined in
+ the <a href="../modules/find_index.html#new">new</a> function
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>lookup_index_name</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "build_index_parts_tree"></a>
+    <strong>build_index_parts_tree (indexes)</strong>
+    </dt>
+    <dd>
+    Build <code>parts_tree</code> to use in <a href="../modules/find_index.html#get_index_name">get_index_name</a> for lookup best matching
+ index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">indexes</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         indexes metainformation as defined in the <a href="../modules/find_index.html#new">new</a>
+ function</p>
+
+<p> Schetch example:</p>
+
+<ul>
+    <li>collection_1:</li>
+    <li>index 1 parts: foo, bar, baz;</li>
+    <li>index 2 parts: foo, abc;</li>
+    <li>index 3 parts: abc, efg, hij;
+    <ul>
+        <li>index 4 parts: abc.</li>
+    </ul></li>
+</ul>
+
+<p> Resulting table of prefix trees (contains one field for collection_1):</p>
+
+<p> ``<code>
+ * collection_1:
+  \
+   + --&gt; root node --&gt; foo --&gt; bar --&gt; baz ~~&gt; index 1</p>
+<pre><code>      \             \
+       \             + --&amp;gt; abc ~~&amp;gt; index 2
+        \
+         + ------&amp;gt; abc --&amp;gt; efg --&amp;gt; hij ~~&amp;gt; index 3
+                    \
+                     + ~~&amp;gt; index 4
+</code></pre>
+<p> </code>``
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> <code>roots</code> resulting table of prefix trees</p>
+
+<ul>
+    <li><code>roots</code> is a table which maps <code>collection names</code> to <code>root nodes</code> of
+    prefix trees;</li>
+    <li>'collection name<code> is a string (name of a collection);</li>
+    <li></code>root node<code> is a table with </code>successors<code> field;</li>
+    <li></code>successors<code> field value is a map from </code>index part<code> to </code>non-root node<code>;</li>
+    <li></code>index part<code> is a string (name of corresponding field in an object);</li>
+    <li></code>non-root node<code> is a table with </code>index_names<code> field and optional
+    </code>successors<code> field;</li>
+    <li></code>index_names<code> field value is a list of </code>index name<code>;</li>
+    <li></code>index name` is a string (name of an index).</li>
+</ul>
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "build_connection_indexes"></a>
+    <strong>build_connection_indexes (indexes, collections)</strong>
+    </dt>
+    <dd>
+    Build <code>connection_indexes</code> table (part of <code>index_cache_data</code>) to use in the
+ <a href="../modules/find_index.html#get_index_name">get_index_name</a> function.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">indexes</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         map from collection names to indexes meta-information
+ as defined in the <a href="../modules/find_index.html#new">new</a> function; the function uses it to validate index
+ names provided in connections (which are inside collections), validate
+ connection types ('1:1' or '1:N') against index uniqueness if the <code>unique</code>
+ flag provided for corresponding index and to check that destination parts
+ of connections form a prefix of parts of the <code>connection.index_name</code> index
+        </li>
+        <li><span class="parameter">collections</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         map from collection names to collections as
+ defined in the <a href="../modules/accessor_general.html#new">accessor_general.new</a> function decription; the function
+ uses it to extract index names from connections and create the resulting
+ mapping
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+        <code>connection_indexes</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "build_index_cache"></a>
+    <strong>build_index_cache (indexes, collections)</strong>
+    </dt>
+    <dd>
+    General function that build connection and index information to use in the
+ <a href="../modules/find_index.html#get_index_name">get_index_name</a> function. </p>
+
+<p> It uses the <a href="../modules/find_index.html#build_lookup_index_name">build_lookup_index_name</a> and the <a href="../modules/find_index.html#build_connection_indexes">build_connection_indexes</a>
+ functions.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">indexes</span>
+
+
+
+        </li>
+        <li><span class="parameter">collections</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_best_matched_index"></a>
+    <strong>get_best_matched_index (node, filter)</strong>
+    </dt>
+    <dd>
+    Get an index using parts tree built by <a href="../modules/find_index.html#build_index_parts_tree">build_index_parts_tree</a>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">node</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         root of the prefix tree for certain collection
+        </li>
+        <li><span class="parameter">filter</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         map of key-value to filter objects against
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        <code>index_name</code> or <code>nil</code> is found index</li>
+        <li>
+           <span class="types"><span class="type">number</span></span>
+
+<p> <code>max_branch_len</code> is a number of index parts will be used at
+ lookup plus 1 (because it calculated artificial root node as well as other
+ nodes)</p>
+
+<h2> Complexity</h2>
+
+<p> In short: O(SIZE(filter)^2 * COUNT(index parts for all indexes)).</p>
+
+<p> Say we have N fields in filter (N = SIZE(filter), M indexes and K index
+ parts at max ((M * K) and COUNT(index parts for all indexes) both are
+ upside limits of nodes count in the tree). We look for successors for
+ each filter item (&lt;= N items) in each of the tree node (&lt;= M * K nodes),
+ so have O(I * N * (M * K)) of somewhat we call 'iteration' of I
+ complexity. Most heavy operation within an iteraton is table.copy(), we
+ can assume it has O(N) complexity. So we have overall complexity O(N^2 *
+ (M * K)).</p>
+
+<p> We can consider worst case scenario when any node has any of filter keys as
+ a successor. In this case nodes count is not real constraint for recursion.
+ In such case we can calculate complexity as iteration of weight I
+ (calculated above as O(N^2)) and iteration count as permutations of N
+ filter items (N!). In such case we'll have O(N^2 * N!) or O(N^(3/2) * N^N)
+ (Stirling's approximation).</p>
+
+<h2> Expectations</h2>
+
+<p> We expect typical filter size as 1 or 2 and tree depth (excluding
+ artificial root node) of the same order. So despite horrible complexity
+ estimation it expected to be non-so-heavy. Our guess is that it worth to
+ try hard to find best index before a large request.</p>
+
+<h2> Future optimizations</h2>
+
+<ul>
+    <li>replace table.copy() with something more light: maybe 'closed set' of
+    filter items or {remove filter[k], invoke the function, add
+    back filter[k]} (but it needed to be done in such way that will not
+    invalidate pairs());</li>
+    <li>cache index name btw block requests of the same collection request (when
+    we'll have block executor) and maybe even btw different requests with the
+    same filter keys.</li>
+</ul>
+</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_index_name"></a>
+    <strong>get_index_name (self, collection_name, from, filter, args)</strong>
+    </dt>
+    <dd>
+    Choose an index for lookup tuple(s) by a 'filter'.  The filter holds fields
+ values of object(s) we want to find. It uses prebuilt <code>lookup_index_name</code>
+ table representing available indexes, which created by the
+ <a href="../modules/find_index.html#build_lookup_index_name">build_lookup_index_name</a> function.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         the index finder instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         name of a collection of whose indexes the
+ function will search through
+        </li>
+        <li><span class="parameter">from</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> information about a connection bring executor to select
+ from a current collection; <code>from.collection_name == nil</code> means selecting
+ top-level objects; it has the following structure:</p>
+
+<pre><code> {
+     collection_name = &lt;...&gt; (string),
+     connection_name = &lt;...&gt; (string),
+     destination_args_names = &lt;...&gt; (list, lua table),
+     destination_args_values = &lt;...&gt; (list, lua table),
+ }
+</code></pre>
+
+
+        </li>
+        <li><span class="parameter">filter</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         map from fields names to values; names are used for
+ lookup needed index, values forms the <code>value_list</code> return value
+        </li>
+        <li><span class="parameter">args</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         the <code>args</code> argument from the
+ <a href="../modules/accessor_general.html#prepare_select_internal">accessor_general.prepare_select_internal</a> function, it is the
+ <code>list_args_instance</code> variable in terms of the <a href="../modules/convert_schema.html#">convert_schema</a> module
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">boolean</span></span>
+         <code>full_match</code> is whether passing <code>value_list</code> to the index
+ with name <code>index_name</code> will give tuple(s) proven to match the filter or
+ just some subset of all tuples in the collection which need to be filtered
+ further</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        <code>index_name</code> is name of the found index or nil</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>new_filter</code> is the filter value w/o values extracted into
+ <code>value_list</code></li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>value_list</code> (optional) is values list from the <code>filter</code>
+ argument ordered in the such way that it can be passed to the found index
+ (has some meaning only when <code>index_name ~= nil</code>)</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         <code>pivot</code> (optional) an offset argument represented depending
+ of a case: whether we'll lookup for the offset by an index; it is either
+ <code>nil</code>, or contains <code>value_list</code> field to pass to a GT (great-then) index,
+ or contains <code>filter</code> field to use in <code>process_tuple</code> for find the pivot in
+ a select result</li>
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

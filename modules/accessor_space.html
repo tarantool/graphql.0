@@ -1,0 +1,602 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>ldoc</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Local_Functions">Local Functions</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../modules/accessor_general.html">accessor_general</a></li>
+  <li><a href="../modules/accessor_shard.html">accessor_shard</a></li>
+  <li><a href="../modules/accessor_shard_cache.html">accessor_shard_cache</a></li>
+  <li><a href="../modules/accessor_shard_helpers.html">accessor_shard_helpers</a></li>
+  <li><a href="../modules/accessor_shard_index_info.html">accessor_shard_index_info</a></li>
+  <li><strong>accessor_space</strong></li>
+  <li><a href="../modules/avro_helpers.html">avro_helpers</a></li>
+  <li><a href="../modules/bfs_executor.html">bfs_executor</a></li>
+  <li><a href="../modules/config_complement.html">config_complement</a></li>
+  <li><a href="../modules/convert_schema.arguments.html">convert_schema.arguments</a></li>
+  <li><a href="../modules/convert_schema.helpers.html">convert_schema.helpers</a></li>
+  <li><a href="../modules/convert_schema.html">convert_schema</a></li>
+  <li><a href="../modules/convert_schema.resolve.html">convert_schema.resolve</a></li>
+  <li><a href="../modules/convert_schema.scalar_types.html">convert_schema.scalar_types</a></li>
+  <li><a href="../modules/convert_schema.schema.html">convert_schema.schema</a></li>
+  <li><a href="../modules/convert_schema.types.html">convert_schema.types</a></li>
+  <li><a href="../modules/convert_schema.union.html">convert_schema.union</a></li>
+  <li><a href="../modules/db_schema_helpers.html">db_schema_helpers</a></li>
+  <li><a href="../modules/error_codes.html">error_codes</a></li>
+  <li><a href="../modules/expressions.html">expressions</a></li>
+  <li><a href="../modules/expressions.constant_propagation.html">expressions.constant_propagation</a></li>
+  <li><a href="../modules/extend_ast.html">extend_ast</a></li>
+  <li><a href="../modules/find_index.html">find_index</a></li>
+  <li><a href="../modules/gen_arguments.html">gen_arguments</a></li>
+  <li><a href="../modules/impl.html">impl</a></li>
+  <li><a href="../modules/init.html">init</a></li>
+  <li><a href="../modules/query_to_avro.html">query_to_avro</a></li>
+  <li><a href="../modules/request_batch.html">request_batch</a></li>
+  <li><a href="../modules/server.server.html">server.server</a></li>
+  <li><a href="../modules/server.utils.html">server.utils</a></li>
+  <li><a href="../modules/simple_config.html">simple_config</a></li>
+  <li><a href="../modules/statistics.html">statistics</a></li>
+  <li><a href="../modules/storage.html">storage</a></li>
+  <li><a href="../modules/utils.html">utils</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>accessor_space</code></h1>
+<p>The module implements functions needed to make general accessor
+ (<a href="../modules/accessor_general.html#">accessor_general</a>) behaves as space accessor and provides the
+ <a href="../modules/accessor_space.html#new">accessor_space.new</a> function to create a new space data accessor instance.</p>
+<p>
+
+</p>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#new">new (opts, funcs)</a></td>
+	<td class="summary">Create a new space data accessor instance.</td>
+	</tr>
+</table>
+<h2><a href="#Local_Functions">Local Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#is_collection_exists">is_collection_exists (self, collection_name)</a></td>
+	<td class="summary">Check whether a collection (it is space for that accessor) exists.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_index">get_index (self, collection_name, index_name)</a></td>
+	<td class="summary">Get index to perform <code>:pairs({v1, ...})</code>.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_primary_index">get_primary_index (self, collection_name)</a></td>
+	<td class="summary">Get primary index to perform <code>:pairs()</code> (fullscan).</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#unflatten_tuple">unflatten_tuple (self, collection_name, tuple, opts, default)</a></td>
+	<td class="summary">Convert a tuple to an object.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#flatten_object">flatten_object (self, collection_name, obj, opts, default)</a></td>
+	<td class="summary">Convert an object to a tuple.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#xflatten">xflatten (self, collection_name, xobject, opts, default)</a></td>
+	<td class="summary">Generate update statements for tarantool from xflatten input.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#insert_tuple">insert_tuple (self, collection_name, tuple)</a></td>
+	<td class="summary">Insert a tuple into a collection.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#update_tuple">update_tuple (self, collection_name, key, statements, opts)</a></td>
+	<td class="summary">Update a tuple with an update statements.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#delete_tuple">delete_tuple (self, collection_name, key, opts)</a></td>
+	<td class="summary">Delete tuple by a primary key.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "new"></a>
+    <strong>new (opts, funcs)</strong>
+    </dt>
+    <dd>
+    Create a new space data accessor instance.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">opts</span>
+
+
+
+        </li>
+        <li><span class="parameter">funcs</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Local_Functions"></a>Local Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "is_collection_exists"></a>
+    <strong>is_collection_exists (self, collection_name)</strong>
+    </dt>
+    <dd>
+    Check whether a collection (it is space for that accessor) exists.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">boolean</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_index"></a>
+    <strong>get_index (self, collection_name, index_name)</strong>
+    </dt>
+    <dd>
+    Get index to perform <code>:pairs({v1, ...})</code>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">index_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        index or nil
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_primary_index"></a>
+    <strong>get_primary_index (self, collection_name)</strong>
+    </dt>
+    <dd>
+    Get primary index to perform <code>:pairs()</code> (fullscan).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        index or nil
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "unflatten_tuple"></a>
+    <strong>unflatten_tuple (self, collection_name, tuple, opts, default)</strong>
+    </dt>
+    <dd>
+    Convert a tuple to an object.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">tuple</span>
+            <span class="types"><span class="type">cdata/table</span></span>
+
+
+
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+<ul>
+    <li><code>use_tomap</code> (boolean, default: false; whether objects in collection
+    collection_name intended to be unflattened using
+    <code>tuple:tomap({names_only = true})</code> method instead of
+    <code>compiled_avro_schema.unflatten(tuple)</code></li>
+</ul>
+
+        </li>
+        <li><span class="parameter">default</span>
+            <span class="types"><span class="type">function</span></span>
+
+<p> unflatten action, call it in the following way:</p>
+
+<pre><code> return default(self, collection_name, tuple, opts)
+</code></pre>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "flatten_object"></a>
+    <strong>flatten_object (self, collection_name, obj, opts, default)</strong>
+    </dt>
+    <dd>
+    Convert an object to a tuple.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">obj</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+<ul>
+    <li><code>service_fields_defaults</code> (list (Lua table), default: empty list; list of
+    values to set service fields)</li>
+</ul>
+
+        </li>
+        <li><span class="parameter">default</span>
+            <span class="types"><span class="type">function</span></span>
+
+<p> flatten action, call it in the following way:</p>
+
+<pre><code>return default(self, collection_name, obj, opts)
+</code></pre>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">cdata/table</span></span>
+        <code>tuple</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "xflatten"></a>
+    <strong>xflatten (self, collection_name, xobject, opts, default)</strong>
+    </dt>
+    <dd>
+    Generate update statements for tarantool from xflatten input.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">xobject</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         xflatten input
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+<ul>
+    <li><code>service_fields_defaults</code> (list (Lua table), default: empty list; list of
+    values to set service fields)</li>
+</ul>
+
+        </li>
+        <li><span class="parameter">default</span>
+            <span class="types"><span class="type">function</span></span>
+
+<p> xflatten action, call it in the following way:</p>
+
+<pre><code>return default(self, collection_name, xobject, opts)
+</code></pre>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">cdata/table</span></span>
+        <code>tuple</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "insert_tuple"></a>
+    <strong>insert_tuple (self, collection_name, tuple)</strong>
+    </dt>
+    <dd>
+    Insert a tuple into a collection.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">tuple</span>
+            <span class="types"><span class="type">cdata/table</span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">cdata/table</span></span>
+        <code>tuple</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "update_tuple"></a>
+    <strong>update_tuple (self, collection_name, key, statements, opts)</strong>
+    </dt>
+    <dd>
+    Update a tuple with an update statements.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">key</span>
+         primary key
+        </li>
+        <li><span class="parameter">statements</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+<ul>
+    <li>tuple (ignored in accessor_space)</li>
+</ul>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">cdata/table</span></span>
+        <code>tuple</code>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "delete_tuple"></a>
+    <strong>delete_tuple (self, collection_name, key, opts)</strong>
+    </dt>
+    <dd>
+    Delete tuple by a primary key.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">self</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+         accessor_general instance
+        </li>
+        <li><span class="parameter">collection_name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">key</span>
+         primary key
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+
+
+<ul>
+    <li>tuple (ignored in accessor_space)</li>
+</ul>
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">cdata</span></span>
+        tuple
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>
