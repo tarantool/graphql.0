@@ -1,3 +1,5 @@
+--- GraphQL module error codes.
+
 local error_codes = {}
 
 error_codes.TYPE_MISMATCH = 1

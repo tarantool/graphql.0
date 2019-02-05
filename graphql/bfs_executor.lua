@@ -491,7 +491,7 @@ end
 ---         fragmentMap = fragmentMap,
 ---     }
 ---
---- @tparam table qcontext the following options:
+--- @tparam table opts the following options:
 ---
 --- * is_item_cache_only
 --- * qcontext: query-local storage for various purposes
@@ -636,6 +636,9 @@ local function filter_object(object, object_type, selections, context, opts)
     }
 end
 
+--- Select fields from objects in a list, create prepared resolve functions.
+---
+--- See @{filter_object} for the API and a description.
 filter_object_list = function(object_list, object_type, selections, context,
         opts)
     local opts = opts or {}

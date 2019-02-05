@@ -1,4 +1,4 @@
---- Convert extended avro-schema (collections) to GraphQL schema.
+--- Convert an extended avro-schema (collections) to a GraphQL schema.
 
 local log = require('log')
 local core_types = require('graphql.core.types')

@@ -1,3 +1,5 @@
+--- Auxiliary functions for graphql.server.
+
 local fio = require('fio')
 
 local utils = {}

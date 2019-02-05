@@ -23,8 +23,15 @@ lint:
 		test/*.lua \
 		--no-redefined --no-unused-args
 
+.PHONY: apidoc-lint
+apidoc-lint:
+	! ldoc -d doc/apidoc-lint-tmp graphql --all -f markdown 2>&1 >/dev/null | \
+		grep -v -e 'graphql/core.*: no module() call found; no initial doc comment$$' \
+		-e ': contains no items$$'
+	rm -rf doc/apidoc-lint-tmp
+
 .PHONY: test
-test: lint
+test: lint apidoc-lint
 	virtualenv -p python2.7 ./.env-2.7
 	. ./.env-2.7/bin/activate && \
 		pip install -r ./test-run/requirements.txt && \
@@ -32,7 +39,7 @@ test: lint
 		cd test && ./test-run.py
 
 .PHONY: bench
-bench: lint
+bench: lint apidoc-lint
 	virtualenv -p python2.7 ./.env-2.7
 	. ./.env-2.7/bin/activate && \
 		pip install -r ./test-run/requirements.txt && \
@@ -51,14 +58,8 @@ pure-bench:
 clean:
 	rm -rf test/var luacov.stats.out luacov.report.out
 
-.PHONY: apidoc-lint
-apidoc-lint:
-	! ldoc -d doc/apidoc-lint-tmp graphql --all -f markdown 2>&1 >/dev/null | \
-		grep -v ': no module() call found; no initial doc comment$$\|: contains no items$$'
-	rm -rf doc/apidoc-lint-tmp
-
 .PHONY: apidoc
-apidoc:
+apidoc: apidoc-lint
 	ldoc -d doc/apidoc graphql --all -f markdown
 	# fix navigation panel width
 	sed -i -e 's/: 14em;/: 24em;/' doc/apidoc/ldoc.css
@@ -77,7 +78,7 @@ rpm:
 	   ./3rd_party/packpack/packpack
 
 .PHONY: coverage
-coverage: lint
+coverage: lint apidoc-lint
 	virtualenv -p python2.7 ./.env-2.7
 	. ./.env-2.7/bin/activate && \
 		pip install -r ./test-run/requirements.txt && \

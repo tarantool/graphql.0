@@ -1,3 +1,5 @@
+--- Auxiliary functions needed for converting schemas.
+
 local utils = require('graphql.utils')
 local check = utils.check
 

@@ -1,3 +1,5 @@
+--- Functions to be exposed from shard storage nodes.
+
 local log = require('log')
 local json = require('json')
 -- local yaml = require('yaml')

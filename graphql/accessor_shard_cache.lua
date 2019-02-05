@@ -1,3 +1,5 @@
+--- Request a data in a batch and save them to a cache.
+
 local json = require('json')
 local utils = require('graphql.utils')
 local shard = utils.optional_require('shard')

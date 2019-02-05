@@ -1,3 +1,5 @@
+--- C-style expressions parser and executor.
+
 local lpeg = require('lulpeg')
 local utils = require('graphql.utils')
 
