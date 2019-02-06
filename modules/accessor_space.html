@@ -98,15 +98,15 @@
 <h2><a href="#Local_Functions">Local Functions</a></h2>
 <table class="function_list">
 	<tr>
-	<td class="name" nowrap><a href="#is_collection_exists">is_collection_exists (self, collection_name)</a></td>
+	<td class="name" nowrap><a href="#is_collection_exists">is_collection_exists (self, collection_name[, opts])</a></td>
 	<td class="summary">Check whether a collection (it is space for that accessor) exists.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#get_index">get_index (self, collection_name, index_name)</a></td>
+	<td class="name" nowrap><a href="#get_index">get_index (self, collection_name, index_name[, opts])</a></td>
 	<td class="summary">Get index to perform <code>:pairs({v1, ...})</code>.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#get_primary_index">get_primary_index (self, collection_name)</a></td>
+	<td class="name" nowrap><a href="#get_primary_index">get_primary_index (self, collection_name[, opts])</a></td>
 	<td class="summary">Get primary index to perform <code>:pairs()</code> (fullscan).</td>
 	</tr>
 	<tr>
@@ -122,15 +122,15 @@
 	<td class="summary">Generate update statements for tarantool from xflatten input.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#insert_tuple">insert_tuple (self, collection_name, tuple)</a></td>
+	<td class="name" nowrap><a href="#insert_tuple">insert_tuple (self, collection_name, tuple[, opts])</a></td>
 	<td class="summary">Insert a tuple into a collection.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#update_tuple">update_tuple (self, collection_name, key, statements, opts)</a></td>
+	<td class="name" nowrap><a href="#update_tuple">update_tuple (self, collection_name, key, statements[, opts])</a></td>
 	<td class="summary">Update a tuple with an update statements.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#delete_tuple">delete_tuple (self, collection_name, key, opts)</a></td>
+	<td class="name" nowrap><a href="#delete_tuple">delete_tuple (self, collection_name, key[, opts])</a></td>
 	<td class="summary">Delete tuple by a primary key.</td>
 	</tr>
 </table>
@@ -175,7 +175,7 @@
     <dl class="function">
     <dt>
     <a name = "is_collection_exists"></a>
-    <strong>is_collection_exists (self, collection_name)</strong>
+    <strong>is_collection_exists (self, collection_name[, opts])</strong>
     </dt>
     <dd>
     Check whether a collection (it is space for that accessor) exists.
@@ -192,6 +192,19 @@
 
 
 
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li><code>user_context</code> (of any type) is a query local context, see
+    <a href="../modules/impl.html#gql_execute">impl.gql_execute</a>.</li>
+</ul>
+
+
+         (<em>optional</em>)
         </li>
     </ul>
 
@@ -210,7 +223,7 @@
 </dd>
     <dt>
     <a name = "get_index"></a>
-    <strong>get_index (self, collection_name, index_name)</strong>
+    <strong>get_index (self, collection_name, index_name[, opts])</strong>
     </dt>
     <dd>
     Get index to perform <code>:pairs({v1, ...})</code>.
@@ -234,6 +247,19 @@
 
 
         </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li><code>user_context</code> (of any type) is a query local context, see
+    <a href="../modules/impl.html#gql_execute">impl.gql_execute</a>.</li>
+</ul>
+
+
+         (<em>optional</em>)
+        </li>
     </ul>
 
     <h3>Returns:</h3>
@@ -248,7 +274,7 @@
 </dd>
     <dt>
     <a name = "get_primary_index"></a>
-    <strong>get_primary_index (self, collection_name)</strong>
+    <strong>get_primary_index (self, collection_name[, opts])</strong>
     </dt>
     <dd>
     Get primary index to perform <code>:pairs()</code> (fullscan).
@@ -265,6 +291,19 @@
 
 
 
+        </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li><code>user_context</code> (of any type) is a query local context, see
+    <a href="../modules/impl.html#gql_execute">impl.gql_execute</a>.</li>
+</ul>
+
+
+         (<em>optional</em>)
         </li>
     </ul>
 
@@ -307,13 +346,17 @@
         <li><span class="parameter">opts</span>
             <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
 
+<p> the following options:</p>
 
 <ul>
-    <li><code>use_tomap</code> (boolean, default: false; whether objects in collection
+    <li><p><code>use_tomap</code> (boolean, default: false; whether objects in collection
     collection_name intended to be unflattened using
     <code>tuple:tomap({names_only = true})</code> method instead of
-    <code>compiled_avro_schema.unflatten(tuple)</code></li>
+    <code>compiled_avro_schema.unflatten(tuple)</code></p></li>
+    <li><p><code>user_context</code> (of any type) is a query local context, see
+    <a href="../modules/impl.html#gql_execute">impl.gql_execute</a>.</p></li>
 </ul>
+
 
         </li>
         <li><span class="parameter">default</span>
@@ -362,11 +405,15 @@
         <li><span class="parameter">opts</span>
             <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
 
+<p> the following options:</p>
 
 <ul>
-    <li><code>service_fields_defaults</code> (list (Lua table), default: empty list; list of
-    values to set service fields)</li>
+    <li><p><code>service_fields_defaults</code> (list (Lua table), default: empty list; list of
+    values to set service fields),</p></li>
+    <li><p><code>user_context</code> (of any type) is a query local context, see
+    <a href="../modules/impl.html#gql_execute">impl.gql_execute</a>.</p></li>
 </ul>
+
 
         </li>
         <li><span class="parameter">default</span>
@@ -419,11 +466,15 @@
         <li><span class="parameter">opts</span>
             <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
 
+<p> the following options:</p>
 
 <ul>
-    <li><code>service_fields_defaults</code> (list (Lua table), default: empty list; list of
-    values to set service fields)</li>
+    <li><p><code>service_fields_defaults</code> (list (Lua table), default: empty list; list of
+    values to set service fields),</p></li>
+    <li><p><code>user_context</code> (of any type) is a query local context, see
+    <a href="../modules/impl.html#gql_execute">impl.gql_execute</a>.</p></li>
 </ul>
+
 
         </li>
         <li><span class="parameter">default</span>
@@ -451,7 +502,7 @@
 </dd>
     <dt>
     <a name = "insert_tuple"></a>
-    <strong>insert_tuple (self, collection_name, tuple)</strong>
+    <strong>insert_tuple (self, collection_name, tuple[, opts])</strong>
     </dt>
     <dd>
     Insert a tuple into a collection.
@@ -475,6 +526,19 @@
 
 
         </li>
+        <li><span class="parameter">opts</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
+
+<p> the following options:</p>
+
+<ul>
+    <li><code>user_context</code> (of any type) is a query local context, see
+    <a href="../modules/impl.html#gql_execute">impl.gql_execute</a>.</li>
+</ul>
+
+
+         (<em>optional</em>)
+        </li>
     </ul>
 
     <h3>Returns:</h3>
@@ -490,7 +554,7 @@
 </dd>
     <dt>
     <a name = "update_tuple"></a>
-    <strong>update_tuple (self, collection_name, key, statements, opts)</strong>
+    <strong>update_tuple (self, collection_name, key, statements[, opts])</strong>
     </dt>
     <dd>
     Update a tuple with an update statements.
@@ -520,13 +584,16 @@
         <li><span class="parameter">opts</span>
             <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
 
-
+<p> the following options:</p>
 
 <ul>
-    <li>tuple (ignored in accessor_space)</li>
+    <li><p>tuple (ignored in accessor_space),</p></li>
+    <li><p><code>user_context</code> (of any type) is a query local context, see
+    <a href="../modules/impl.html#gql_execute">impl.gql_execute</a>.</p></li>
 </ul>
 
 
+         (<em>optional</em>)
         </li>
     </ul>
 
@@ -543,7 +610,7 @@
 </dd>
     <dt>
     <a name = "delete_tuple"></a>
-    <strong>delete_tuple (self, collection_name, key, opts)</strong>
+    <strong>delete_tuple (self, collection_name, key[, opts])</strong>
     </dt>
     <dd>
     Delete tuple by a primary key.
@@ -567,13 +634,16 @@
         <li><span class="parameter">opts</span>
             <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></span>
 
-
+<p> the following options:</p>
 
 <ul>
-    <li>tuple (ignored in accessor_space)</li>
+    <li><p>tuple (ignored in accessor_space),</p></li>
+    <li><p><code>user_context</code> (of any type) is a query local context, see
+    <a href="../modules/impl.html#gql_execute">impl.gql_execute</a>.</p></li>
 </ul>
 
 
+         (<em>optional</em>)
         </li>
     </ul>
 
@@ -595,7 +665,7 @@
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2019-02-05 23:54:57 </i>
+<i style="float:right;">Last updated 2019-02-06 22:54:10 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
