@@ -15,9 +15,16 @@ local accessor_space = {}
 ---
 --- @tparam string collection_name
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @treturn boolean
-local function is_collection_exists(self, collection_name)
+local function is_collection_exists(self, collection_name, opts)
     check(self, 'self', 'table')
+    check(opts, 'opts', 'table', 'nil')
+
     return box.space[collection_name] ~= nil
 end
 
@@ -29,13 +36,21 @@ end
 ---
 --- @tparam string index_name
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @return index or nil
-local function get_index(self, collection_name, index_name)
+local function get_index(self, collection_name, index_name, opts)
     check(self, 'self', 'table')
+    check(opts, 'opts', 'table', 'nil')
+
     local index = box.space[collection_name].index[index_name]
     if index == nil then
         return nil
     end
+
     return setmetatable({}, {
         __index = {
             pairs = function(_, value, opts, out)
@@ -61,10 +76,17 @@ end
 ---
 --- @tparam string collection_name
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @return index or nil
-local function get_primary_index(self, collection_name)
+local function get_primary_index(self, collection_name, opts)
     check(self, 'self', 'table')
-    return self.funcs.get_index(self, collection_name, 0)
+    check(opts, 'opts', 'table', 'nil')
+
+    return self.funcs.get_index(self, collection_name, 0, opts)
 end
 
 --- Convert a tuple to an object.
@@ -72,11 +94,16 @@ end
 --- @tparam table self accessor_general instance
 --- @tparam string collection_name
 --- @tparam cdata/table tuple
---- @tparam table opts
+--- @tparam table opts the following options:
+---
 --- * `use_tomap` (boolean, default: false; whether objects in collection
 ---   collection_name intended to be unflattened using
 ---   `tuple:tomap({names_only = true})` method instead of
 ---   `compiled_avro_schema.unflatten(tuple)`
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @tparam function default unflatten action, call it in the following way:
 ---
 ---     return default(self, collection_name, tuple, opts)
@@ -96,9 +123,14 @@ end
 --- @tparam table self accessor_general instance
 --- @tparam string collection_name
 --- @tparam table obj
---- @tparam table opts
+--- @tparam table opts the following options:
+---
 --- * `service_fields_defaults` (list (Lua table), default: empty list; list of
----   values to set service fields)
+---   values to set service fields),
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @tparam function default flatten action, call it in the following way:
 ---
 ---    return default(self, collection_name, obj, opts)
@@ -118,9 +150,14 @@ end
 --- @tparam table self accessor_general instance
 --- @tparam string collection_name
 --- @tparam table xobject xflatten input
---- @tparam table opts
+--- @tparam table opts the following options:
+---
 --- * `service_fields_defaults` (list (Lua table), default: empty list; list of
----   values to set service fields)
+---   values to set service fields),
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @tparam function default xflatten action, call it in the following way:
 ---
 ---    return default(self, collection_name, xobject, opts)
@@ -143,9 +180,16 @@ end
 ---
 --- @tparam cdata/table tuple
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @treturn cdata/table `tuple`
-local function insert_tuple(self, collection_name, tuple)
+local function insert_tuple(self, collection_name, tuple, opts)
     check(self, 'self', 'table')
+    check(opts, 'opts', 'table', 'nil')
+
     return box.space[collection_name]:insert(tuple)
 end
 
@@ -159,9 +203,12 @@ end
 ---
 --- @tparam table statements
 ---
---- @tparam table opts
+--- @tparam[opt] table opts the following options:
 ---
---- * tuple (ignored in accessor_space)
+--- * tuple (ignored in accessor_space),
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
 ---
 --- @treturn cdata/table `tuple`
 local function update_tuple(self, collection_name, key, statements, opts)
@@ -179,9 +226,12 @@ end
 ---
 --- @param key primary key
 ---
---- @tparam table opts
+--- @tparam[opt] table opts the following options:
 ---
---- * tuple (ignored in accessor_space)
+--- * tuple (ignored in accessor_space),
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
 ---
 --- @treturn cdata tuple
 local function delete_tuple(self, collection_name, key, opts)

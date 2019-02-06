@@ -1208,7 +1208,7 @@ function bfs_executor.execute(schema, query_ast, variables, operation_name, opts
         utils.debug(open_set_tostring, {item}, 'item (after)')
     end
 
-    accessor:cache_truncate()
+    accessor:cache_truncate(qcontext)
 
     return filtered_root_object
 end

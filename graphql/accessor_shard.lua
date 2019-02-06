@@ -72,11 +72,18 @@ end
 ---
 --- @param key primary key
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @treturn cdata tuple
-local function get_tuple(self, collection_name, key)
+local function get_tuple(self, collection_name, key, opts)
     local func_name = 'accessor_shard.get_tuple'
     check(self, 'self', 'table')
-    local index = self.funcs.get_primary_index(self, collection_name)
+    check(opts, 'opts', 'table', 'nil')
+
+    local index = self.funcs.get_primary_index(self, collection_name, opts)
     local tuples = {}
     local out = {} -- XXX: count fetched_tuples_cnt in statistics
     for _, t in index:pairs(key, {limit = 2}, out) do
@@ -144,10 +151,17 @@ end
 ---
 --- @tparam string collection_name
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @treturn boolean
-local function is_collection_exists(self, collection_name)
+local function is_collection_exists(self, collection_name, opts)
     local func_name = 'accessor_shard.is_collection_exists'
     check(self, 'self', 'table')
+    check(opts, 'opts', 'table', 'nil')
+
     local exists
     for _, zone in ipairs(shard.shards) do
         for _, node in ipairs(zone) do
@@ -173,9 +187,16 @@ end
 ---
 --- @tparam string index_name
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @return index or nil
-local function get_index(self, collection_name, index_name)
+local function get_index(self, collection_name, index_name, opts)
     check(self, 'self', 'table')
+    check(opts, 'opts', 'table', 'nil')
+
     if not is_index_exists(collection_name, index_name) then
         return nil
     end
@@ -218,10 +239,17 @@ end
 ---
 --- @tparam string collection_name
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @return index or nil
-local function get_primary_index(self, collection_name)
+local function get_primary_index(self, collection_name, opts)
     check(self, 'self', 'table')
-    return self.funcs.get_index(self, collection_name, 0)
+    check(opts, 'opts', 'table', 'nil')
+
+    return self.funcs.get_index(self, collection_name, 0, opts)
 end
 
 --- Convert a tuple to an object.
@@ -229,11 +257,16 @@ end
 --- @tparam table self accessor_general instance
 --- @tparam string collection_name
 --- @tparam cdata/table tuple
---- @tparam table opts
+--- @tparam table opts the following options
+---
 --- * `use_tomap` (boolean, default: false; whether objects in collection
 ---   collection_name intended to be unflattened using
 ---   `tuple:tomap({names_only = true})` method instead of
 ---   `compiled_avro_schema.unflatten(tuple)`
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @tparam function default unflatten action, call it in the following way:
 ---
 ---     return default(self, collection_name, tuple)
@@ -254,9 +287,14 @@ end
 --- @tparam table self accessor_general instance
 --- @tparam string collection_name
 --- @tparam table obj
---- @tparam table opts
+--- @tparam table opts the following options:
+---
 --- * `service_fields_defaults` (list (Lua table), default: empty list; list of
----   values to set service fields)
+---   values to set service fields),
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @tparam function default flatten action, call it in the following way:
 ---
 ---    return default(self, collection_name, obj, opts)
@@ -276,9 +314,14 @@ end
 --- @tparam table self accessor_general instance
 --- @tparam string collection_name
 --- @tparam table xobject xflatten input
---- @tparam table opts
+--- @tparam table opts the following options:
+---
 --- * `service_fields_defaults` (list (Lua table), default: empty list; list of
----   values to set service fields)
+---   values to set service fields),
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @tparam function default xflatten action, call it in the following way:
 ---
 ---    return default(self, collection_name, xobject, opts)
@@ -301,10 +344,16 @@ end
 ---
 --- @tparam cdata/table tuple
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @treturn cdata/table `tuple`
-local function insert_tuple(self, collection_name, tuple)
+local function insert_tuple(self, collection_name, tuple, opts)
     local func_name = 'accessor_shard.insert_tuple'
     check(self, 'self', 'table')
+    check(opts, 'opts', 'table', 'nil')
 
     shard_check_status(func_name)
 
@@ -373,11 +422,14 @@ end
 ---
 --- @tparam table statements
 ---
---- @tparam table opts
+--- @tparam[opt] table opts the following options:
 ---
 --- * tuple (cdata/table, optional); a user can provide the original tuple to
 ---   save one broadcast request performing to determine shard key / needed
----   replica set
+---   replica set,
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
 ---
 --- @treturn cdata/table `tuple`
 local function update_tuple(self, collection_name, key, statements, opts)
@@ -416,7 +468,7 @@ local function update_tuple(self, collection_name, key, statements, opts)
         end
     end
 
-    local tuple = opts.tuple or get_tuple(self, collection_name, key)
+    local tuple = opts.tuple or get_tuple(self, collection_name, key, opts)
 
     local is_storage_to_be_changed = false
     if is_shard_key_to_be_updated then
@@ -428,10 +480,15 @@ local function update_tuple(self, collection_name, key, statements, opts)
 
     if is_storage_to_be_changed then
         -- different storages case
-        local old_tuple = opts.tuple or get_tuple(self, collection_name, key)
+        local old_tuple = opts.tuple or get_tuple(self, collection_name, key,
+            opts)
         local new_tuple = old_tuple:update(statements)
-        self.funcs.insert_tuple(self, collection_name, new_tuple)
-        self.funcs.delete_tuple(self, collection_name, key, {tuple = old_tuple})
+        self.funcs.insert_tuple(self, collection_name, new_tuple, opts)
+        local delete_opts = {
+            tuple = old_tuple,
+            user_context = opts.user_context,
+        }
+        self.funcs.delete_tuple(self, collection_name, key, delete_opts)
         return new_tuple
     else
         -- one storage case
@@ -453,9 +510,12 @@ end
 ---
 --- @param key primary key
 ---
---- @tparam table opts
+--- @tparam[opt] table opts the following options:
 ---
---- * tuple (cdata/table, optional); the same as in @{update_tuple}
+--- * tuple (cdata/table, optional); the same as in @{update_tuple},
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
 ---
 --- @treturn cdata tuple
 local function delete_tuple(self, collection_name, key, opts)
@@ -468,7 +528,7 @@ local function delete_tuple(self, collection_name, key, opts)
 
     shard_check_status(func_name)
 
-    local tuple = opts.tuple or get_tuple(self, collection_name, key)
+    local tuple = opts.tuple or get_tuple(self, collection_name, key, opts)
     local nodes = shard.shard(tuple[SHARD_KEY_FIELD_NO])
     local tuple = space_operation(collection_name, nodes, 'delete', key)
     assert(tuple ~= nil,
@@ -483,8 +543,14 @@ end
 ---
 --- @tparam table batches see @{accessor_shard_cache.cache_fetch}
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @treturn table see @{accessor_shard_cache.cache_fetch}
-local function cache_fetch(self, batches)
+local function cache_fetch(self, batches, opts)
+    check(opts, 'opts', 'table', 'nil')
     return self.data_cache:fetch(batches)
 end
 
@@ -495,8 +561,14 @@ end
 -- ---
 -- --- @tparam number fetch_id identifier of the fetched data
 -- ---
+-- --- @tparam[opt] table opts the following options:
+-- ---
+-- --- * `user_context` (of any type) is a query local context, see
+-- ---   @{impl.gql_execute}.
+-- ---
 -- --- @return nothing
--- local function cache_delete(self, fetch_id)
+-- local function cache_delete(self, fetch_id, opts)
+--     check(opts, 'opts', 'table', 'nil')
 --     self.data_cache:delete(fetch_id)
 -- end
 
@@ -504,8 +576,14 @@ end
 ---
 --- @tparam table self accessor_general instance
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @return nothing
-local function cache_truncate(self)
+local function cache_truncate(self, opts)
+    check(opts, 'opts', 'table', 'nil')
     self.data_cache:truncate()
 end
 
@@ -521,9 +599,15 @@ end
 ---
 --- @tparam table iterator_opts e.g. {} or {iterator = 'GT'}
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a query local context, see
+---   @{impl.gql_execute}.
+---
 --- @return luafun iterator (one value) to fetched data or nil
 local function cache_lookup(self, collection_name, index_name,
-        key, iterator_opts)
+        key, iterator_opts, opts)
+    check(opts, 'opts', 'table', 'nil')
     return self.data_cache:lookup(collection_name, index_name, key,
         iterator_opts)
 end

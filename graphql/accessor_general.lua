@@ -320,8 +320,12 @@ local function process_tuple(self, state, tuple, opts)
     local variables = qcontext.variables
 
     -- convert tuple -> object
-    local obj = opts.unflatten_tuple(self, collection_name, tuple,
-        { use_tomap = opts.use_tomap }, opts.default_unflatten_tuple)
+    local avro_opts = {
+        use_tomap = opts.use_tomap,
+        user_context = qcontext.user_context,
+    }
+    local obj = opts.unflatten_tuple(self, collection_name, tuple, avro_opts,
+        opts.default_unflatten_tuple)
 
     -- skip all items before pivot (the item pointed by offset)
     if not state.pivot_found and pivot_filter then
@@ -383,6 +387,8 @@ end
 ---
 --- @tparam table selected objects to perform the operation
 ---
+--- @tparam table avro_opts options for the unflatten_tuple() accessor function
+---
 --- @tparam string operation 'update_tuple' or 'delete_tuple'
 ---
 --- @param[opt] ... parameters to pass to the function
@@ -390,8 +396,9 @@ end
 --- @treturn table `new_objects` list of returned objects (in the order of the
 --- `selected` parameter)
 local function perform_primary_key_operation(self, collection_name, schema_name,
-        selected, operation, ...)
+        selected, avro_opts, operation, ...)
     check(operation, 'operation', 'string')
+    check(avro_opts, 'avro_opts', 'table')
 
     local _, primary_index_meta = db_schema_helpers.get_primary_index_meta(
         self, collection_name)
@@ -407,8 +414,7 @@ local function perform_primary_key_operation(self, collection_name, schema_name,
         -- delete_tuple to save one get operation
         local new_tuple = self.funcs[operation](self, collection_name, key, ...)
         local new_object = self.funcs.unflatten_tuple(self, collection_name,
-            new_tuple, {use_tomap = self.collection_use_tomap[collection_name]},
-            self.default_unflatten_tuple[schema_name])
+            new_tuple, avro_opts, self.default_unflatten_tuple[schema_name])
         table.insert(new_objects, new_object)
     end
 
@@ -449,21 +455,28 @@ local function prepare_select_internal(self, collection_name, from, filter,
     -- XXX: save type of args.offset at parsing and check here
     -- check(args.offset, 'args.offset', ...)
     check(args.pcre, 'args.pcre', 'table', 'nil')
+    check(extra, 'extra', 'table')
     check(extra.exp_tuple_count, 'extra.exp_tuple_count', 'number', 'nil')
+
+    local qcontext = extra.qcontext
+    check(qcontext, 'qcontext', 'table')
+    local get_index_opts = {user_context = qcontext.user_context}
 
     local collection = self.collections[collection_name]
     assert(collection ~= nil,
         ('cannot find the collection "%s"'):format(
         collection_name))
-    assert(self.funcs.is_collection_exists(self, collection_name),
-        ('cannot find collection "%s"'):format(collection_name))
+    assert(self.funcs.is_collection_exists(self, collection_name,
+        get_index_opts), ('cannot find collection "%s"'):format(
+        collection_name))
 
     -- search for suitable index
     -- note: we redefine filter here
     local full_match, index_name, filter, index_value, pivot =
         self.index_finder:find(collection_name, from, filter, args)
     local index = index_name ~= nil and
-        self.funcs.get_index(self, collection_name, index_name) or nil
+        self.funcs.get_index(self, collection_name, index_name,
+        get_index_opts) or nil
     if index_name ~= nil and index == nil then
         error(('cannot find actual index "%s" in the collection "%s", ' ..
             'but the index metainformation contains it'):format(index_name,
@@ -486,7 +499,6 @@ local function prepare_select_internal(self, collection_name, from, filter,
         collection_name))
 
     -- read-write variables for process_tuple
-    local qcontext = extra.qcontext
     local select_state = {
         count = 0,
         objs = {},
@@ -541,7 +553,8 @@ local function prepare_select_internal(self, collection_name, from, filter,
     if index == nil then
         assert(pivot == nil,
             'offset for top-level objects must use a primary index')
-        index = self.funcs.get_primary_index(self, collection_name)
+        index = self.funcs.get_primary_index(self, collection_name,
+            get_index_opts)
         index_value = nil
         is_full_scan = true
     else
@@ -605,6 +618,7 @@ local function invoke_select_internal(self, prepared_select)
     local collection_name = prepared_select.collection_name
     local args = prepared_select.args
     local extra = prepared_select.extra
+    local qcontext = extra.qcontext
 
     local index = request_opts.index
     local index_name = request_opts.index_name
@@ -618,8 +632,9 @@ local function invoke_select_internal(self, prepared_select)
     -- lookup for needed data in the cache if it is supported
     local iterable
     if self:cache_is_supported() then
+        local cache_opts = {user_context = qcontext.user_context}
         iterable = self.funcs.cache_lookup(self, collection_name, index_name,
-            index_value, iterator_opts)
+            index_value, iterator_opts, cache_opts)
     end
     if iterable == nil then
         iterable = index
@@ -698,23 +713,30 @@ local function insert_internal(self, collection_name, from, filter, args, extra)
     -- allow only top level collection
     check(from.collection_name, 'from.collection_name', 'nil')
 
-    -- convert object -> tuple (set default values from a schema)
     local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
+    local qcontext = extra.qcontext
+    local avro_opts = {
+        use_tomap = self.collection_use_tomap[collection_name],
+        service_fields_defaults = self.service_fields_defaults[schema_name],
+        user_context = qcontext.user_context,
+    }
+    local dml_opts = {
+        user_context = qcontext.user_context,
+    }
+
+    -- convert object -> tuple (set default values from a schema)
     local default_flatten_object = self.default_flatten_object[schema_name]
     assert(default_flatten_object ~= nil,
         ('cannot find default_flatten_object ' ..
         'for collection "%s"'):format(collection_name))
-    local tuple = self.funcs.flatten_object(self, collection_name, object, {
-        service_fields_defaults =
-            self.service_fields_defaults[schema_name],
-    }, default_flatten_object)
+    local tuple = self.funcs.flatten_object(self, collection_name, object,
+        avro_opts, default_flatten_object)
 
     -- insert tuple & tuple -> object (with default values set before)
-    local new_tuple = self.funcs.insert_tuple(self, collection_name, tuple)
-    local use_tomap = self.collection_use_tomap[collection_name]
+    local new_tuple = self.funcs.insert_tuple(self, collection_name, tuple,
+        dml_opts)
     local new_object = self.funcs.unflatten_tuple(self, collection_name,
-        new_tuple, {use_tomap = use_tomap},
-        self.default_unflatten_tuple[schema_name])
+        new_tuple, avro_opts, self.default_unflatten_tuple[schema_name])
 
     return {new_object}
 end
@@ -742,19 +764,27 @@ local function update_internal(self, collection_name, extra, selected)
         'arguments'
     assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
 
-    -- convert xobject -> update statements
     local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
+    local qcontext = extra.qcontext
+    local avro_opts = {
+        use_tomap = self.collection_use_tomap[collection_name],
+        service_fields_defaults = self.service_fields_defaults[schema_name],
+        user_context = qcontext.user_context,
+    }
+    local dml_opts = {
+        user_context = qcontext.user_context,
+    }
+
+    -- convert xobject -> update statements
     local default_xflatten = self.default_xflatten[schema_name]
     assert(default_xflatten ~= nil,
         ('cannot find default_xflatten ' ..
         'for collection "%s"'):format(collection_name))
-    local statements = self.funcs.xflatten(self, collection_name, xobject, {
-        service_fields_defaults =
-            self.service_fields_defaults[schema_name],
-    }, default_xflatten)
+    local statements = self.funcs.xflatten(self, collection_name, xobject,
+        avro_opts, default_xflatten)
 
     return perform_primary_key_operation(self, collection_name, schema_name,
-        selected, 'update_tuple', statements)
+        selected, avro_opts, 'update_tuple', statements, dml_opts)
 end
 
 --- Delete an object.
@@ -778,10 +808,18 @@ local function delete_internal(self, collection_name, extra, selected)
         'arguments'
     assert(next(extra.extra_args, next(extra.extra_args)) == nil, err_msg)
 
+    local qcontext = extra.qcontext
     local schema_name = db_schema_helpers.get_schema_name(self, collection_name)
 
+    local avro_opts = {
+        use_tomap = self.collection_use_tomap[collection_name],
+        user_context = qcontext.user_context,
+    }
+    local dml_opts = {
+        user_context = qcontext.user_context,
+    }
     return perform_primary_key_operation(self, collection_name, schema_name,
-        selected, 'delete_tuple')
+        selected, avro_opts, 'delete_tuple', dml_opts)
 end
 
 --- Set of asserts to check the `funcs` argument of the @{accessor_general.new}
@@ -1122,7 +1160,8 @@ function accessor_general.new(opts, funcs)
                     return nil
                 end
 
-                local res = self.funcs.cache_fetch(self, batches)
+                local cache_opts = {user_context = qcontext.user_context}
+                local res = self.funcs.cache_fetch(self, batches, cache_opts)
                 if res == nil then
                     return nil
                 end
@@ -1151,17 +1190,19 @@ function accessor_general.new(opts, funcs)
                 return fetch_id
             end,
             -- Unused for now.
-            -- cache_delete = function(self, fetch_id)
+            -- cache_delete = function(self, fetch_id, qcontext)
             --     if not self:cache_is_supported() then
             --         return
             --     end
-            --     self.funcs.cache_delete(self, fetch_id)
+            --     local cache_opts = {user_context = qcontext.user_context}
+            --     self.funcs.cache_delete(self, fetch_id, cache_opts)
             -- end,
-            cache_truncate = function(self)
+            cache_truncate = function(self, qcontext)
                 if not self:cache_is_supported() then
                     return
                 end
-                self.funcs.cache_truncate(self)
+                local cache_opts = {user_context = qcontext.user_context}
+                self.funcs.cache_truncate(self, cache_opts)
             end,
         }
     })
