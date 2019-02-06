@@ -37,8 +37,16 @@ local default_instance
 ---
 --- @tparam[opt] string operation_name optional operation name
 ---
+--- @tparam[opt] table opts the following options:
+---
+--- * `user_context` (of any type) is a user-provided query context
+---
+--- This context passed to accessor functions. If a user provides its own
+--- accessor functions, (s)he will be able to access this context for read and
+--- write during a query / mutation.
+---
 --- @treturn table result of the operation
-local function gql_execute(qstate, variables, operation_name)
+local function gql_execute(qstate, variables, operation_name, opts)
     assert(qstate.state)
     assert(qstate.query_settings)
     local state = qstate.state
@@ -46,14 +54,20 @@ local function gql_execute(qstate, variables, operation_name)
     local max_batch_size = qstate.query_settings.max_batch_size or
         state.max_batch_size
     local variables = variables or {}
+    local opts = opts or {}
 
     check(variables, 'variables', 'table')
     check(operation_name, 'operation_name', 'string', 'nil')
     check(max_batch_size, 'max_batch_size', 'number')
+    check(opts, 'opts', 'table', 'nil')
+
+    -- A user_context can have any type.
+    local user_context = opts.user_context
 
     local qcontext = {
         query_settings = qstate.query_settings,
         variables = variables,
+        user_context = user_context,
     }
 
     local traceback
@@ -105,7 +119,7 @@ local function gql_execute(qstate, variables, operation_name)
         -- XXX: store cache into query-local storage to ensure in will be
         -- cleaned anyway; it is matter if some data will be changed between
         -- GraphQL queries
-        state.accessor:cache_truncate()
+        state.accessor:cache_truncate(qcontext)
         traceback = debug.traceback()
         return err
     end)
@@ -128,7 +142,7 @@ end
 ---
 --- @treturn table result of the operation
 local function compile_and_execute(state, query, variables, operation_name,
-        compile_opts)
+        compile_opts, execute_opts)
     assert(type(state) == 'table', 'use :compile_and_execute(...) ' ..
         'instead of .compile_and_execute(...)')
     assert(state.schema ~= nil, 'have not compiled schema')
@@ -136,9 +150,10 @@ local function compile_and_execute(state, query, variables, operation_name,
     check(variables, 'variables', 'table', 'nil')
     check(operation_name, 'operation_name', 'string', 'nil')
     check(compile_opts, 'compile_opts', 'table', 'nil')
+    check(execute_opts, 'execute_opts', 'table', 'nil')
 
     local compiled_query = state:compile(query, compile_opts)
-    return compiled_query:execute(variables, operation_name)
+    return compiled_query:execute(variables, operation_name, execute_opts)
 end
 
 local function validate_query_settings(query_settings, opts)
@@ -284,12 +299,13 @@ function impl.compile(query, opts)
     return default_instance:compile(query, opts)
 end
 
-function impl.execute(query, variables, operation_name, compile_opts)
+function impl.execute(query, variables, operation_name, compile_opts,
+        execute_opts)
     if default_instance == nil then
         default_instance = impl.new()
     end
     return default_instance:execute(query, variables, operation_name,
-        compile_opts)
+        compile_opts, execute_opts)
 end
 
 function impl.start_server(host, port, compile_opts)
