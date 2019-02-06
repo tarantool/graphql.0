@@ -15,6 +15,10 @@ The library split to the two parts: GraphQL parser/executor and data accessors.
 The GraphQL part defines possible shapes of queries and implements abstract
 query executor, but data accessors implement fetching of objects.
 
+[API documentation][apidoc].
+
+[apidoc]: https://tarantool.github.io/graphql/
+
 ### GraphQL part
 
 The GraphQL part operates on *collections* of *objects*. Each collection stored
