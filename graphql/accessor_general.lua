@@ -992,7 +992,7 @@ end
 --- * `flatten_object`,
 --- * `insert_tuple`,
 --- * `cache_fetch` (optional),
---- -- * `cache_delete` (optional),
+--- * `cache_delete` (optional, unused for now),
 --- * `cache_truncate` (optional),
 --- * `cache_lookup` (optional).
 ---
