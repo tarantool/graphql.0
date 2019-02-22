@@ -532,8 +532,8 @@ end
 function accessor_shard.new(opts, funcs)
     local funcs = funcs or {}
     check(funcs, 'funcs', 'table')
-    assert(shard ~= nil,
-        'tarantool/shard module is needed to working with accessor_shard')
+    -- assert(shard ~= nil,
+    --     'tarantool/shard module is needed to working with accessor_shard')
 
     for k, v in pairs(funcs) do
         check(k, 'funcs key', 'string')

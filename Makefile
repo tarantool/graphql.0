@@ -74,3 +74,16 @@ demo:
 rpm:
 	OS=el DIST=7 PACKAGECLOUD_USER=tarantool PACKAGECLOUD_REPO=1_9 \
 	   ./3rd_party/packpack/packpack
+
+.PHONY: fpm
+fpm:
+	fpm -s dir -t rpm -n tarantool-graphql --rpm-os linux -a noarch  \
+		--prefix /usr/share/tarantool \
+		--license "BSD 2-Clause License" \
+		--rpm-summary "Tarantool graphql module" \
+		--url "https://github.com/tarantool/graphql" \
+		--vendor "Tarantool" \
+		--depends "tarantool >= 1.9.1" \
+		-m "Pavel Yudin <pavel@tarantool.org>" \
+		--version `git describe --abbrev=0 || echo "0.4.1"` \
+		graphql
