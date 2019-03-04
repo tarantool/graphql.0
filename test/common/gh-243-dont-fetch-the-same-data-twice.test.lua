@@ -30,7 +30,7 @@ local testdata = {
                     {name = 'id', type = 'string'},
                 },
             },
-            -- for case: partially overlaping batches
+            -- for case: partially overlapping batches
             w = {
                 type = 'record',
                 name = 'w',
@@ -413,7 +413,7 @@ local function run_queries(gql)
     -- + y_1 y_2 y_3 y_4 y_5
     --    |   |   |   |   |
     --   z_1 z_2 z_3 z_4 z_5
-    test:test('partially overlaping batches', function(test)
+    test:test('partially overlapping batches', function(test)
         test:plan(check_statistics and 2 or 1)
 
         local result = gql:compile([[
