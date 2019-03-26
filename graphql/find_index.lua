@@ -329,6 +329,10 @@ local function build_connection_indexes(indexes, collections)
     check(collections, 'collections', 'table')
     local connection_indexes = {}
     for collection_name, collection in pairs(collections) do
+        assert(connection_indexes[collection_name] == nil)
+        local cur_indexes = {}
+        connection_indexes[collection_name] = cur_indexes
+
         for _, c in ipairs(collection.connections) do
             local ok = (c.destination_collection ~= nil and c.variants == nil)
                 or (c.destination_collection == nil and c.variants ~= nil)
@@ -339,11 +343,11 @@ local function build_connection_indexes(indexes, collections)
             end
 
             if c.destination_collection ~= nil then
-                if connection_indexes[c.destination_collection] == nil then
-                    connection_indexes[c.destination_collection] = {}
+                if cur_indexes[c.destination_collection] == nil then
+                    cur_indexes[c.destination_collection] = {}
                 end
                 validate_connection_vs_index(c, collection_name, indexes)
-                connection_indexes[c.destination_collection][c.name] = {
+                cur_indexes[c.destination_collection][c.name] = {
                     index_name = c.index_name,
                     connection_type = c.type,
                 }
@@ -351,8 +355,8 @@ local function build_connection_indexes(indexes, collections)
 
             if c.variants ~= nil then
                 for _, v in ipairs(c.variants) do
-                    if connection_indexes[v.destination_collection] == nil then
-                        connection_indexes[v.destination_collection] = {}
+                    if cur_indexes[v.destination_collection] == nil then
+                        cur_indexes[v.destination_collection] = {}
                     end
                     local quazi_connection = {
                         type = c.type,
@@ -363,7 +367,7 @@ local function build_connection_indexes(indexes, collections)
                     }
                     validate_connection_vs_index(quazi_connection,
                         collection_name, indexes)
-                    connection_indexes[v.destination_collection][c.name] = {
+                    cur_indexes[v.destination_collection][c.name] = {
                         index_name = v.index_name,
                         connection_type = c.type,
                     }
@@ -540,8 +544,9 @@ local function get_index_name(self, collection_name, from, filter, args)
     -- performed by an index from the connection, then the result will be
     -- postprocessed using `pivot`.
     if from.collection_name ~= nil then
+        local cur_indexes = connection_indexes[from.collection_name]
         local connection_index =
-            connection_indexes[collection_name][from.connection_name]
+            cur_indexes[collection_name][from.connection_name]
         local index_name = connection_index.index_name
         assert(index_name ~= nil, 'index_name must not be nil')
         -- offset in this case uses frontend filtering, so we should not set
