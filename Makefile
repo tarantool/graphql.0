@@ -93,3 +93,11 @@ coverage: lint apidoc-lint
 		tools/luacov_merge.lua # create luacov.stats.out
 	luacov ^graphql  # generate luacov.report.out
 	awk '/^Summary$$/{i=1;}{if(i){print;}}' luacov.report.out
+
+.PHONY: luarocks_build
+luarocks_build:
+	true
+
+.PHONY: luarocks_install
+luarocks_install:
+	cp -rv graphql "$(TARANTOOL_INSTALL_LUADIR)"
