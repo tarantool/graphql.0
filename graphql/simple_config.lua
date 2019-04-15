@@ -10,9 +10,24 @@
 --- and 'map'. Resulting collections have no connections. Schemas and
 --- collections may be complemented.
 
+local log = require('log')
 local check = require('graphql.utils').check
 
 local simple_config = {}
+
+local index_type_to_avro_type = {
+    unsigned = 'long',
+    string = 'string',
+    integer = 'long',
+    number = 'double',
+    boolean = 'boolean',
+    array = {type = 'array', items = 'long'},
+}
+
+local index_types = {
+    TREE = 'tree',
+    HASH = 'hash',
+}
 
 --- The functions tells wheter given space is a tarantool system space.
 ---
@@ -34,14 +49,9 @@ local function convert_index_type_to_avro(index_type, is_nullable)
     check(index_type, 'index_type', 'string')
 
     if index_type == 'scalar' then
-        error('scalar type conversion (tarantool types -> avro) is not ' ..
-            'implemented yet')
+        return nil, 'scalar type conversion (tarantool types -> avro) is ' ..
+            'not implemented yet'
     end
-
-    local index_type_to_avro_type =
-        {unsigned = 'long', string = 'string', integer = 'long',
-         number = 'double', boolean = 'boolean',
-         array = {type = 'array', items = 'long'}}
 
     local result = index_type_to_avro_type[index_type]
 
@@ -67,8 +77,15 @@ local function generate_avro_schema(space_format, schema_name)
         check(f.name, 'field format name', 'string')
         check(f.type, 'field format type', 'string')
         if not (i == 0 or f.type == 'any') then
-            avro_schema.fields[#avro_schema.fields + 1] =
-            {name = f.name, type = convert_index_type_to_avro(f.type, f.is_nullable)}
+            local avro_type, err = convert_index_type_to_avro(f.type,
+                f.is_nullable)
+            if avro_type == nil then
+                return nil, err
+            end
+            avro_schema.fields[#avro_schema.fields + 1] = {
+                name = f.name,
+                type = avro_type,
+            }
         end
     end
     return avro_schema
@@ -78,10 +95,11 @@ end
 local function convert_index_type(index_type)
     assert(type(index_type) == 'string', 'index type must be string, got ' ..
         type(index_type))
-    local index_types = {TREE = 'tree', HASH = 'hash'}
     local result = index_types[index_type]
-    assert(result, 'index type conversion (from tarantool to graphQL) ' ..
-        'failed, as there were no match for type ' .. index_type)
+    if result == nil then
+        return nil, 'index type conversion (from tarantool to graphQL) ' ..
+            'failed, as there were no match for type ' .. index_type
+        end
     return result
 end
 
@@ -91,7 +109,11 @@ local function extract_collection_indexes(space_name, space_format)
     local index = box.space[space_name].index[i]
     while index ~= nil do
         local collection_index = {}
-        collection_index.index_type = convert_index_type(index.type)
+        local index_type, err = convert_index_type(index.type)
+        if index_type == nil then
+            return nil, err
+        end
+        collection_index.index_type = index_type
         collection_index.unique = index.unique
 
         collection_index.primary = (i == 0)
@@ -198,12 +220,25 @@ function simple_config.graphql_cfg_from_tarantool()
         'there are no any spaces with format - can not auto-generate config')
 
     for space_name, space_format in pairs(spaces_formats) do
-        cfg.schemas[space_name] = generate_avro_schema(space_format, space_name)
-        cfg.indexes[space_name] =
-            extract_collection_indexes(space_name, space_format)
+        local schema, err = generate_avro_schema(space_format, space_name)
+        if schema == nil then
+            log.info(('Schema converter: skipped space "%s": %s'):format(
+                space_name, err))
+            goto continue
+        end
+        local indexes, err = extract_collection_indexes(space_name,
+            space_format)
+        if indexes == nil then
+            log.info(('Schema converter: skipped space "%s": %s'):format(
+                space_name, err))
+            goto continue
+        end
+        cfg.schemas[space_name] = schema
+        cfg.indexes[space_name] = indexes
         cfg.service_fields[space_name] = {}
         cfg.collections[space_name] = generate_collection(space_name)
         cfg.collection_use_tomap[space_name] = true
+        ::continue::
     end
     return cfg
 end
