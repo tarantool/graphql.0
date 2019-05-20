@@ -28,6 +28,7 @@ local gql_scalar_to_avro_index = {
     -- GraphQL Float is double precision according to graphql.org.
     -- More info http://graphql.org/learn/schema/#scalar-types
     Float = "double",
+    Double = "double",
     Boolean = "boolean"
 }
 
