@@ -25,6 +25,12 @@ jobs:
       env: TARGET=pack OS=fedora DIST=26
     - name: "Fedora 27: test, deploy RPM"
       env: TARGET=pack OS=fedora DIST=27
+    - name: "Fedora 28: test, deploy RPM"
+      env: TARGET=pack OS=fedora DIST=28
+    - name: "Fedora 29: test, deploy RPM"
+      env: TARGET=pack OS=fedora DIST=29
+    - name: "Fedora 30: test, deploy RPM"
+      env: TARGET=pack OS=fedora DIST=30
     - name: "Test: shard 1.2, avro-schema 3.0.1"
       env: TARGET=test SHARD_VERSION=1.2 AVRO_SCHEMA=3.0.1
     - name: "Test: shard 2.1, avro-schema 3.0.1"
@@ -91,6 +97,16 @@ deploy:
   - provider: packagecloud
     username: ${PACKAGECLOUD_USER}
     repository: "2x"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
+  - provider: packagecloud
+    username: ${PACKAGECLOUD_USER}
+    repository: "2_2"
     token: ${PACKAGECLOUD_TOKEN}
     dist: ${OS}/${DIST}
     package_glob: build/*.{rpm,deb}
