@@ -42,7 +42,13 @@ script:
         ./tools/ubuntu.trusty.prepare.sh
         export PATH="${PATH}:$(realpath .)/.rocks/bin"
         make coverage
-        luacov-coveralls --include ^graphql --repo-token "${COVERALLS_TOKEN}"
+        if [ -n "${COVERALLS_TOKEN}" ]; then
+            luacov-coveralls --include ^graphql --repo-token "${COVERALLS_TOKEN}"
+        else
+            echo "Skipped uploading to coveralls.io: no token."
+            echo "It is the normal behaviour for a pull request coming from"
+            echo "another repository."
+        fi
     elif [ "${TARGET}" = pack ]; then
         [ -n "${OS}" ] || exit 1
         [ -n "${DIST}" ] || exit 1
