@@ -32,10 +32,11 @@ local gql_scalar_to_avro_index = {
     Boolean = "boolean"
 }
 
-local function gql_scalar_to_avro(fieldType)
+local function gql_scalar_to_avro(fieldType, context)
     assert(fieldType.__type == "Scalar", "GraphQL scalar field expected")
+    check(context, 'context', 'table')
     if fieldType.subtype == "Map" then
-        return map_to_avro(fieldType)
+        return map_to_avro(fieldType, context)
     end
     local result = gql_scalar_to_avro_index[fieldType.name]
     assert(result ~= nil, "Unexpected scalar type: " .. fieldType.name)
@@ -75,7 +76,7 @@ local function gql_type_to_avro(fieldType, subSelections, context)
             items = innerTypeAvro,
         }
     elseif fieldTypeName == 'Scalar' then
-        result = gql_scalar_to_avro(fieldType)
+        result = gql_scalar_to_avro(fieldType, context)
     elseif fieldTypeName == 'Object' then
         result = object_to_avro(fieldType, subSelections, context)
     elseif fieldTypeName == 'Union' then
@@ -95,11 +96,12 @@ local function gql_type_to_avro(fieldType, subSelections, context)
 end
 
 --- The function converts a GraphQL Map type to avro-schema map type.
-map_to_avro = function(mapType)
+map_to_avro = function(mapType, context)
     assert(mapType.values ~= nil, "GraphQL Map type must have 'values' field")
+    check(context, 'context', 'table')
     return {
         type = "map",
-        values = gql_type_to_avro(mapType.values),
+        values = gql_type_to_avro(mapType.values, nil, context),
     }
 end
 
@@ -248,8 +250,16 @@ end
 ---
 --- @treturn table `result` is the corresponding Avro schema
 object_to_avro = function(object_type, selections, context)
-    local fields = query_util.collectFields(object_type, selections,
-        {}, {}, context)
+    local fields
+    if selections == nil then
+        -- selections are nil when we process a type inside a Map. A Map is a
+        -- Scalar, so we should put here all fields from a passed object GraphQL
+        -- type.
+        fields = object_type.fields
+    else
+        fields = query_util.collectFields(object_type, selections, {}, {},
+            context)
+    end
     local result = {
         type = 'record',
         name = convert_schema_helpers.base_name(object_type.name),
@@ -260,8 +270,16 @@ object_to_avro = function(object_type, selections, context)
     end
     table.insert(context.namespace_parts, result.name)
     for _, field in pairs(fields) do
-        local avro_field = field_to_avro(object_type, {field.selection},
-            context)
+        local avro_field
+        if selections == nil then
+            -- Process a type inside a Map, see the comment above.
+            avro_field = {
+                name = convert_schema_helpers.base_name(field.name),
+                type = gql_type_to_avro(field.kind, nil, context),
+            }
+        else
+            avro_field = field_to_avro(object_type, {field.selection}, context)
+        end
         table.insert(result.fields, avro_field)
     end
     context.namespace_parts[#context.namespace_parts] = nil
