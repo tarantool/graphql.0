@@ -32,16 +32,16 @@ local gql_wrapper = graphql.new(utils.merge_tables({
     accessor = 'space',
 }, test_utils.test_conf_graphql_opts()))
 
--- We do not select `customer_balances` and `favorite_holidays` because thay are
--- is of `Map` type, which is not supported.
 local query = [[
     query user_holidays($user_id: String) {
         user_collection(user_id: $user_id) {
             user_id
             favorite_food
+            favorite_holidays
             user_balances {
                 value
             }
+            customer_balances
         }
     }
 ]]
@@ -61,6 +61,10 @@ fields:
         type:
           type: array
           items: string
+      - name: favorite_holidays
+        type:
+          type: map
+          values: string
       - name: user_balances
         type:
           type: array
@@ -70,6 +74,16 @@ fields:
             - name: value
               type: int
             name: balance
+            namespace: Query.user_collection
+      - name: customer_balances
+        type:
+          type: map
+          values:
+            type: record
+            name: another_balance
+            fields:
+            - name: value
+              type: int
             namespace: Query.user_collection
       name: user_collection
       namespace: Query
@@ -92,6 +106,14 @@ user_collection:
   favorite_food:
   - meat
   - potato
+  favorite_holidays:
+    december: new year
+    march: vacation
+  customer_balances:
+    salary:
+      value: 333
+    deposit:
+      value: 444
 ]]
 result_expected = yaml.decode(result_expected)
 local result = gql_query:execute(variables)
