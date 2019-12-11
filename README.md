@@ -15,49 +15,57 @@ on [graphql-lua](https://github.com/bjornbytes/graphql-lua).
 
 [apidoc]: https://tarantool.github.io/graphql/
 
-### Notes on types
+## Requirements
 
-User should distinguish between Object and Map types. Both of them consists of
-keys and values but there are some important differences.
-
-While Object is a GraphQL built-in type, Map is a scalar-based type. In case of
-Object-based type all key-value pairs are set during type definition and values
-may have different types (as defined in the schema).
-
-In contrast, set of valid Map keys is not defined in the schema, any key-value
-pair is valid despite name of the key while value has schema-determined type
-(which is the same among all values in the map).
-
-Map-based types should be queried as a scalar type, not as an object type
-(because map's keys are not part of the schema).
-
-The following example works:
-
-```
-{
-    …
-    map_based_type
-    …
-}
-```
-
-The following example doesn't work:
-
-```
-{
-    …
-    map_based_type {
-        key_1
-    }
-    …
-}
-```
+* For use:
+  * tarantool,
+  * lulpeg,
+  * \>=tarantool/avro-schema-3.0.1,
+  * \>=tarantool/shard-1.1-91-gfa88bf8 (but < 2.0) or
+    \>=tarantool/shard-2.1-0-g0a7d98f (optional),
+  * lrexlib-pcre2 or lrexlib-pcre (optional),
+  * tarantool/http (optional, for GraphiQL).
+* For test (additionally to 'for use'):
+  * python 2.7,
+  * virtualenv,
+  * luacheck,
+  * \>=tarantool/avro-schema-3.0.1,
+  * \>=tarantool/shard-1.1-92-gec1a27e (but < 2.0) or
+    \>=tarantool/shard-2.1-0-g0a7d98f,
+  * lrexlib-pcre2 or lrexlib-pcre,
+  * tarantool/http.
+* For building apidoc (additionally to 'for use'):
+  * ldoc.
 
 ## Usage
 
 There are two ways to use the lib.
-1) Create an instance and use it (detailed examples may be found in /test):
+
+1) Use a default instance that generates a schema from local spaces (ones that
+   have defined format):
+
+```lua
+local graphql = require('graphql')
+
+local query = [[
+    query user($user_id: String) {
+        user_collection(user_id: $user_id) {
+            user_id
+            name
+        }
+    }
+]]
+local compiled_query = graphql.compile(query)
+
+local variables = {user_id = 'user_id_1'}
+local result = compiled_query:execute(variables)
 ```
+
+2) Create an instance with a database schema in avro-schema format (see a
+   [schema](test/testdata/nullable_1_1_conn_testdata.lua) for emails collection
+   for example):
+
+```lua
 local graphql = require('graphql').new({
     schemas = schemas,
     collections = collections,
@@ -74,45 +82,53 @@ local query = [[
         }
     }
 ]]
-
 local compiled_query = graphql:compile(query)
+
 local variables = {user_id = 'user_id_1'}
 local result = compiled_query:execute(variables)
 ```
-2) Use the lib itself (it will create a default instance underhood. As no
-avro-schema is given, GraphQL schemas will be generated from results
-box.space.some_space:format()):
+
+## GraphiQL
+
+```lua
+local graphql = require('graphql').new({
+    schemas = schemas,
+    collections = collections,
+    accessor = accessor,
+    service_fields = service_fields,
+    indexes = indexes
+})
+
+graphql:start_server()
+-- now you can use GraphiQL interface at http://127.0.0.1:8080
+graphql:stop_server()
+
+-- as well you may do (with creating default instance underhood)
+require('graphql').start_server()
 ```
-local graphql_lib = require('graphql')
--- considering the same query and variables
 
-local compiled_query = graphql_lib.compile(query)
-local result = compiled_query:execute(variables)
-```
+## Sharding
 
-### Shard
+The library can be configured to fetch tuples using tarantool/shard module:
+`graphql.new(..., accessor = 'shard')`. The shard module should be configured
+separately.
 
-One need to call `require('graphql.storage').init()` on each storage server to
-use graphql with shard and BFS executor. Alternatively one can use
-`graphql.new({..., use_bfs_executor = 'never'})` on a frontend server.
+`require('graphql.storage').init()` should be called on each storage server to
+use graphql with shard and BFS executor. Alternatively this executor can be
+disabled with `graphql.new({..., use_bfs_executor = 'never'})` on a frontend
+server.
 
-### Multi-head connections
-A parent object is matching against a multi-head connection variants in the
-order of the variants. The parent object should match with a determinant of
-at least one variant except the following case. When source fields of all 
-variants are null the multi-head connection obligated to give null object as 
-the result. In this case the parent object is allowed to don’t match any variant. 
-One can use this feature to avoid to set any specific determinant value when a 
-multi-head connection is known to have no connected object.
+The library has no built-in support of vshard module. Use `graphql.new(...,
+accessor = 'shard', accessor_funcs = {<...>})` to adopt it if necessary.
 
-### Mutations
+## Mutations
 
-#### Mutations with space accessor
+### Mutations with space accessor
 
 TBD: Describe which changes are transactional and which views are guaranteed to
 be consistent.
 
-#### Mutations with shard accessor
+### Mutations with shard accessor
 
 Mutations are disabled in the resharding state of a shard cluster.
 
@@ -142,7 +158,7 @@ connections, one request otherwise), then each object updated/deleted by its
 primary key (one request per object), then all connected objects are resolved
 in the same way.
 
-#### Insert
+### Insert
 
 Example with an object passed from a variable:
 
@@ -202,7 +218,7 @@ Consider the following details:
   inserted.
 * Of course `insert` argument is forbidden in `query` requests.
 
-#### Update
+### Update
 
 Example with an update statement passed from a variable. Note that here we
 update an object given by a connection (inside one of nested fields of a
@@ -284,7 +300,7 @@ Consider the following details:
   objects given after the update (it is matter when a field(s) of the parent
   objects by whose the connection is made is subject to change).
 
-#### Delete
+### Delete
 
 Example:
 
@@ -319,24 +335,6 @@ Consider the following details:
   deletion and `offset` can help with adjusting start point of multi-object
   delete operation.
 
-## GraphiQL
-```
-local graphql = require('graphql').new({
-    schemas = schemas,
-    collections = collections,
-    accessor = accessor,
-    service_fields = service_fields,
-    indexes = indexes
-})
-
-graphql:start_server()
--- now you can use GraphiQL interface at http://127.0.0.1:8080
-graphql:stop_server()
-
--- as well you may do (with creating default instance underhood)
-require('graphql').start_server()
-```
-
 ## Run tests
 
 ```
@@ -349,34 +347,60 @@ To run specific test:
 TEST_RUN_TESTS=common/mutation make test
 ```
 
-## Requirements
-
-* For use:
-  * tarantool,
-  * lulpeg,
-  * \>=tarantool/avro-schema-3.0.1,
-  * \>=tarantool/shard-1.1-91-gfa88bf8 (but < 2.0) or
-    \>=tarantool/shard-2.1-0-g0a7d98f (optional),
-  * lrexlib-pcre2 or lrexlib-pcre (optional),
-  * tarantool/http (optional, for GraphiQL).
-* For test (additionally to 'for use'):
-  * python 2.7,
-  * virtualenv,
-  * luacheck,
-  * \>=tarantool/avro-schema-3.0.1,
-  * \>=tarantool/shard-1.1-92-gec1a27e (but < 2.0) or
-    \>=tarantool/shard-2.1-0-g0a7d98f,
-  * lrexlib-pcre2 or lrexlib-pcre,
-  * tarantool/http.
-* For building apidoc (additionally to 'for use'):
-  * ldoc.
-
 ## Hacking
 
 Enable debug log:
 
 ```sh
 export TARANTOOL_GRAPHQL_DEBUG=1
+```
+
+## Multi-head connections
+
+A parent object is matching against a multi-head connection variants in the
+order of the variants. The parent object should match with a determinant of
+at least one variant except the following case. When source fields of all 
+variants are null the multi-head connection obligated to give null object as 
+the result. In this case the parent object is allowed to don’t match any variant. 
+One can use this feature to avoid to set any specific determinant value when a 
+multi-head connection is known to have no connected object.
+
+## Notes on types
+
+User should distinguish between Object and Map types. Both of them consists of
+keys and values but there are some important differences.
+
+While Object is a GraphQL built-in type, Map is a scalar-based type. In case of
+Object-based type all key-value pairs are set during type definition and values
+may have different types (as defined in the schema).
+
+In contrast, set of valid Map keys is not defined in the schema, any key-value
+pair is valid despite name of the key while value has schema-determined type
+(which is the same among all values in the map).
+
+Map-based types should be queried as a scalar type, not as an object type
+(because map's keys are not part of the schema).
+
+The following example works:
+
+```
+{
+    …
+    map_based_type
+    …
+}
+```
+
+The following example doesn't work:
+
+```
+{
+    …
+    map_based_type {
+        key_1
+    }
+    …
+}
 ```
 
 ## License
