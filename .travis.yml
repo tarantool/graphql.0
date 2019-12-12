@@ -66,38 +66,38 @@ script:
 before_deploy:
   - ls -l build/
 
-deploy:
-  # Deploy packages to PackageCloud
-  - provider: packagecloud
-    username: ${PACKAGECLOUD_USER}
-    repository: "1_9"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
-  - provider: packagecloud
-    username: ${PACKAGECLOUD_USER}
-    repository: "1_10"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
-  - provider: packagecloud
-    username: ${PACKAGECLOUD_USER}
-    repository: "2x"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
+#deploy:
+#  # Deploy packages to PackageCloud
+#  - provider: packagecloud
+#    username: ${PACKAGECLOUD_USER}
+#    repository: "1_9"
+#    token: ${PACKAGECLOUD_TOKEN}
+#    dist: ${OS}/${DIST}
+#    package_glob: build/*.{rpm,deb}
+#    skip_cleanup: true
+#    on:
+#      branch: master
+#      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
+#  - provider: packagecloud
+#    username: ${PACKAGECLOUD_USER}
+#    repository: "1_10"
+#    token: ${PACKAGECLOUD_TOKEN}
+#    dist: ${OS}/${DIST}
+#    package_glob: build/*.{rpm,deb}
+#    skip_cleanup: true
+#    on:
+#      branch: master
+#      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
+#  - provider: packagecloud
+#    username: ${PACKAGECLOUD_USER}
+#    repository: "2x"
+#    token: ${PACKAGECLOUD_TOKEN}
+#    dist: ${OS}/${DIST}
+#    package_glob: build/*.{rpm,deb}
+#    skip_cleanup: true
+#    on:
+#      branch: master
+#      condition: -n "${OS}" && x"${TRAVIS_EVENT_TYPE}" != x"cron"
 
 notifications:
   email:
