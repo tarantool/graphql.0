@@ -15,6 +15,60 @@ on [graphql-lua](https://github.com/bjornbytes/graphql-lua).
 
 [apidoc]: https://tarantool.github.io/graphql/
 
+## Deprecation note
+
+This was the experimental project and we don't more develop it further. It is
+highly recommended to avoid of using it in any projects. Consider
+[tarantool/graphql](https://github.com/tarantool/graphql) instead.
+
+There are known flaws in this implementation:
+
+* Order of objects depends on what index is choosen, but there is no way from a
+  query to explicitly control which index should be used.
+* A query may be performed using a secondary index, while pagination (`offset`
+  argument) uses offsets by a primary index.
+* Tuples from tarantool/shard are wrongly merged using an order of a primary
+  index (it fails, because expects the same order from each storage). See
+  [#40](https://github.com/tarantool/graphql/issues/40).
+* Breadth first search (BFS) executor does not implement block nested loop
+  algorithm. It just performs breadth first traversal, batch similar fetches
+  and performs some caching (in Lua memory). This allows to better utilize a
+  network for some cases (see `test/bench` directory), but may run an
+  application out of Lua memory in other cases. Aside of that its code is weird
+  spaghetti. And it seems that it would be better if will be implemented as a
+  generator, optimizer and interpreter of an intermediate query language.
+* No authentification support.
+* Mutations are not transactional (and there is no simple way to make them
+  transactional on a sharding cluster).
+* The module is heavily based on avro-schema format, while it differs in
+  details as from tarantool's space format as well as graphql type system.
+* A generated GraphQL schema follows our avro-schema module way to handle
+  unions, which is somewhat weird (but follows a letter of the standard). See
+  [avro-schema#92](https://github.com/tarantool/avro-schema/issues/92).
+* No support for indexed search by PCRE and c-style expressions.
+* No support for vshard.
+* No documentation.
+
+However there are interesting features we implemented here:
+
+* Better arguments and variables validation (comparing to original
+  graphql-lua).
+* New non-standard GraphQL types: `Map`, `InputUnion` and `InputMap`. They all
+  are `Scalar`s from GraphQL perspective.
+* Build-in tarantool/shard support (which is deprecated now, but anyway).
+* Some kind of optimization of nested queries on sharding cluster.
+* PCRE and c-style expressions support for filtering objects.
+* Constant propagation optimization for those c-style expressions.
+* Automatic generation of a database schema from space formats.
+* Generate an avro-schema that describes any possible result of a GraphQL
+  query.
+* Automatic choosing of an index based on provided arguments (not always
+  optimal, however).
+* Built-in GraphiQL support.
+* Support of different types of relations between spaces: 1:1, 1:N or even so
+  called multi-head (when a target space is determined depending of an object
+  field values).
+
 ## Requirements
 
 * For use:
